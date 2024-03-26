@@ -18,6 +18,14 @@ pub const TokenType = enum {
     // Operators
     ASSIGN,
     PLUS,
+    MINUS,
+    BANG,
+    ASTERISK,
+    SLASH,
+    LT,
+    GT,
+    EQ,
+    NOT_EQ,
 
     // Delimiters
     COMMA,
@@ -33,6 +41,10 @@ pub const TokenType = enum {
     VAR,
     END,
     RET,
+    TRUE,
+    FALSE,
+    IF,
+    ELSE,
 
     pub fn get_str_from_keyword(token_type: TokenType) ?[]const u8 {
         const value = switch (token_type) {
@@ -40,6 +52,10 @@ pub const TokenType = enum {
             TokenType.VAR => "var",
             TokenType.END => "end",
             TokenType.RET => "ret",
+            TokenType.TRUE => "true",
+            TokenType.FALSE => "false",
+            TokenType.IF => "if",
+            TokenType.ELSE => "else",
             else => null,
         };
 
@@ -55,6 +71,14 @@ pub const TokenType = enum {
             return TokenType.END;
         } else if (std.mem.eql(u8, str, "ret")) {
             return TokenType.RET;
+        } else if (std.mem.eql(u8, str, "true")) {
+            return TokenType.TRUE;
+        } else if (std.mem.eql(u8, str, "false")) {
+            return TokenType.FALSE;
+        } else if (std.mem.eql(u8, str, "if")) {
+            return TokenType.IF;
+        } else if (std.mem.eql(u8, str, "else")) {
+            return TokenType.ELSE;
         }
         return null;
     }
@@ -65,6 +89,10 @@ pub const TokenType = enum {
             TokenType.VAR => true,
             TokenType.END => true,
             TokenType.RET => true,
+            TokenType.TRUE => true,
+            TokenType.FALSE => true,
+            TokenType.IF => true,
+            TokenType.ELSE => true,
             else => false,
         };
     }

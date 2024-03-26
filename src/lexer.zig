@@ -34,16 +34,53 @@ pub const Lexer = struct {
 
         self.position = self.read_position;
         self.read_position += 1;
-        // std.debug.print("\nnext token: {c}", .{self.current_char});
+    }
+
+    fn peek_char(self: *Lexer) u8 {
+        if (self.read_position >= self.input.len) {
+            return 0;
+        }
+
+        return self.input[self.read_position];
     }
 
     pub fn next(self: *Lexer) Token {
         var token: Token = undefined;
+
+        self.skip_whitespaces();
+
+        // std.debug.print("\n >> current char: {c}\n", .{self.current_char});
         switch (self.current_char) {
             ';' => token = Token{ .type = TokenType.SEMICOLON, .literal = ";" },
             ',' => token = Token{ .type = TokenType.COMMA, .literal = "," },
-            '=' => token = Token{ .type = TokenType.ASSIGN, .literal = "=" },
+
+            '=' => {
+                if (self.peek_char() == '=') {
+                    self.read_char();
+                    token = Token{ .type = TokenType.EQ, .literal = "==" };
+                } else {
+                    token = Token{ .type = TokenType.ASSIGN, .literal = "=" };
+                }
+            },
             '+' => token = Token{ .type = TokenType.PLUS, .literal = "+" },
+            '-' => token = Token{ .type = TokenType.MINUS, .literal = "-" },
+            '*' => token = Token{ .type = TokenType.ASTERISK, .literal = "*" },
+            '/' => token = Token{ .type = TokenType.SLASH, .literal = "/" },
+
+            ':' => token = Token{ .type = TokenType.COLON, .literal = ":" },
+            '(' => token = Token{ .type = TokenType.LPAREN, .literal = "(" },
+            ')' => token = Token{ .type = TokenType.RPAREN, .literal = ")" },
+            '!' => {
+                if (self.peek_char() == '=') {
+                    self.read_char();
+                    token = Token{ .type = TokenType.NOT_EQ, .literal = "!=" };
+                } else {
+                    token = Token{ .type = TokenType.BANG, .literal = "!" };
+                }
+            },
+
+            '<' => token = Token{ .type = TokenType.LT, .literal = "<" },
+            '>' => token = Token{ .type = TokenType.GT, .literal = ">" },
             0 => token = Token{ .type = TokenType.EOF, .literal = "EOF" },
             else => {
                 if (self.is_letter(self.current_char)) {
@@ -51,17 +88,20 @@ pub const Lexer = struct {
                     const token_type = Token.lookup_ident(ident);
                     if (token_type != TokenType.IDENT) {
                         const keyword = TokenType.get_keyword_from_str(ident);
-                        std.debug.print("keyword >>>> {?}\n", .{keyword});
                         token = Token{ .type = keyword.?, .literal = ident };
+                        return token;
                     } else {
                         token = Token{ .type = TokenType.IDENT, .literal = ident };
-                        std.debug.print("ident >>>> {s}\n", .{ident});
+                        return token;
                     }
+                } else if (std.ascii.isDigit(self.current_char)) {
+                    const digit = self.read_digit();
+                    token = Token{ .type = TokenType.INT, .literal = digit };
+                    // std.debug.print("digit: {s}\n", .{digit});
+                    return token;
                 } else {
                     token = Token{ .type = TokenType.ILLEGAL, .literal = "ILLEGAL" };
                 }
-
-                // std.debug.print("token >>>> {?}\t{s}\n", .{ token.type, token.literal });
             },
         }
 
@@ -81,17 +121,36 @@ pub const Lexer = struct {
 
         return self.input[start_pos..self.position];
     }
+
+    fn read_digit(self: *Lexer) []const u8 {
+        const start_pos = self.position;
+        while (std.ascii.isDigit(self.current_char)) self.read_char();
+
+        return self.input[start_pos..self.position];
+    }
+
+    fn skip_whitespaces(self: *Lexer) void {
+        while (std.ascii.isWhitespace(self.current_char)) {
+            self.read_char();
+        }
+    }
 };
 
 test "test the lexer" {
     const input =
-        \\var my_number = 1 + 2;
-        // \\if my_number == 3:
-        // \\else:
+        \\var my_number = 1 + 20;
         \\fn my_func(number):
         \\ret number + 1;
         \\end;
         \\var other = my_func(4);
+        \\!-/*5;
+        \\5 < 10 > 5;
+        \\if 5 < 10:
+        \\ ret true;
+        \\ else:
+        \\ ret false;
+        \\end;
+        \\10 == 10; 10 != 9;
     ;
 
     const expected = [_]Token{
@@ -100,7 +159,7 @@ test "test the lexer" {
         Token{ .type = TokenType.ASSIGN, .literal = "=" },
         Token{ .type = TokenType.INT, .literal = "1" },
         Token{ .type = TokenType.PLUS, .literal = "+" },
-        Token{ .type = TokenType.INT, .literal = "2" },
+        Token{ .type = TokenType.INT, .literal = "20" },
         Token{ .type = TokenType.SEMICOLON, .literal = ";" },
 
         Token{ .type = TokenType.FN, .literal = "fn" },
@@ -113,6 +172,7 @@ test "test the lexer" {
         Token{ .type = TokenType.IDENT, .literal = "number" },
         Token{ .type = TokenType.PLUS, .literal = "+" },
         Token{ .type = TokenType.INT, .literal = "1" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
         Token{ .type = TokenType.END, .literal = "end" },
         Token{ .type = TokenType.SEMICOLON, .literal = ";" },
 
@@ -125,17 +185,57 @@ test "test the lexer" {
         Token{ .type = TokenType.RPAREN, .literal = ")" },
         Token{ .type = TokenType.SEMICOLON, .literal = ";" },
 
+        Token{ .type = TokenType.BANG, .literal = "!" },
+        Token{ .type = TokenType.MINUS, .literal = "-" },
+        Token{ .type = TokenType.SLASH, .literal = "/" },
+        Token{ .type = TokenType.ASTERISK, .literal = "*" },
+        Token{ .type = TokenType.INT, .literal = "5" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+
+        Token{ .type = TokenType.INT, .literal = "5" },
+        Token{ .type = TokenType.LT, .literal = "<" },
+        Token{ .type = TokenType.INT, .literal = "10" },
+        Token{ .type = TokenType.GT, .literal = ">" },
+        Token{ .type = TokenType.INT, .literal = "5" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+
+        Token{ .type = TokenType.IF, .literal = "if" },
+        Token{ .type = TokenType.INT, .literal = "5" },
+        Token{ .type = TokenType.LT, .literal = "<" },
+        Token{ .type = TokenType.INT, .literal = "10" },
+        Token{ .type = TokenType.COLON, .literal = ":" },
+
+        Token{ .type = TokenType.RET, .literal = "ret" },
+        Token{ .type = TokenType.TRUE, .literal = "true" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+
+        Token{ .type = TokenType.ELSE, .literal = "else" },
+        Token{ .type = TokenType.COLON, .literal = ":" },
+        Token{ .type = TokenType.RET, .literal = "ret" },
+        Token{ .type = TokenType.FALSE, .literal = "false" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.END, .literal = "end" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+
+        Token{ .type = TokenType.INT, .literal = "10" },
+        Token{ .type = TokenType.EQ, .literal = "==" },
+        Token{ .type = TokenType.INT, .literal = "10" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.INT, .literal = "10" },
+        Token{ .type = TokenType.NOT_EQ, .literal = "!=" },
+        Token{ .type = TokenType.INT, .literal = "9" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+
         Token{ .type = TokenType.EOF, .literal = "EOF" },
     };
 
     var lexer = Lexer.init(input);
     for (expected) |expect| {
         const token = lexer.next();
-        std.testing.expectEqual(expect.type, token.type) catch {
-            // std.debug.print("incorrect TYPE. Expected: {?}, got: {?}\n", .{ expect.type, token.type });
-        };
-        std.testing.expectEqual(expect.literal, token.literal) catch {
-            // std.debug.print("incorrect LITERAL. Expected: {s}, got: {s}\n", .{ expect.literal, token.literal });
-        };
+        // std.debug.print("token: {?}\n", .{token});
+        try std.testing.expect(expect.type == token.type);
+
+        const literal_eq = std.mem.eql(u8, expect.literal, token.literal);
+        try std.testing.expect(literal_eq);
     }
 }
