@@ -23,15 +23,20 @@ test "Test the parser" {
     const program = try parser.parse();
     try std.testing.expect(program.statements.items.len == 3);
 
-    // const expected_identifiers = .{
-    //     "x", "y", "foobar",
-    // };
+    const expected_identifiers = [_][]const u8{ "x", "y", "foobar" };
     // const expected_values = [3]u8{ "5", "10", "838383" };
 
-    for (program.statements.items) |st| {
+    for (program.statements.items, expected_identifiers) |st, id| {
         const var_st = st.var_statement;
+
+        try std.testing.expect(@TypeOf(var_st) == ast.VarStatement);
         try std.testing.expectEqual(var_st.token.type, TokenType.VAR);
-        // try std.testing.expectEqualSlices(u8, var_st.token_literal(), "var");
+        try std.testing.expectEqualSlices(u8, var_st.token_literal(), "var");
+
+        const ident = var_st.name;
+        try std.testing.expect(@TypeOf(ident) == ast.Identifier);
+        try std.testing.expectEqual(ident.token.type, TokenType.IDENT);
+        try std.testing.expectEqualSlices(u8, ident.value, id);
 
         // try std.testing.expectEqual(expected_identifiers, var_st.name.token_literal());
         // std.testing.expectEqual(expected_values[i], var_st.expression.);

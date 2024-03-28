@@ -109,4 +109,8 @@ pub const Token = struct {
         const keyword = TokenType.get_keyword_from_str(ident);
         return keyword orelse TokenType.IDENT;
     }
+
+    pub fn get_str(self: Token) ?[]const u8 {
+        return TokenType.get_str_from_keyword(self.type);
+    }
 };

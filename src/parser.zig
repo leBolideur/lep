@@ -8,7 +8,9 @@ const TokenType = token.TokenType;
 
 const ast = @import("ast.zig");
 
-const ParserError = error{ NotImpl, MissingToken };
+const ParserError = error{ NotImpl, MissingToken, BadToken };
+
+const stderr = std.io.getStdErr().writer();
 
 pub const Parser = struct {
     lexer: *Lexer,
@@ -53,32 +55,35 @@ pub const Parser = struct {
     }
 
     fn parse_var_statement(self: *Parser) !ast.VarStatement {
-        const var_token = self.current_token;
-        if (!self.expect_peek(TokenType.IDENT)) return ParserError.MissingToken;
+        const var_st_token = self.current_token;
+        if (!try self.expect_peek(TokenType.IDENT)) return ParserError.MissingToken;
 
-        const ident_name = self.peek_token.literal;
+        const ident_name = self.current_token.literal;
         const ident = ast.Identifier{ .token = self.current_token, .value = ident_name };
 
-        if (!self.expect_peek(TokenType.ASSIGN)) return ParserError.MissingToken;
+        if (!try self.expect_peek(TokenType.ASSIGN)) return ParserError.MissingToken;
 
         // TOFIX: skip expression
         while (self.current_token.type != TokenType.SEMICOLON)
             self.next();
 
         return ast.VarStatement{
-            .token = var_token,
+            .token = var_st_token,
             .name = ident,
             .expression = undefined,
         };
     }
 
-    fn expect_peek(self: *Parser, expected_type: TokenType) bool {
-        // std.debug.print("tok >> {?}\tpeek >> {?}\n", .{ self.current_token, self.peek_token });
+    fn expect_peek(self: *Parser, expected_type: TokenType) !bool {
         if (self.peek_token.type == expected_type) {
             self.next();
             return true;
         }
-        return false;
+        try stderr.print("Syntax error! Expected {s}, got peek {s}\n", .{
+            self.current_token.get_str().?,
+            self.peek_token.get_str().?,
+        });
+        return ParserError.BadToken;
     }
 
     pub fn close(self: Parser) void {
