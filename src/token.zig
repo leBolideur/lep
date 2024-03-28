@@ -7,6 +7,8 @@ const Identifier = enum { IDENT };
 const Literal = enum { INT };
 const Misc = enum { ILLEGAL, EOF };
 
+const TokenError = error{UndefinedToken};
+
 pub const TokenType = enum {
     ILLEGAL,
     EOF,
@@ -46,7 +48,7 @@ pub const TokenType = enum {
     IF,
     ELSE,
 
-    pub fn get_str_from_keyword(token_type: TokenType) ?[]const u8 {
+    pub fn get_str_from_keyword(token_type: TokenType) ![]const u8 {
         const value = switch (token_type) {
             TokenType.FN => "fn",
             TokenType.VAR => "var",
@@ -56,7 +58,7 @@ pub const TokenType = enum {
             TokenType.FALSE => "false",
             TokenType.IF => "if",
             TokenType.ELSE => "else",
-            else => null,
+            else => return TokenError.UndefinedToken,
         };
 
         return value;
@@ -110,7 +112,7 @@ pub const Token = struct {
         return keyword orelse TokenType.IDENT;
     }
 
-    pub fn get_str(self: Token) ?[]const u8 {
+    pub fn get_str(self: Token) ![]const u8 {
         return TokenType.get_str_from_keyword(self.type);
     }
 };

@@ -4,23 +4,24 @@ const token = @import("token.zig");
 const Token = token.Token;
 const TokenType = token.TokenType;
 
-const Node = union(enum) {
-    statement: Statement,
-    expression: Expression,
+// const Node = union(enum) {
+//     statement: Statement,
+//     expression: Expression,
 
-    pub fn token_literal(self: Node) void {
-        switch (self) {
-            .expression => |e| e.token_literal(),
-            .statement => |s| s.token_literal(),
-        }
-    }
-};
+//     pub fn token_literal(self: Node) void {
+//         switch (self) {
+//             .expression => |e| e.token_literal(),
+//             .statement => |s| s.token_literal(),
+//         }
+//     }
+// };
 
 pub const Statement = union(enum) {
     var_statement: VarStatement,
+    ret_statement: RetStatement,
 };
 
-const Expression = union(enum) {
+pub const Expression = union(enum) {
     // Identifier can be an expression (use of binding) and a statement (bindig)
     identifier: Identifier,
 };
@@ -51,6 +52,15 @@ pub const VarStatement = struct {
     expression: Expression,
 
     pub fn token_literal(self: VarStatement) []const u8 {
+        return self.token.literal;
+    }
+};
+
+pub const RetStatement = struct {
+    token: Token,
+    expression: Expression,
+
+    pub fn token_literal(self: RetStatement) []const u8 {
         return self.token.literal;
     }
 };

@@ -50,6 +50,7 @@ pub const Parser = struct {
     fn parse_statement(self: *Parser) !ast.Statement {
         return switch (self.current_token.type) {
             TokenType.VAR => ast.Statement{ .var_statement = try self.parse_var_statement() },
+            TokenType.RET => ast.Statement{ .ret_statement = try self.parse_ret_statement() },
             else => return ParserError.NotImpl,
         };
     }
@@ -74,14 +75,28 @@ pub const Parser = struct {
         };
     }
 
+    fn parse_ret_statement(self: *Parser) !ast.RetStatement {
+        const ret_st_token = self.current_token;
+        // if (!try self.expect_peek(TokenType.IDENT)) return ParserError.MissingToken;
+
+        // TOFIX: skip expression
+        while (self.current_token.type != TokenType.SEMICOLON)
+            self.next();
+
+        return ast.RetStatement{
+            .token = ret_st_token,
+            .expression = undefined,
+        };
+    }
+
     fn expect_peek(self: *Parser, expected_type: TokenType) !bool {
         if (self.peek_token.type == expected_type) {
             self.next();
             return true;
         }
-        try stderr.print("Syntax error! Expected {s}, got peek {s}\n", .{
-            self.current_token.get_str().?,
-            self.peek_token.get_str().?,
+        try stderr.print("Syntax error! Expected {!s}, got {!s}\n", .{
+            self.current_token.get_str(),
+            self.peek_token.get_str(),
         });
         return ParserError.BadToken;
     }
