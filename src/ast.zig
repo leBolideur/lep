@@ -21,6 +21,7 @@ pub const Statement = union(enum) {
 pub const Expression = union(enum) {
     // Identifier can be an expression (use of binding) and a statement (binding)
     identifier: Identifier,
+    integer: IntegerLiteral,
 
     pub fn debug_string(self: Expression, alloc: *const std.mem.Allocator) ![]const u8 {
         return switch (self) {
@@ -136,5 +137,23 @@ pub const Identifier = struct {
         // try buff.appendSlice(self.value);
 
         return self.value;
+    }
+};
+
+pub const IntegerLiteral = struct {
+    token: Token,
+    value: u64,
+
+    pub fn token_literal(self: IntegerLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: Identifier, alloc: *const std.mem.Allocator) ![]const u8 {
+        var buff = std.ArrayList(u8).init(alloc.*);
+        defer buff.deinit();
+
+        try std.fmt.format(buff.writer(), "{d}", self.value);
+
+        return buff.toOwnedSlice();
     }
 };
