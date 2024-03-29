@@ -22,21 +22,29 @@ pub const Parser = struct {
 
     program: ast.Program,
 
-    prefixParseFns: std.AutoHashMap(TokenType, *const fn (Parser) ?ast.Expression),
+    prefixParseFns: std.AutoHashMap(TokenType, *const fn (*Parser) ?ast.Expression),
+
+    alloc_expressions: std.ArrayList(*ast.Expression),
 
     allocator: *const std.mem.Allocator,
 
     pub fn init(lexer: *Lexer, allocator: *const std.mem.Allocator) !Parser {
-        var prefixParseFns = std.AutoHashMap(TokenType, *const fn (Parser) ?ast.Expression).init(allocator.*);
+        var prefixParseFns = std.AutoHashMap(TokenType, *const fn (*Parser) ?ast.Expression).init(allocator.*);
         try prefixParseFns.put(TokenType.IDENT, Parser.parse_identifier);
         try prefixParseFns.put(TokenType.INT, Parser.parse_integer_literal);
+        try prefixParseFns.put(TokenType.MINUS, Parser.parse_prefix_expression);
+        try prefixParseFns.put(TokenType.BANG, Parser.parse_prefix_expression);
 
         return Parser{
             .lexer = lexer,
             .current_token = lexer.next(),
             .peek_token = lexer.next(),
             .program = ast.Program.init(allocator),
+
             .prefixParseFns = prefixParseFns,
+
+            .alloc_expressions = std.ArrayList(*ast.Expression).init(allocator.*),
+
             .allocator = allocator,
         };
     }
@@ -111,7 +119,7 @@ pub const Parser = struct {
         };
     }
 
-    fn parse_expression(self: Parser, precedence: Precedence) !ast.Expression {
+    fn parse_expression(self: *Parser, precedence: Precedence) !ast.Expression {
         _ = precedence;
         const prefix = self.prefixParseFns.get(self.current_token.type);
         const leftExpr = prefix orelse return ParseFnsError.NoPrefixFn;
@@ -119,7 +127,7 @@ pub const Parser = struct {
         return leftExpr(self).?;
     }
 
-    fn parse_identifier(self: Parser) ?ast.Expression {
+    fn parse_identifier(self: *Parser) ?ast.Expression {
         return ast.Expression{
             .identifier = ast.Identifier{
                 .token = self.current_token,
@@ -128,7 +136,7 @@ pub const Parser = struct {
         };
     }
 
-    fn parse_integer_literal(self: Parser) ?ast.Expression {
+    fn parse_integer_literal(self: *Parser) ?ast.Expression {
         const to_int = std.fmt.parseInt(u64, self.current_token.literal, 10) catch {
             stderr.print("parse string {s} to int failed!\n", .{self.current_token.literal}) catch {};
             return null;
@@ -139,6 +147,28 @@ pub const Parser = struct {
                 .value = to_int,
             },
         };
+    }
+
+    fn parse_prefix_expression(self: *Parser) ?ast.Expression {
+        var return_expr = ast.Expression{
+            .prefix_expr = ast.PrefixExpr{
+                .token = self.current_token,
+                .operator = self.current_token.literal[0],
+                .right_expr = undefined,
+            },
+        };
+
+        self.next();
+        var alloc_expr = self.allocator.create(ast.Expression) catch return null;
+        self.alloc_expressions.append(alloc_expr) catch return null;
+        alloc_expr.* = self.parse_expression(Precedence.PREFIX) catch {
+            stderr.print("Error parsing right expression of prefixed one!\n", .{}) catch {};
+            return null;
+        };
+
+        return_expr.prefix_expr.right_expr = alloc_expr;
+
+        return return_expr;
     }
 
     fn expect_peek(self: *Parser, expected_type: TokenType) !bool {
@@ -156,5 +186,10 @@ pub const Parser = struct {
     pub fn close(self: *Parser) void {
         self.program.close();
         self.prefixParseFns.deinit();
+
+        for (self.alloc_expressions.items) |alloc| {
+            self.allocator.destroy(alloc);
+        }
+        self.alloc_expressions.deinit();
     }
 };

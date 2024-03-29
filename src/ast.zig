@@ -22,10 +22,13 @@ pub const Expression = union(enum) {
     // Identifier can be an expression (use of binding) and a statement (binding)
     identifier: Identifier,
     integer: IntegerLiteral,
+    prefix_expr: PrefixExpr,
 
     pub fn debug_string(self: Expression, alloc: *const std.mem.Allocator) ![]const u8 {
         return switch (self) {
             .identifier => |id| id.debug_string(alloc),
+            .integer => |int| int.debug_string(alloc),
+            .prefix_expr => |prf| prf.debug_string(alloc),
         };
     }
 };
@@ -126,7 +129,7 @@ pub const Identifier = struct {
     token: Token,
     value: []const u8,
 
-    pub fn token_literal(self: VarStatement) []const u8 {
+    pub fn token_literal(self: Identifier) []const u8 {
         return self.token.literal;
     }
 
@@ -148,11 +151,31 @@ pub const IntegerLiteral = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: Identifier, alloc: *const std.mem.Allocator) ![]const u8 {
+    pub fn debug_string(self: IntegerLiteral, alloc: *const std.mem.Allocator) ![]const u8 {
         var buff = std.ArrayList(u8).init(alloc.*);
         defer buff.deinit();
 
-        try std.fmt.format(buff.writer(), "{d}", self.value);
+        try std.fmt.format(buff.writer(), "{d}", .{self.value});
+
+        return buff.toOwnedSlice();
+    }
+};
+
+pub const PrefixExpr = struct {
+    token: Token,
+    operator: u8,
+    right_expr: *const Expression,
+
+    pub fn token_literal(self: PrefixExpr) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: PrefixExpr, alloc: *const std.mem.Allocator) ![]const u8 {
+        var buff = std.ArrayList(u8).init(alloc.*);
+        defer buff.deinit();
+
+        const right_str = try self.right_expr.debug_string();
+        try std.fmt.format(buff.writer(), "({d}{s})", .{ self.value, right_str });
 
         return buff.toOwnedSlice();
     }
