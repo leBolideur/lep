@@ -187,8 +187,8 @@ test "Test Infix expressions" {
         .{ 5, "-", 5 },
         .{ 5, "*", 5 },
         .{ 5, "/", 5 },
-        .{ 5, ">", 5 },
         .{ 5, "<", 5 },
+        .{ 5, ">", 5 },
         .{ 5, "==", 5 },
         .{ 5, "!=", 5 },
     };
@@ -203,28 +203,32 @@ test "Test Infix expressions" {
 
     for (program.statements.items, expected) |st, exp| {
         const expr_st = st.expr_statement;
-        const infix_expr = expr_st.expression.infix_expr;
+        const expr = expr_st.expression;
+
+        try std.testing.expect(@TypeOf(expr) == ast.Expression);
+
+        const infix_expr = expr.infix_expr;
+        try std.testing.expect(@TypeOf(infix_expr) == ast.InfixExpr);
 
         const left_expr = infix_expr.left_expr;
-        try test_integer_literal(left_expr.integer.token, left_expr, exp[0]);
-        // try std.testing.expect(@TypeOf(left_expr.integer) == ast.IntegerLiteral);
-        // try std.testing.expectEqual(left_expr.integer.token.type, TokenType.INT);
-        // try std.testing.expectEqual(left_expr.integer.value, exp[0]);
+        try test_integer_literal(left_expr, exp[0]);
 
-        try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
-        try std.testing.expect(@TypeOf(infix_expr) == ast.InfixExpr);
         try std.testing.expectEqualStrings(infix_expr.operator, exp[1]);
 
         const right_expr = infix_expr.right_expr;
-        try test_integer_literal(right_expr.integer.token, right_expr, exp[2]);
-        // try std.testing.expect(@TypeOf(right_expr.integer) == ast.IntegerLiteral);
-        // try std.testing.expectEqual(right_expr.integer.token.type, TokenType.INT);
-        // try std.testing.expectEqual(right_expr.integer.value, exp[2]);
+        try test_integer_literal(right_expr, exp[2]);
     }
 }
 
-fn test_integer_literal(tok: Token, expression: *const ast.Expression, value: u8) !void {
-    try std.testing.expect(@TypeOf(expression.integer) == ast.IntegerLiteral);
-    try std.testing.expectEqual(tok.type, TokenType.INT);
-    try std.testing.expectEqual(expression.integer.value, value);
+fn test_integer_literal(expression: *const ast.Expression, value: u8) !void {
+    // std.debug.print("\n\tExpr >>> {?}\n", .{expression.identifier.token.type});
+    const int = expression.integer;
+    // _ = int;
+    // try std.testing.expect(@TypeOf(int) == ast.IntegerLiteral);
+    // try std.testing.expectEqual(int.token.type, TokenType.INT);
+    // try std.testing.expectEqual(int.value, value);
+
+    try std.testing.expect(@TypeOf(int) == ast.IntegerLiteral);
+    try std.testing.expectEqual(int.token.type, TokenType.INT);
+    try std.testing.expectEqual(int.value, value);
 }

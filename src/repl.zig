@@ -1,7 +1,7 @@
 const std = @import("std");
 
-const Lexer = @import("lexer/lexer.zig").Lexer;
-const TokenType = @import("lexer/token.zig").TokenType;
+const Lexer = @import("lexer.zig").Lexer;
+const TokenType = @import("token.zig").TokenType;
 
 pub fn repl() !void {
     const stdin = std.io.getStdIn().reader();

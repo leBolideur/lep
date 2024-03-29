@@ -149,19 +149,17 @@ pub const Parser = struct {
         const prefix = self.prefix_parse_fns.get(self.current_token.type);
         const prefix_fn = prefix orelse return ParseFnsError.NoPrefixFn;
 
-        var left_expr = prefix_fn(self).?;
+        var left_expr: ast.Expression = prefix_fn(self).?;
 
         while (self.peek_token.type != TokenType.SEMICOLON and
             @intFromEnum(precedence) < @intFromEnum(self.peek_precedence()))
         {
-            const infix_fn = self.infix_parse_fns.get(self.current_token.type);
-            // const infix_fn = infix orelse return ParseFnsError.NoInfixFn;
-            if (infix_fn == null)
-                return left_expr;
+            // std.debug.print("\nloop tok >>> {?}\n", .{self.peek_token.type});
+            const infix_fn = self.infix_parse_fns.get(self.peek_token.type) orelse return left_expr;
 
             self.next();
-
-            left_expr = infix_fn.?(self, &left_expr).?;
+            left_expr = infix_fn(self, &left_expr).?;
+            std.debug.print("\nloop left >>> {?}\n", .{left_expr});
         }
 
         return left_expr;
@@ -199,6 +197,7 @@ pub const Parser = struct {
         };
 
         self.next();
+
         var alloc_expr = self.allocator.create(ast.Expression) catch return null;
         self.alloc_expressions.append(alloc_expr) catch return null;
         alloc_expr.* = self.parse_expression(Precedence.PREFIX) catch {
@@ -212,6 +211,7 @@ pub const Parser = struct {
     }
 
     fn parse_infix_expression(self: *Parser, left: *const ast.Expression) ?ast.Expression {
+        // std.debug.print("parse - curr: {?}\t{s}\n", .{ self.current_token.type, self.current_token.literal });
         var return_expr = ast.Expression{
             .infix_expr = ast.InfixExpr{
                 .token = self.current_token,
@@ -237,7 +237,6 @@ pub const Parser = struct {
     }
 
     fn expect_peek(self: *Parser, expected_type: TokenType) !bool {
-        std.debug.print("current: {s}\n", .{self.current_token.literal});
         if (self.peek_token.type == expected_type) {
             self.next();
             return true;

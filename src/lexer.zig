@@ -97,7 +97,6 @@ pub const Lexer = struct {
                 } else if (std.ascii.isDigit(self.current_char)) {
                     const digit = self.read_digit();
                     token = Token{ .type = TokenType.INT, .literal = digit };
-                    // std.debug.print("digit: {s}\n", .{digit});
                     return token;
                 } else {
                     token = Token{ .type = TokenType.ILLEGAL, .literal = "ILLEGAL" };

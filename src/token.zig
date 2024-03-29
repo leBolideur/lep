@@ -49,6 +49,7 @@ pub const TokenType = enum {
     ELSE,
 
     pub fn get_str_from_keyword(token_type: TokenType) ![]const u8 {
+        std.debug.print("\nfrom kw >>>> {?}\n", .{token_type});
         const value = switch (token_type) {
             TokenType.FN => "fn",
             TokenType.VAR => "var",

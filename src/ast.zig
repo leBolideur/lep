@@ -4,12 +4,14 @@ const token = @import("token.zig");
 const Token = token.Token;
 const TokenType = token.TokenType;
 
+const DebugError = anyerror || error{DebugString};
+
 pub const Statement = union(enum) {
     var_statement: VarStatement,
     ret_statement: RetStatement,
     expr_statement: ExprStatement,
 
-    pub fn debug_string(self: Statement, alloc: *const std.mem.Allocator) ![]const u8 {
+    pub fn debug_string(self: Statement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
         return switch (self) {
             .var_statement => |vs| vs.debug_string(alloc),
             .ret_statement => |rs| rs.debug_string(alloc),
@@ -25,7 +27,7 @@ pub const Expression = union(enum) {
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
 
-    pub fn debug_string(self: Expression, alloc: *const std.mem.Allocator) ![]const u8 {
+    pub fn debug_string(self: Expression, alloc: *const std.mem.Allocator) DebugError![]const u8 {
         return switch (self) {
             .identifier => |id| id.debug_string(alloc),
             .integer => |int| int.debug_string(alloc),
@@ -53,12 +55,12 @@ pub const Program = struct {
         return "";
     }
 
-    pub fn debug_string(self: Program) ![]const u8 {
+    pub fn debug_string(self: Program) DebugError.DebugString![]const u8 {
         var buff = std.ArrayList(u8).init(self.allocator.*);
         defer buff.deinit();
 
         for (self.statements.items) |st| {
-            const str = try st.debug_string(self.allocator);
+            const str = st.debug_string(self.allocator) catch return DebugError.DebugString;
             defer self.allocator.free(str);
             try buff.appendSlice(str);
         }
@@ -80,12 +82,12 @@ pub const VarStatement = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: VarStatement, alloc: *const std.mem.Allocator) ![]const u8 {
+    pub fn debug_string(self: VarStatement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
         var buff = std.ArrayList(u8).init(alloc.*);
         defer buff.deinit();
 
         const token_str = try self.token.get_str();
-        const expr_str = try self.expression.debug_string(alloc);
+        const expr_str = self.expression.debug_string(alloc) catch return DebugError.DebugString;
         try std.fmt.format(buff.writer(), "{s} {s} = {s};", .{ token_str, self.name.value, expr_str });
 
         return buff.toOwnedSlice();
@@ -100,12 +102,12 @@ pub const RetStatement = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: RetStatement, alloc: *const std.mem.Allocator) ![]const u8 {
+    pub fn debug_string(self: RetStatement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
         var buff = std.ArrayList(u8).init(alloc.*);
         defer buff.deinit();
 
         const token_str = try self.token.get_str();
-        const expr_str = try self.expression.debug_string(alloc);
+        const expr_str = self.expression.debug_string(alloc) catch return DebugError.DebugString;
         try std.fmt.format(buff.writer(), "{s} {s};", .{ token_str, expr_str });
 
         return buff.toOwnedSlice();
@@ -122,8 +124,8 @@ pub const ExprStatement = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: ExprStatement, alloc: *const std.mem.Allocator) ![]const u8 {
-        return try self.expression.debug_string(alloc);
+    pub fn debug_string(self: ExprStatement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
+        return self.expression.debug_string(alloc) catch return DebugError.DebugString;
     }
 };
 
@@ -135,7 +137,7 @@ pub const Identifier = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: Identifier, _: *const std.mem.Allocator) ![]const u8 {
+    pub fn debug_string(self: Identifier, _: *const std.mem.Allocator) DebugError![]const u8 {
         // var buff = std.ArrayList(u8).init(alloc.*);
         // defer buff.deinit();
 
@@ -176,7 +178,7 @@ pub const PrefixExpr = struct {
         var buff = std.ArrayList(u8).init(alloc.*);
         defer buff.deinit();
 
-        const right_str = try self.right_expr.debug_string();
+        const right_str = self.right_expr.debug_string(alloc) catch return DebugError.DebugString;
         try std.fmt.format(buff.writer(), "({d}{s})", .{ self.operator, right_str });
 
         return buff.toOwnedSlice();
@@ -189,17 +191,17 @@ pub const InfixExpr = struct {
     left_expr: *const Expression,
     right_expr: *const Expression,
 
-    pub fn token_literal(self: PrefixExpr) []const u8 {
+    pub fn token_literal(self: InfixExpr) []const u8 {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: PrefixExpr, alloc: *const std.mem.Allocator) ![]const u8 {
+    pub fn debug_string(self: InfixExpr, alloc: *const std.mem.Allocator) ![]const u8 {
         var buff = std.ArrayList(u8).init(alloc.*);
         defer buff.deinit();
 
-        const left_str = try self.left_expr.debug_string();
-        const right_str = try self.right_expr.debug_string();
-        try std.fmt.format(buff.writer(), "({s} {d} {s})", .{ left_str, self.operator, right_str });
+        const left_str = self.left_expr.debug_string(alloc) catch return DebugError.DebugString;
+        const right_str = self.right_expr.debug_string(alloc) catch return DebugError.DebugString;
+        try std.fmt.format(buff.writer(), "({s} {s} {s})", .{ left_str, self.operator, right_str });
 
         return buff.toOwnedSlice();
     }
