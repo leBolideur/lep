@@ -23,12 +23,14 @@ pub const Expression = union(enum) {
     identifier: Identifier,
     integer: IntegerLiteral,
     prefix_expr: PrefixExpr,
+    infix_expr: InfixExpr,
 
     pub fn debug_string(self: Expression, alloc: *const std.mem.Allocator) ![]const u8 {
         return switch (self) {
             .identifier => |id| id.debug_string(alloc),
             .integer => |int| int.debug_string(alloc),
             .prefix_expr => |prf| prf.debug_string(alloc),
+            .infix_expr => |inf| inf.debug_string(alloc),
         };
     }
 };
@@ -175,7 +177,29 @@ pub const PrefixExpr = struct {
         defer buff.deinit();
 
         const right_str = try self.right_expr.debug_string();
-        try std.fmt.format(buff.writer(), "({d}{s})", .{ self.value, right_str });
+        try std.fmt.format(buff.writer(), "({d}{s})", .{ self.operator, right_str });
+
+        return buff.toOwnedSlice();
+    }
+};
+
+pub const InfixExpr = struct {
+    token: Token,
+    operator: []const u8,
+    left_expr: *const Expression,
+    right_expr: *const Expression,
+
+    pub fn token_literal(self: PrefixExpr) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: PrefixExpr, alloc: *const std.mem.Allocator) ![]const u8 {
+        var buff = std.ArrayList(u8).init(alloc.*);
+        defer buff.deinit();
+
+        const left_str = try self.left_expr.debug_string();
+        const right_str = try self.right_expr.debug_string();
+        try std.fmt.format(buff.writer(), "({s} {d} {s})", .{ left_str, self.operator, right_str });
 
         return buff.toOwnedSlice();
     }

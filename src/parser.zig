@@ -8,7 +8,7 @@ const TokenType = token.TokenType;
 
 const ast = @import("ast.zig");
 
-const ParseFnsError = error{NoPrefixFn};
+const ParseFnsError = error{ NoPrefixFn, NoInfixFn };
 const ParserError = ParseFnsError || error{ NotImpl, MissingToken, BadToken, MissingSemiCol };
 
 const Precedence = enum { LOWEST, EQUALS, LG_OR_GT, SUM, PRODUCT, PREFIX, CALL };
@@ -22,18 +22,41 @@ pub const Parser = struct {
 
     program: ast.Program,
 
-    prefixParseFns: std.AutoHashMap(TokenType, *const fn (*Parser) ?ast.Expression),
+    prefix_parse_fns: std.AutoHashMap(TokenType, *const fn (*Parser) ?ast.Expression),
+    infix_parse_fns: std.AutoHashMap(TokenType, *const fn (*Parser, *const ast.Expression) ?ast.Expression),
+
+    precedences_map: std.AutoHashMap(TokenType, Precedence),
 
     alloc_expressions: std.ArrayList(*ast.Expression),
 
     allocator: *const std.mem.Allocator,
 
     pub fn init(lexer: *Lexer, allocator: *const std.mem.Allocator) !Parser {
-        var prefixParseFns = std.AutoHashMap(TokenType, *const fn (*Parser) ?ast.Expression).init(allocator.*);
-        try prefixParseFns.put(TokenType.IDENT, Parser.parse_identifier);
-        try prefixParseFns.put(TokenType.INT, Parser.parse_integer_literal);
-        try prefixParseFns.put(TokenType.MINUS, Parser.parse_prefix_expression);
-        try prefixParseFns.put(TokenType.BANG, Parser.parse_prefix_expression);
+        var prefix_parse_fns = std.AutoHashMap(TokenType, *const fn (*Parser) ?ast.Expression).init(allocator.*);
+        try prefix_parse_fns.put(TokenType.IDENT, Parser.parse_identifier);
+        try prefix_parse_fns.put(TokenType.INT, Parser.parse_integer_literal);
+        try prefix_parse_fns.put(TokenType.MINUS, Parser.parse_prefix_expression);
+        try prefix_parse_fns.put(TokenType.BANG, Parser.parse_prefix_expression);
+
+        var infix_parse_fns = std.AutoHashMap(TokenType, *const fn (*Parser, *const ast.Expression) ?ast.Expression).init(allocator.*);
+        try infix_parse_fns.put(TokenType.MINUS, Parser.parse_infix_expression);
+        try infix_parse_fns.put(TokenType.PLUS, Parser.parse_infix_expression);
+        try infix_parse_fns.put(TokenType.ASTERISK, Parser.parse_infix_expression);
+        try infix_parse_fns.put(TokenType.SLASH, Parser.parse_infix_expression);
+        try infix_parse_fns.put(TokenType.EQ, Parser.parse_infix_expression);
+        try infix_parse_fns.put(TokenType.NOT_EQ, Parser.parse_infix_expression);
+        try infix_parse_fns.put(TokenType.LT, Parser.parse_infix_expression);
+        try infix_parse_fns.put(TokenType.GT, Parser.parse_infix_expression);
+
+        var precedences_map = std.AutoHashMap(TokenType, Precedence).init(allocator.*);
+        try precedences_map.put(TokenType.EQ, Precedence.EQUALS);
+        try precedences_map.put(TokenType.NOT_EQ, Precedence.EQUALS);
+        try precedences_map.put(TokenType.LT, Precedence.LG_OR_GT);
+        try precedences_map.put(TokenType.GT, Precedence.LG_OR_GT);
+        try precedences_map.put(TokenType.PLUS, Precedence.SUM);
+        try precedences_map.put(TokenType.MINUS, Precedence.SUM);
+        try precedences_map.put(TokenType.SLASH, Precedence.PRODUCT);
+        try precedences_map.put(TokenType.ASTERISK, Precedence.PRODUCT);
 
         return Parser{
             .lexer = lexer,
@@ -41,7 +64,10 @@ pub const Parser = struct {
             .peek_token = lexer.next(),
             .program = ast.Program.init(allocator),
 
-            .prefixParseFns = prefixParseFns,
+            .prefix_parse_fns = prefix_parse_fns,
+            .infix_parse_fns = infix_parse_fns,
+
+            .precedences_map = precedences_map,
 
             .alloc_expressions = std.ArrayList(*ast.Expression).init(allocator.*),
 
@@ -120,11 +146,25 @@ pub const Parser = struct {
     }
 
     fn parse_expression(self: *Parser, precedence: Precedence) !ast.Expression {
-        _ = precedence;
-        const prefix = self.prefixParseFns.get(self.current_token.type);
-        const leftExpr = prefix orelse return ParseFnsError.NoPrefixFn;
+        const prefix = self.prefix_parse_fns.get(self.current_token.type);
+        const prefix_fn = prefix orelse return ParseFnsError.NoPrefixFn;
 
-        return leftExpr(self).?;
+        var left_expr = prefix_fn(self).?;
+
+        while (self.peek_token.type != TokenType.SEMICOLON and
+            @intFromEnum(precedence) < @intFromEnum(self.peek_precedence()))
+        {
+            const infix_fn = self.infix_parse_fns.get(self.current_token.type);
+            // const infix_fn = infix orelse return ParseFnsError.NoInfixFn;
+            if (infix_fn == null)
+                return left_expr;
+
+            self.next();
+
+            left_expr = infix_fn.?(self, &left_expr).?;
+        }
+
+        return left_expr;
     }
 
     fn parse_identifier(self: *Parser) ?ast.Expression {
@@ -171,7 +211,33 @@ pub const Parser = struct {
         return return_expr;
     }
 
+    fn parse_infix_expression(self: *Parser, left: *const ast.Expression) ?ast.Expression {
+        var return_expr = ast.Expression{
+            .infix_expr = ast.InfixExpr{
+                .token = self.current_token,
+                .operator = self.current_token.literal,
+                .left_expr = left,
+                .right_expr = undefined,
+            },
+        };
+
+        const precedence = self.current_precedence();
+        self.next();
+
+        var alloc_expr = self.allocator.create(ast.Expression) catch return null;
+        self.alloc_expressions.append(alloc_expr) catch return null;
+        alloc_expr.* = self.parse_expression(precedence) catch {
+            stderr.print("Error parsing right expression of prefixed one!\n", .{}) catch {};
+            return null;
+        };
+
+        return_expr.infix_expr.right_expr = alloc_expr;
+
+        return return_expr;
+    }
+
     fn expect_peek(self: *Parser, expected_type: TokenType) !bool {
+        std.debug.print("current: {s}\n", .{self.current_token.literal});
         if (self.peek_token.type == expected_type) {
             self.next();
             return true;
@@ -183,9 +249,22 @@ pub const Parser = struct {
         return ParserError.BadToken;
     }
 
+    fn peek_precedence(self: *Parser) Precedence {
+        const prec = self.precedences_map.get(self.peek_token.type);
+        return prec orelse Precedence.LOWEST;
+    }
+
+    fn current_precedence(self: *Parser) Precedence {
+        const prec = self.precedences_map.get(self.current_token.type);
+        return prec orelse Precedence.LOWEST;
+    }
+
     pub fn close(self: *Parser) void {
         self.program.close();
-        self.prefixParseFns.deinit();
+        self.prefix_parse_fns.deinit();
+        self.infix_parse_fns.deinit();
+
+        self.precedences_map.deinit();
 
         for (self.alloc_expressions.items) |alloc| {
             self.allocator.destroy(alloc);
