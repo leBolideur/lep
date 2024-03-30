@@ -76,7 +76,7 @@ pub const Program = struct {
 pub const VarStatement = struct {
     token: Token,
     name: Identifier,
-    expression: Expression,
+    expression: *const Expression,
 
     pub fn token_literal(self: VarStatement) []const u8 {
         return self.token.literal;
@@ -96,7 +96,7 @@ pub const VarStatement = struct {
 
 pub const RetStatement = struct {
     token: Token,
-    expression: Expression,
+    expression: *const Expression,
 
     pub fn token_literal(self: RetStatement) []const u8 {
         return self.token.literal;
@@ -118,7 +118,7 @@ pub const RetStatement = struct {
 pub const ExprStatement = struct {
     // The first token of the expression
     token: Token,
-    expression: Expression,
+    expression: *const Expression,
 
     pub fn token_literal(self: ExprStatement) []const u8 {
         return self.token.literal;

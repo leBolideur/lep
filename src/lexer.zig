@@ -49,7 +49,6 @@ pub const Lexer = struct {
 
         self.skip_whitespaces();
 
-        // std.debug.print("\n >> current char: {c}\n", .{self.current_char});
         switch (self.current_char) {
             ';' => token = Token{ .type = TokenType.SEMICOLON, .literal = ";" },
             ',' => token = Token{ .type = TokenType.COMMA, .literal = "," },
@@ -87,19 +86,18 @@ pub const Lexer = struct {
                     const ident = self.read_identifier();
                     const token_type = Token.lookup_ident(ident);
                     if (token_type != TokenType.IDENT) {
-                        const keyword = TokenType.get_keyword_from_str(ident);
-                        token = Token{ .type = keyword.?, .literal = ident };
-                        return token;
-                    } else {
-                        token = Token{ .type = TokenType.IDENT, .literal = ident };
+                        token = Token{ .type = token_type, .literal = ident };
                         return token;
                     }
+                    token = Token{ .type = TokenType.IDENT, .literal = ident };
+                    return token;
                 } else if (std.ascii.isDigit(self.current_char)) {
                     const digit = self.read_digit();
                     token = Token{ .type = TokenType.INT, .literal = digit };
                     return token;
                 } else {
                     token = Token{ .type = TokenType.ILLEGAL, .literal = "ILLEGAL" };
+                    return token;
                 }
             },
         }
@@ -145,9 +143,9 @@ test "test the lexer" {
         \\!-/*5;
         \\5 < 10 > 5;
         \\if 5 < 10:
-        \\ ret true;
-        \\ else:
-        \\ ret false;
+        \\ret true;
+        \\else:
+        \\ret false;
         \\end;
         \\10 == 10; 10 != 9;
     ;
@@ -231,7 +229,6 @@ test "test the lexer" {
     var lexer = Lexer.init(input);
     for (expected) |expect| {
         const token = lexer.next();
-        // std.debug.print("token: {?}\n", .{token});
         try std.testing.expect(expect.type == token.type);
 
         const literal_eq = std.mem.eql(u8, expect.literal, token.literal);
