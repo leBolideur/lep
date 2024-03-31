@@ -95,7 +95,7 @@ test "Test Identifier expression statement" {
 }
 
 test "Test Integer expression statement" {
-    const expected = [3]struct { []const u8, []const u8, u64 }{
+    const expected = [_]struct { []const u8, []const u8, u64 }{
         .{ "5;", "5", 5 },
         .{ "10;", "10", 10 },
         .{ "42;", "42", 42 },
@@ -114,6 +114,29 @@ test "Test Integer expression statement" {
         try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
         try test_integer_literal(expr_st.expression, exp[2]);
         try std.testing.expectEqualStrings(expr_st.token.literal, exp[1]);
+    }
+}
+
+test "Test Boolean expression statement" {
+    const expected = [_]struct { []const u8, []const u8, bool }{
+        .{ "true;", "true", true },
+        .{ "false;", "false", false },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var parser = try Parser.init(&lexer, &std.testing.allocator);
+        defer parser.close();
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const expr_st = program.statements.items[0].expr_statement;
+        const bool_expr = expr_st.expression.boolean;
+
+        try std.testing.expect(@TypeOf(bool_expr) == ast.Boolean);
+        try std.testing.expectEqualStrings(bool_expr.token.literal, exp[1]);
+        try std.testing.expectEqual(bool_expr.value, exp[2]);
     }
 }
 

@@ -24,6 +24,7 @@ pub const Expression = union(enum) {
     // Identifier can be an expression (use of binding) and a statement (binding)
     identifier: Identifier,
     integer: IntegerLiteral,
+    boolean: Boolean,
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
 
@@ -31,6 +32,7 @@ pub const Expression = union(enum) {
         try switch (self.*) {
             .identifier => |id| id.debug_string(buf),
             .integer => |int| int.debug_string(buf),
+            .boolean => |bo| bo.debug_string(buf),
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
         };
@@ -140,6 +142,19 @@ pub const IntegerLiteral = struct {
 
     pub fn debug_string(self: *const IntegerLiteral, buf: *std.ArrayList(u8)) DebugError!void {
         try std.fmt.format(buf.*.writer(), "{d}", .{self.value});
+    }
+};
+
+pub const Boolean = struct {
+    token: Token,
+    value: bool,
+
+    pub fn token_literal(self: Boolean) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const Boolean, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "{s}", .{self.token.literal});
     }
 };
 

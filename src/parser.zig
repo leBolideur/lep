@@ -154,6 +154,7 @@ pub const Parser = struct {
             .IDENT => ast.Expression{ .identifier = try self.parse_identifier() },
             .INT => ast.Expression{ .integer = try self.parse_integer_literal() },
             .MINUS, .BANG => ast.Expression{ .prefix_expr = try self.parse_prefix_expression() },
+            .TRUE, .FALSE => ast.Expression{ .boolean = try self.parse_boolean() },
             else => return ParseFnsError.NoPrefixFn,
         };
 
@@ -190,6 +191,13 @@ pub const Parser = struct {
         return ast.IntegerLiteral{
             .token = self.current_token,
             .value = to_int,
+        };
+    }
+
+    fn parse_boolean(self: *Parser) ParserError!ast.Boolean {
+        return ast.Boolean{
+            .token = self.current_token,
+            .value = self.current_token.type == TokenType.TRUE,
         };
     }
 
