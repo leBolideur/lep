@@ -73,70 +73,52 @@ test "Test RET statements" {
 }
 
 test "Test Identifier expression statement" {
-    const input =
-        \\foo;
-        \\bar;
-    ;
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{ "foo;", "foo" },
+        .{ "bar;", "bar" },
+    };
 
-    const alloc: std.mem.Allocator = std.testing.allocator;
-    var lexer = Lexer.init(input);
-    var parser = try Parser.init(&lexer, &alloc);
-    defer parser.close();
+    for (expected) |exp| {
+        const alloc: std.mem.Allocator = std.testing.allocator;
+        var lexer = Lexer.init(exp[0]);
+        var parser = try Parser.init(&lexer, &alloc);
+        defer parser.close();
 
-    const program = try parser.parse();
-    try std.testing.expect(program.statements.items.len == 2);
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
 
-    const expected_identifiers = [_][]const u8{ "foo", "bar" };
-
-    for (program.statements.items, expected_identifiers) |st, expected| {
-        const expr_st = st.expr_statement;
+        const expr_st = program.statements.items[0].expr_statement;
 
         try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
-        try std.testing.expect(@TypeOf(expr_st.expression.identifier) == ast.Identifier);
-        try std.testing.expectEqual(expr_st.token.type, TokenType.IDENT);
-        try std.testing.expectEqualStrings(expr_st.token.literal, expected);
-
-        const ident = expr_st.expression.identifier;
-        try std.testing.expectEqualStrings(ident.value, expected);
+        try test_identifier(expr_st.expression, exp[1]);
     }
 }
 
 test "Test Integer expression statement" {
-    const input =
-        \\5;
-        \\10;
-        \\4242;
-    ;
-
-    const expected = [3]struct { []const u8, u16 }{
-        .{ "5", 5 },
-        .{ "10", 10 },
-        .{ "4242", 4242 },
+    const expected = [3]struct { []const u8, []const u8, u64 }{
+        .{ "5;", "5", 5 },
+        .{ "10;", "10", 10 },
+        .{ "42;", "42", 42 },
     };
 
-    const alloc: std.mem.Allocator = std.testing.allocator;
-    var lexer = Lexer.init(input);
-    var parser = try Parser.init(&lexer, &alloc);
-    defer parser.close();
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var parser = try Parser.init(&lexer, &std.testing.allocator);
+        defer parser.close();
 
-    const program = try parser.parse();
-    try std.testing.expect(program.statements.items.len == 3);
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
 
-    for (program.statements.items, expected) |st, exp| {
-        const expr_st = st.expr_statement;
+        const expr_st = program.statements.items[0].expr_statement;
 
         try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
-        try std.testing.expect(@TypeOf(expr_st.expression.integer) == ast.IntegerLiteral);
-        try std.testing.expectEqual(expr_st.token.type, TokenType.INT);
-        try std.testing.expectEqualStrings(expr_st.token.literal, exp[0]);
-
-        const integer = expr_st.expression.integer;
-        try std.testing.expectEqual(integer.value, exp[1]);
+        try test_integer_literal(expr_st.expression, exp[2]);
+        try std.testing.expectEqualStrings(expr_st.token.literal, exp[1]);
     }
 }
 
 test "Test Prefix expressions" {
-    const expected = [2]struct { []const u8, u8, []const u8, u8 }{
+    const expected = [2]struct { []const u8, u8, []const u8, u64 }{
         .{ "-5;", '-', "5", 5 },
         .{ "!10;", '!', "10", 10 },
     };
@@ -159,15 +141,13 @@ test "Test Prefix expressions" {
         try std.testing.expectEqual(prefix_expr.operator, exp[1]);
 
         const right_expr = prefix_expr.right_expr;
-        try std.testing.expect(@TypeOf(right_expr.integer) == ast.IntegerLiteral);
-        try std.testing.expectEqual(right_expr.integer.token.type, TokenType.INT);
+        try test_integer_literal(right_expr, exp[3]);
         try std.testing.expectEqualStrings(right_expr.integer.token.literal, exp[2]);
-        try std.testing.expectEqual(right_expr.integer.value, exp[3]);
     }
 }
 
 test "Test Infix expressions" {
-    const expected = [_]struct { []const u8, u8, []const u8, u8 }{
+    const expected = [_]struct { []const u8, u64, []const u8, u64 }{
         .{ "5 + 2;", 5, "+", 2 },
         .{ "5 - 5;", 5, "-", 5 },
         .{ "5 * 5;", 5, "*", 5 },
@@ -263,12 +243,24 @@ test "Test operators precedence" {
     }
 }
 
-fn test_integer_literal(expression: *const ast.Expression, value: u8) !void {
+fn test_integer_literal(expression: *const ast.Expression, value: u64) !void {
     switch (expression.*) {
         .integer => |int| {
             try std.testing.expect(@TypeOf(int) == ast.IntegerLiteral);
             try std.testing.expectEqual(int.token.type, TokenType.INT);
-            try std.testing.expectEqual(int.value, value);
+            try std.testing.expectEqual(int.value, @as(u64, value));
+        },
+        else => unreachable,
+    }
+}
+
+fn test_identifier(expression: *const ast.Expression, value: []const u8) !void {
+    switch (expression.*) {
+        .identifier => |ident| {
+            try std.testing.expect(@TypeOf(ident) == ast.Identifier);
+            try std.testing.expectEqual(ident.token.type, TokenType.IDENT);
+            try std.testing.expectEqualStrings(ident.token.literal, @as([]const u8, value));
+            try std.testing.expectEqualStrings(ident.value, @as([]const u8, value));
         },
         else => unreachable,
     }
