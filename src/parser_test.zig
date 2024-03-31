@@ -201,6 +201,68 @@ test "Test Infix expressions" {
     }
 }
 
+test "Test operators precedence" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{
+            "-a * b;",
+            "((-a) * b)",
+        },
+        .{
+            "a + b + c;",
+            "((a + b) + c)",
+        },
+        .{
+            "a + b - c;",
+            "((a + b) - c)",
+        },
+        .{
+            "a * b * c;",
+            "((a * b) * c)",
+        },
+        .{
+            "a * b / c;",
+            "((a * b) / c)",
+        },
+        .{
+            "a + b / c;",
+            "(a + (b / c))",
+        },
+        .{
+            "a + b * c + d / e - f;",
+            "(((a + (b * c)) + (d / e)) - f)",
+        },
+        .{
+            "5 > 4 == 3 < 4;",
+            "((5 > 4) == (3 < 4))",
+        },
+        .{
+            "3 + 4 * 5 == 3 * 1 + 4 * 5;",
+            "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+        },
+        .{
+            "5 < 4 != 3 > 4;",
+            "((5 < 4) != (3 > 4))",
+        },
+        .{
+            "!-a;",
+            "(!(-a))",
+        },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var parser = try Parser.init(&lexer, &std.testing.allocator);
+        defer parser.close();
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const str = try program.debug_string();
+        defer std.testing.allocator.free(str);
+        try std.testing.expectEqualStrings(exp[1], str);
+    }
+}
+
 fn test_integer_literal(expression: *const ast.Expression, value: u8) !void {
     switch (expression.*) {
         .integer => |int| {

@@ -11,11 +11,11 @@ pub const Statement = union(enum) {
     ret_statement: RetStatement,
     expr_statement: ExprStatement,
 
-    pub fn debug_string(self: Statement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
-        return switch (self) {
-            .var_statement => |vs| vs.debug_string(alloc),
-            .ret_statement => |rs| rs.debug_string(alloc),
-            .expr_statement => |es| es.debug_string(alloc),
+    pub fn debug_string(self: Statement, buf: *std.ArrayList(u8)) DebugError!void {
+        try switch (self) {
+            .var_statement => |vs| vs.debug_string(buf),
+            .ret_statement => |rs| rs.debug_string(buf),
+            .expr_statement => |es| es.debug_string(buf),
         };
     }
 };
@@ -27,12 +27,12 @@ pub const Expression = union(enum) {
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
 
-    pub fn debug_string(self: Expression, alloc: *const std.mem.Allocator) DebugError![]const u8 {
-        return switch (self) {
-            .identifier => |id| id.debug_string(alloc),
-            .integer => |int| int.debug_string(alloc),
-            .prefix_expr => |prf| prf.debug_string(alloc),
-            .infix_expr => |inf| inf.debug_string(alloc),
+    pub fn debug_string(self: *const Expression, buf: *std.ArrayList(u8)) DebugError!void {
+        try switch (self.*) {
+            .identifier => |id| id.debug_string(buf),
+            .integer => |int| int.debug_string(buf),
+            .prefix_expr => |prf| prf.debug_string(buf),
+            .infix_expr => |inf| inf.debug_string(buf),
         };
     }
 };
@@ -55,17 +55,15 @@ pub const Program = struct {
         return "";
     }
 
-    pub fn debug_string(self: Program) DebugError.DebugString![]const u8 {
-        var buff = std.ArrayList(u8).init(self.allocator.*);
-        defer buff.deinit();
+    pub fn debug_string(self: Program) DebugError![]const u8 {
+        var buf = std.ArrayList(u8).init(self.allocator.*);
+        defer buf.deinit();
 
         for (self.statements.items) |st| {
-            const str = st.debug_string(self.allocator) catch return DebugError.DebugString;
-            defer self.allocator.free(str);
-            try buff.appendSlice(str);
+            st.debug_string(&buf) catch return DebugError.DebugString;
         }
 
-        return buff.toOwnedSlice();
+        return buf.toOwnedSlice();
     }
 
     pub fn close(self: Program) void {
@@ -82,15 +80,10 @@ pub const VarStatement = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: VarStatement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
-        var buff = std.ArrayList(u8).init(alloc.*);
-        defer buff.deinit();
-
+    pub fn debug_string(self: VarStatement, buf: *std.ArrayList(u8)) DebugError!void {
         const token_str = try self.token.get_str();
-        const expr_str = self.expression.debug_string(alloc) catch return DebugError.DebugString;
-        try std.fmt.format(buff.writer(), "{s} {s} = {s};", .{ token_str, self.name.value, expr_str });
-
-        return buff.toOwnedSlice();
+        try std.fmt.format(buf.*.writer(), "{s}", .{token_str});
+        self.expression.debug_string(buf) catch return DebugError.DebugString;
     }
 };
 
@@ -102,15 +95,10 @@ pub const RetStatement = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: RetStatement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
-        var buff = std.ArrayList(u8).init(alloc.*);
-        defer buff.deinit();
-
+    pub fn debug_string(self: RetStatement, buf: *std.ArrayList(u8)) DebugError!void {
         const token_str = try self.token.get_str();
-        const expr_str = self.expression.debug_string(alloc) catch return DebugError.DebugString;
-        try std.fmt.format(buff.writer(), "{s} {s};", .{ token_str, expr_str });
-
-        return buff.toOwnedSlice();
+        try std.fmt.format(buf.*.writer(), "{s}", .{token_str});
+        self.expression.debug_string(buf) catch return DebugError.DebugString;
     }
 };
 
@@ -124,8 +112,8 @@ pub const ExprStatement = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: ExprStatement, alloc: *const std.mem.Allocator) DebugError![]const u8 {
-        return self.expression.debug_string(alloc) catch return DebugError.DebugString;
+    pub fn debug_string(self: *const ExprStatement, buf: *std.ArrayList(u8)) DebugError!void {
+        self.expression.debug_string(buf) catch return DebugError.DebugString;
     }
 };
 
@@ -137,13 +125,8 @@ pub const Identifier = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: Identifier, _: *const std.mem.Allocator) DebugError![]const u8 {
-        // var buff = std.ArrayList(u8).init(alloc.*);
-        // defer buff.deinit();
-
-        // try buff.appendSlice(self.value);
-
-        return self.value;
+    pub fn debug_string(self: Identifier, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "{s}", .{self.value});
     }
 };
 
@@ -155,13 +138,8 @@ pub const IntegerLiteral = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: IntegerLiteral, alloc: *const std.mem.Allocator) ![]const u8 {
-        var buff = std.ArrayList(u8).init(alloc.*);
-        defer buff.deinit();
-
-        try std.fmt.format(buff.writer(), "{d}", .{self.value});
-
-        return buff.toOwnedSlice();
+    pub fn debug_string(self: *const IntegerLiteral, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "{d}", .{self.value});
     }
 };
 
@@ -174,14 +152,11 @@ pub const PrefixExpr = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: PrefixExpr, alloc: *const std.mem.Allocator) ![]const u8 {
-        var buff = std.ArrayList(u8).init(alloc.*);
-        defer buff.deinit();
-
-        const right_str = self.right_expr.debug_string(alloc) catch return DebugError.DebugString;
-        try std.fmt.format(buff.writer(), "({d}{s})", .{ self.operator, right_str });
-
-        return buff.toOwnedSlice();
+    pub fn debug_string(self: *const PrefixExpr, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "(", .{});
+        try std.fmt.format(buf.*.writer(), "{c}", .{self.operator});
+        self.right_expr.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), ")", .{});
     }
 };
 
@@ -195,14 +170,11 @@ pub const InfixExpr = struct {
         return self.token.literal;
     }
 
-    pub fn debug_string(self: InfixExpr, alloc: *const std.mem.Allocator) ![]const u8 {
-        var buff = std.ArrayList(u8).init(alloc.*);
-        defer buff.deinit();
-
-        const left_str = self.left_expr.debug_string(alloc) catch return DebugError.DebugString;
-        const right_str = self.right_expr.debug_string(alloc) catch return DebugError.DebugString;
-        try std.fmt.format(buff.writer(), "({s} {s} {s})", .{ left_str, self.operator, right_str });
-
-        return buff.toOwnedSlice();
+    pub fn debug_string(self: *const InfixExpr, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "(", .{});
+        self.left_expr.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), " {s} ", .{self.operator});
+        self.right_expr.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), ")", .{});
     }
 };

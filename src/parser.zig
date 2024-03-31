@@ -157,10 +157,9 @@ pub const Parser = struct {
             else => return ParseFnsError.NoPrefixFn,
         };
 
-        const left_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
-        self.alloc_expressions.append(left_ptr) catch {};
-
         while (self.peek_token.type != TokenType.SEMICOLON and precedence.less_than(self.peek_precedence())) {
+            const left_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+            self.alloc_expressions.append(left_ptr) catch {};
             left_ptr.* = left_expr;
 
             self.next();
