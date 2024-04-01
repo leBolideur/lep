@@ -14,6 +14,7 @@ const ParserError = ParseFnsError || error{
     MissingToken,
     BadToken,
     MissingSemiCol,
+    MissingRightParen,
     MemAlloc,
     ParseExpr,
     ParseInteger,
@@ -155,6 +156,7 @@ pub const Parser = struct {
             .INT => ast.Expression{ .integer = try self.parse_integer_literal() },
             .MINUS, .BANG => ast.Expression{ .prefix_expr = try self.parse_prefix_expression() },
             .TRUE, .FALSE => ast.Expression{ .boolean = try self.parse_boolean() },
+            .LPAREN => try self.parse_grouped_expression(),
             else => return ParseFnsError.NoPrefixFn,
         };
 
@@ -199,6 +201,16 @@ pub const Parser = struct {
             .token = self.current_token,
             .value = self.current_token.type == TokenType.TRUE,
         };
+    }
+
+    fn parse_grouped_expression(self: *Parser) ParserError!ast.Expression {
+        self.next();
+
+        const expr = try self.parse_expression(Precedence.LOWEST);
+
+        if (!try self.expect_peek(TokenType.RPAREN)) return ParserError.MissingRightParen;
+
+        return expr;
     }
 
     fn parse_prefix_expression(self: *Parser) ParserError!ast.PrefixExpr {
@@ -249,15 +261,15 @@ pub const Parser = struct {
         return infix_expr;
     }
 
-    fn expect_peek(self: *Parser, expected_type: TokenType) !bool {
+    fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!bool {
         if (self.peek_token.type == expected_type) {
             self.next();
             return true;
         }
-        try stderr.print("Syntax error! Expected {!s}, got {!s}\n", .{
+        stderr.print("Syntax error! Expected {!s}, got {!s}\n", .{
             self.current_token.get_str(),
             self.peek_token.get_str(),
-        });
+        }) catch {};
         return ParserError.BadToken;
     }
 
