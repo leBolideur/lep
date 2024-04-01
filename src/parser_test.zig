@@ -132,15 +132,13 @@ test "Test Boolean expression statement" {
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
-        const bool_expr = expr_st.expression.boolean;
+        const expr = expr_st.expression;
 
-        try std.testing.expect(@TypeOf(bool_expr) == ast.Boolean);
-        try std.testing.expectEqualStrings(bool_expr.token.literal, exp[1]);
-        try std.testing.expectEqual(bool_expr.value, exp[2]);
+        try test_boolean(expr, exp[2]);
     }
 }
 
-test "Test Prefix expressions" {
+test "Test Prefix expressions with Integer" {
     const expected = [2]struct { []const u8, u8, []const u8, u64 }{
         .{ "-5;", '-', "5", 5 },
         .{ "!10;", '!', "10", 10 },
@@ -169,7 +167,35 @@ test "Test Prefix expressions" {
     }
 }
 
-test "Test Infix expressions" {
+test "Test Prefix expressions with Boolean" {
+    const expected = [2]struct { []const u8, u8, bool }{
+        .{ "!false;", '!', false },
+        .{ "!true;", '!', true },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var parser = try Parser.init(&lexer, &std.testing.allocator);
+        defer parser.close();
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const st = program.statements.items[0];
+
+        const expr_st = st.expr_statement;
+        const prefix_expr = expr_st.expression.prefix_expr;
+
+        try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
+        try std.testing.expect(@TypeOf(prefix_expr) == ast.PrefixExpr);
+        try std.testing.expectEqual(prefix_expr.operator, exp[1]);
+
+        const right_expr = prefix_expr.right_expr;
+        try test_boolean(right_expr, exp[2]);
+    }
+}
+
+test "Test Infix expressions with Integer" {
     const expected = [_]struct { []const u8, u64, []const u8, u64 }{
         .{ "5 + 2;", 5, "+", 2 },
         .{ "5 - 5;", 5, "-", 5 },
@@ -201,6 +227,36 @@ test "Test Infix expressions" {
 
         const right_expr = infix_expr.right_expr;
         try test_integer_literal(right_expr, exp[3]);
+    }
+}
+
+test "Test Infix expressions with Boolean" {
+    const expected = [_]struct { []const u8, bool, []const u8, bool }{
+        .{ "true == true;", true, "==", true },
+        .{ "true != false;", true, "!=", false },
+        .{ "false == false;", false, "==", false },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var parser = try Parser.init(&lexer, &std.testing.allocator);
+        defer parser.close();
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+        const st = program.statements.items[0];
+
+        const expr = st.expr_statement.expression;
+        const infix_expr = expr.infix_expr;
+        try std.testing.expect(@TypeOf(infix_expr) == ast.InfixExpr);
+
+        const left_expr = infix_expr.left_expr;
+        try test_boolean(left_expr, exp[1]);
+
+        try std.testing.expectEqualStrings(infix_expr.operator, exp[2]);
+
+        const right_expr = infix_expr.right_expr;
+        try test_boolean(right_expr, exp[3]);
     }
 }
 
@@ -250,6 +306,22 @@ test "Test operators precedence" {
             "!-a;",
             "(!(-a))",
         },
+        .{
+            "true;",
+            "true",
+        },
+        .{
+            "false;",
+            "false",
+        },
+        .{
+            "3 > 5 == false;",
+            "((3 > 5) == false)",
+        },
+        .{
+            "3 < 5 == true;",
+            "((3 < 5) == true)",
+        },
     };
 
     for (expected) |exp| {
@@ -266,12 +338,21 @@ test "Test operators precedence" {
     }
 }
 
+fn test_literal(expression: *const ast.Expression, value: anytype) !void {
+    switch (expression.*) {
+        .boolean => try test_boolean(expression, value),
+        .integer => try test_integer_literal(expression, value),
+        .identifier => try test_identifier(expression, value),
+        else => unreachable,
+    }
+}
+
 fn test_integer_literal(expression: *const ast.Expression, value: u64) !void {
     switch (expression.*) {
         .integer => |int| {
             try std.testing.expect(@TypeOf(int) == ast.IntegerLiteral);
             try std.testing.expectEqual(int.token.type, TokenType.INT);
-            try std.testing.expectEqual(int.value, @as(u64, value));
+            try std.testing.expectEqual(int.value, value);
         },
         else => unreachable,
     }
@@ -282,8 +363,22 @@ fn test_identifier(expression: *const ast.Expression, value: []const u8) !void {
         .identifier => |ident| {
             try std.testing.expect(@TypeOf(ident) == ast.Identifier);
             try std.testing.expectEqual(ident.token.type, TokenType.IDENT);
-            try std.testing.expectEqualStrings(ident.token.literal, @as([]const u8, value));
-            try std.testing.expectEqualStrings(ident.value, @as([]const u8, value));
+            try std.testing.expectEqualStrings(ident.token.literal, value);
+            try std.testing.expectEqualStrings(ident.value, value);
+        },
+        else => unreachable,
+    }
+}
+
+fn test_boolean(expression: *const ast.Expression, value: bool) !void {
+    switch (expression.*) {
+        .boolean => |boolean| {
+            const exp_tok_type = if (value) TokenType.TRUE else TokenType.FALSE;
+
+            try std.testing.expect(@TypeOf(boolean) == ast.Boolean);
+            try std.testing.expectEqual(boolean.token.type, exp_tok_type);
+            // try std.testing.expectEqualStrings(boolean.token.literal, value);
+            try std.testing.expectEqual(boolean.value, value);
         },
         else => unreachable,
     }
