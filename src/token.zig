@@ -113,6 +113,6 @@ pub const Token = struct {
     }
 
     pub fn get_str(self: Token) ![]const u8 {
-        return TokenType.get_str_from_keyword(self.type);
+        return TokenType.get_str_from_keyword(self.type) catch return self.literal;
     }
 };

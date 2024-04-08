@@ -117,6 +117,67 @@ test "Test Integer expression statement" {
     }
 }
 
+test "Test If expression" {
+    const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8 }{
+        .{ "if x == y:  x; end;", "x", "==", "y", "x" },
+        .{ "if x != y:  y; end;", "x", "!=", "y", "y" },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const expr_st = program.statements.items[0].expr_statement;
+        const if_expr = expr_st.expression.if_expression;
+
+        try std.testing.expect(@TypeOf(if_expr) == ast.IfExpression);
+        try std.testing.expect(if_expr.consequence.statements.items.len == 1);
+
+        const consequence = if_expr.consequence.statements.items[0];
+        try test_identifier(consequence.expr_statement.expression, exp[4]);
+
+        try std.testing.expect(if_expr.alternative == null);
+    }
+}
+
+test "Test If-Else expression" {
+    const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8, []const u8 }{
+        .{ "if x == y: x; else: y; end;", "x", "==", "y", "x", "y" },
+        .{ "if x != y: y; else: x; end;", "x", "!=", "y", "y", "x" },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const expr_st = program.statements.items[0].expr_statement.expression;
+        const if_expr = expr_st.if_expression;
+
+        try std.testing.expect(@TypeOf(if_expr) == ast.IfExpression);
+        try std.testing.expect(if_expr.consequence.statements.items.len == 1);
+
+        const consequence = if_expr.consequence.statements.items[0];
+        try test_identifier(consequence.expr_statement.expression, exp[4]);
+
+        try std.testing.expect(if_expr.alternative != null);
+
+        const alternative = if_expr.alternative.?.statements.items[0];
+        try test_identifier(alternative.expr_statement.expression, exp[5]);
+    }
+}
+
 test "Test Boolean expression statement" {
     const expected = [_]struct { []const u8, []const u8, bool }{
         .{ "true;", "true", true },
@@ -364,9 +425,18 @@ fn test_literal(expression: *const ast.Expression, value: anytype) !void {
         .boolean => try test_boolean(expression, value),
         .integer => try test_integer_literal(expression, value),
         .identifier => try test_identifier(expression, value),
+        .if_expression => {},
         else => unreachable,
     }
 }
+
+// fn test_if_expression(expression: *const ast.Expression, value: u64) !void {
+//     switch (expression.*) {
+//         .integer => |int| try test_literal(int, value),
+//         .identifier => |ident| try test_literal(ident, value),
+//         else => unreachable,
+//     }
+// }
 
 fn test_integer_literal(expression: *const ast.Expression, value: u64) !void {
     switch (expression.*) {

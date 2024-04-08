@@ -27,6 +27,7 @@ pub const Expression = union(enum) {
     boolean: Boolean,
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
+    if_expression: IfExpression,
 
     pub fn debug_string(self: *const Expression, buf: *std.ArrayList(u8)) DebugError!void {
         try switch (self.*) {
@@ -35,6 +36,7 @@ pub const Expression = union(enum) {
             .boolean => |bo| bo.debug_string(buf),
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
+            .if_expression => |ife| ife.debug_string(buf),
         };
     }
 };
@@ -191,5 +193,43 @@ pub const InfixExpr = struct {
         try std.fmt.format(buf.*.writer(), " {s} ", .{self.operator});
         self.right_expr.debug_string(buf) catch return DebugError.DebugString;
         try std.fmt.format(buf.*.writer(), ")", .{});
+    }
+};
+
+pub const BlockStatement = struct {
+    token: Token,
+    statements: std.ArrayList(Statement),
+
+    pub fn token_literal(self: BlockStatement) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: BlockStatement, buf: *std.ArrayList(u8)) DebugError!void {
+        for (self.statements.items) |st| {
+            try st.debug_string(buf);
+        }
+    }
+};
+
+pub const IfExpression = struct {
+    token: Token,
+    condition: *const Expression,
+    consequence: BlockStatement,
+    alternative: ?BlockStatement,
+
+    pub fn token_literal(self: IfExpression) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const IfExpression, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "if ", .{});
+        self.condition.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), ":\n", .{});
+        self.consequence.debug_string(buf) catch return DebugError.DebugString;
+        if (self.alternative != null) {
+            try std.fmt.format(buf.*.writer(), "\nelse:\n", .{});
+            self.alternative.?.debug_string(buf) catch return DebugError.DebugString;
+        }
+        try std.fmt.format(buf.*.writer(), "\nend;", .{});
     }
 };
