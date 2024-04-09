@@ -28,6 +28,7 @@ pub const Expression = union(enum) {
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
     if_expression: IfExpression,
+    func_literal: FunctionLiteral,
 
     pub fn debug_string(self: *const Expression, buf: *std.ArrayList(u8)) DebugError!void {
         try switch (self.*) {
@@ -230,6 +231,29 @@ pub const IfExpression = struct {
             try std.fmt.format(buf.*.writer(), "\nelse:\n", .{});
             self.alternative.?.debug_string(buf) catch return DebugError.DebugString;
         }
+        try std.fmt.format(buf.*.writer(), "\nend;", .{});
+    }
+};
+
+pub const FunctionLiteral = struct {
+    token: Token,
+    parameters: std.ArrayList(Identifier),
+    body: BlockStatement,
+
+    pub fn token_literal(self: FunctionLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const FunctionLiteral, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "fn (", .{});
+        for (self.parameters.items) |param| {
+            try param.debug_string(buf) catch return DebugError.DebugString;
+            if (param != self.parameters.items[self.parameters.items.len - 1]) {
+                try std.fmt.format(buf.*.writer(), ", ", .{});
+            }
+        }
+        try std.fmt.format(buf.*.writer(), "):\n", .{});
+        self.body.debug_string(buf) catch return DebugError.DebugString;
         try std.fmt.format(buf.*.writer(), "\nend;", .{});
     }
 };

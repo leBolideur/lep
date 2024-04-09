@@ -18,7 +18,6 @@ test "Test VAR statements" {
     const alloc: std.mem.Allocator = std.testing.allocator;
     var lexer = Lexer.init(input);
     var parser = try Parser.init(&lexer, &alloc);
-    defer parser.close();
 
     const program = try parser.parse();
     try std.testing.expect(program.statements.items.len == 3);
@@ -53,7 +52,6 @@ test "Test RET statements" {
     const alloc: std.mem.Allocator = std.testing.allocator;
     var lexer = Lexer.init(input);
     var parser = try Parser.init(&lexer, &alloc);
-    defer parser.close();
 
     const program = try parser.parse();
     try std.testing.expect(program.statements.items.len == 3);
@@ -82,7 +80,6 @@ test "Test Identifier expression statement" {
         const alloc: std.mem.Allocator = std.testing.allocator;
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &alloc);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -104,7 +101,6 @@ test "Test Integer expression statement" {
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &std.testing.allocator);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -178,6 +174,33 @@ test "Test If-Else expression" {
     }
 }
 
+test "Test function literal parameters" {
+    const expected = [_]struct { []const u8, u8 }{
+        .{ "fn(x, y): x + y; end;", 2 },
+        .{ "fn(x, y): x - y; end;", 2 },
+        .{ "fn(x, y, z): end;", 3 },
+        .{ "fn(x): x; end;", 1 },
+        .{ "fn(): end;", 0 },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const expr_st = program.statements.items[0].expr_statement;
+        const func_lit = expr_st.expression.func_literal;
+
+        try std.testing.expect(@TypeOf(func_lit) == ast.FunctionLiteral);
+        try std.testing.expect(func_lit.parameters.items.len == exp[1]);
+    }
+}
+
 test "Test Boolean expression statement" {
     const expected = [_]struct { []const u8, []const u8, bool }{
         .{ "true;", "true", true },
@@ -187,7 +210,6 @@ test "Test Boolean expression statement" {
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &std.testing.allocator);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -208,7 +230,6 @@ test "Test Prefix expressions with Integer" {
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &std.testing.allocator);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -237,7 +258,6 @@ test "Test Prefix expressions with Boolean" {
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &std.testing.allocator);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -271,7 +291,6 @@ test "Test Infix expressions with Integer" {
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &std.testing.allocator);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -301,7 +320,6 @@ test "Test Infix expressions with Boolean" {
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &std.testing.allocator);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -409,7 +427,6 @@ test "Test operators precedence" {
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
         var parser = try Parser.init(&lexer, &std.testing.allocator);
-        defer parser.close();
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
@@ -426,6 +443,7 @@ fn test_literal(expression: *const ast.Expression, value: anytype) !void {
         .integer => try test_integer_literal(expression, value),
         .identifier => try test_identifier(expression, value),
         .if_expression => {},
+        .func_literal => {},
         else => unreachable,
     }
 }
@@ -470,6 +488,17 @@ fn test_boolean(expression: *const ast.Expression, value: bool) !void {
             try std.testing.expectEqual(boolean.token.type, exp_tok_type);
             // try std.testing.expectEqualStrings(boolean.token.literal, value);
             try std.testing.expectEqual(boolean.value, value);
+        },
+        else => unreachable,
+    }
+}
+
+fn test_infix_expression(expression: *const ast.Expression, left: anytype, operator: []const u8, right: anytype) !void {
+    switch (expression.*) {
+        .infix_expr => |infix_expr| {
+            try test_literal(infix_expr.left_expr, left);
+            try std.testing.expectEqualStrings(infix_expr.operator, operator);
+            try test_literal(infix_expr.right_expr, right);
         },
         else => unreachable,
     }

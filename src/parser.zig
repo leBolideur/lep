@@ -21,6 +21,7 @@ const ParserError = ParseFnsError || error{
     ParseExpr,
     ParseInteger,
     ParseIdentifier,
+    MissingLeftParen,
 };
 
 const Precedence = enum(u8) {
@@ -154,6 +155,7 @@ pub const Parser = struct {
             .TRUE, .FALSE => ast.Expression{ .boolean = try self.parse_boolean() },
             .LPAREN => try self.parse_grouped_expression(),
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
+            .FN => ast.Expression{ .func_literal = try self.parse_function_literal() },
             else => {
                 stderr.print("No prefix parse function for token: {s}\n", .{self.current_token.literal}) catch {};
                 return ParseFnsError.NoPrefixFn;
@@ -215,7 +217,7 @@ pub const Parser = struct {
 
         const expr = try self.parse_expression(Precedence.LOWEST);
 
-        if (!try self.expect_peek(TokenType.RPAREN)) return ParserError.MissingRightParen;
+        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
 
         return expr;
     }
@@ -233,12 +235,12 @@ pub const Parser = struct {
         condition_ptr.* = try self.parse_expression(Precedence.LOWEST);
         if_expresssion.condition = condition_ptr;
 
-        if (!try self.expect_peek(TokenType.COLON)) return ParserError.MissingColon;
+        _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
 
         if_expresssion.consequence = try self.parse_statement_block();
 
         if (self.current_token.type == TokenType.ELSE) {
-            if (!try self.expect_peek(TokenType.COLON)) return ParserError.MissingColon;
+            _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
             if_expresssion.alternative = try self.parse_statement_block();
         }
 
@@ -309,6 +311,48 @@ pub const Parser = struct {
         infix_expr.right_expr = right_ptr;
 
         return infix_expr;
+    }
+
+    fn parse_function_literal(self: *Parser) ParserError!ast.FunctionLiteral {
+        var func_lit = ast.FunctionLiteral{
+            .token = self.current_token,
+            .parameters = undefined,
+            .body = undefined,
+        };
+
+        _ = self.expect_peek(TokenType.LPAREN) catch return ParserError.MissingLeftParen;
+
+        func_lit.parameters = try self.parse_function_parameters();
+        _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
+
+        func_lit.body = try self.parse_statement_block();
+
+        return func_lit;
+    }
+
+    fn parse_function_parameters(self: *Parser) ParserError!std.ArrayList(ast.Identifier) {
+        var identifiers = std.ArrayList(ast.Identifier).init(self.allocator.*);
+
+        if (self.peek_token.type == TokenType.RPAREN) {
+            self.next();
+            return identifiers;
+        }
+
+        self.next();
+        var identifier = try self.parse_identifier();
+        identifiers.append(identifier) catch {};
+
+        while (self.peek_token.type == TokenType.COMMA) {
+            self.next();
+            self.next();
+
+            identifier = try self.parse_identifier();
+            identifiers.append(identifier) catch {};
+        }
+
+        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
+
+        return identifiers;
     }
 
     fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!bool {
