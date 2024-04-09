@@ -102,7 +102,6 @@ pub const Parser = struct {
     fn parse_var_statement(self: *Parser) !ast.VarStatement {
         const var_st_token = self.current_token;
         _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingToken;
-        // self.next();
 
         const ident_name = self.current_token.literal;
         const ident = ast.Identifier{ .token = self.current_token, .value = ident_name };
@@ -110,15 +109,16 @@ pub const Parser = struct {
         _ = self.expect_peek(TokenType.ASSIGN) catch return ParserError.MissingToken;
         self.next();
 
-        const expr = try self.parse_expression(Precedence.LOWEST);
+        var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
         _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
-        // self.next();
+        self.next();
 
         return ast.VarStatement{
             .token = var_st_token,
             .name = ident,
-            .expression = &expr,
+            .expression = expr_ptr,
         };
     }
 
@@ -126,14 +126,16 @@ pub const Parser = struct {
         const ret_st_token = self.current_token;
         self.next();
 
-        const expr = try self.parse_expression(Precedence.LOWEST);
+        var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
         _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
+
         self.next();
 
         return ast.RetStatement{
             .token = ret_st_token,
-            .expression = &expr,
+            .expression = expr_ptr,
         };
     }
 

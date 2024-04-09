@@ -90,8 +90,11 @@ pub const VarStatement = struct {
 
     pub fn debug_string(self: VarStatement, buf: *std.ArrayList(u8)) DebugError!void {
         const token_str = try self.token.get_str();
-        try std.fmt.format(buf.*.writer(), "{s}", .{token_str});
-        self.expression.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), "{s} ", .{token_str});
+        try self.name.debug_string(buf);
+        try std.fmt.format(buf.*.writer(), " = ", .{});
+
+        try self.expression.debug_string(buf);
     }
 };
 

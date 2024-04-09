@@ -9,25 +9,22 @@ const Token = token.Token;
 const TokenType = token.TokenType;
 
 test "Test VAR statements" {
-    const input =
-        \\var x = 5;
-        \\var y = 10;
-        \\var foobar = 838383;
-    ;
+    const expected = [_]struct { []const u8, []const u8, u64 }{
+        .{ "var x = 5;", "x", 5 },
+        .{ "var y = 10;", "y", 10 },
+        .{ "var foobar = 83;", "foobar", 83 },
+    };
 
-    var lexer = Lexer.init(input);
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
 
-    var parser = try Parser.init(&lexer, &arena.allocator());
-    const program = try parser.parse();
-    try std.testing.expect(program.statements.items.len == 3);
+        var parser = try Parser.init(&lexer, &arena.allocator());
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
 
-    const expected_identifiers = [_][]const u8{ "x", "y", "foobar" };
-    // const expected_values = [3]u8{ "5", "10", "838383" };
-
-    for (program.statements.items, expected_identifiers) |st, id| {
-        const var_st = st.var_statement;
+        const var_st = program.statements.items[0].var_statement;
 
         try std.testing.expect(@TypeOf(var_st) == ast.VarStatement);
         try std.testing.expectEqual(var_st.token.type, TokenType.VAR);
@@ -36,10 +33,9 @@ test "Test VAR statements" {
         const ident = var_st.name;
         try std.testing.expect(@TypeOf(ident) == ast.Identifier);
         try std.testing.expectEqual(ident.token.type, TokenType.IDENT);
-        try std.testing.expectEqualStrings(ident.value, id);
+        try std.testing.expectEqualStrings(ident.value, exp[1]);
 
-        // try std.testing.expectEqual(expected_identifiers, var_st.name.token_literal());
-        // std.testing.expectEqual(expected_values[i], var_st.expression.);
+        try test_integer_literal(var_st.expression, exp[2]);
     }
 }
 
@@ -65,7 +61,7 @@ test "Test RET statements" {
         try std.testing.expectEqual(ret_st.token.type, TokenType.RET);
         try std.testing.expectEqualStrings(ret_st.token_literal(), "ret");
 
-        // try test_integer_literal(ret_st.expression, exp[1]);
+        try test_integer_literal(ret_st.expression, exp[1]);
     }
 }
 
@@ -232,9 +228,7 @@ test "Test call expressions" {
         try test_integer_literal(&call_expr.arguments.items[0], exp[2]);
         try test_integer_literal(&call_expr.arguments.items[1], exp[3]);
 
-        var buf = std.ArrayList(u8).init(arena.allocator());
-        try call_expr.debug_string(&buf);
-        const str = try buf.toOwnedSlice();
+        const str = try program.debug_string();
         try std.testing.expectEqualStrings(str, exp[4]);
     }
 }
@@ -346,8 +340,7 @@ test "Test Infix expressions with Integer" {
         try std.testing.expect(program.statements.items.len == 1);
         const st = program.statements.items[0];
 
-        const expr = st.expr_statement.expression;
-        const infix_expr = expr.infix_expr;
+        const infix_expr = st.expr_statement.expression.infix_expr;
         try std.testing.expect(@TypeOf(infix_expr) == ast.InfixExpr);
 
         const left_expr = infix_expr.left_expr;
@@ -378,8 +371,7 @@ test "Test Infix expressions with Boolean" {
         try std.testing.expect(program.statements.items.len == 1);
         const st = program.statements.items[0];
 
-        const expr = st.expr_statement.expression;
-        const infix_expr = expr.infix_expr;
+        const infix_expr = st.expr_statement.expression.infix_expr;
         try std.testing.expect(@TypeOf(infix_expr) == ast.InfixExpr);
 
         const left_expr = infix_expr.left_expr;
@@ -504,31 +496,12 @@ test "Test operators precedence" {
     }
 }
 
-fn test_literal(expression: *const ast.Expression, value: anytype) !void {
-    switch (expression.*) {
-        .boolean => try test_boolean(expression, value),
-        .integer => try test_integer_literal(expression, value),
-        .identifier => try test_identifier(expression, value),
-        .if_expression => {},
-        .func_literal => {},
-        else => unreachable,
-    }
-}
-
-// fn test_if_expression(expression: *const ast.Expression, value: u64) !void {
-//     switch (expression.*) {
-//         .integer => |int| try test_literal(int, value),
-//         .identifier => |ident| try test_literal(ident, value),
-//         else => unreachable,
-//     }
-// }
-
 fn test_integer_literal(expression: *const ast.Expression, value: u64) !void {
     switch (expression.*) {
-        .integer => |int| {
-            try std.testing.expect(@TypeOf(int) == ast.IntegerLiteral);
-            try std.testing.expectEqual(int.token.type, TokenType.INT);
-            try std.testing.expectEqual(int.value, value);
+        .integer => |int_lit| {
+            try std.testing.expect(@TypeOf(int_lit) == ast.IntegerLiteral);
+            try std.testing.expectEqual(int_lit.token.type, TokenType.INT);
+            try std.testing.expectEqual(int_lit.value, value);
         },
         else => unreachable,
     }
@@ -549,23 +522,10 @@ fn test_identifier(expression: *const ast.Expression, value: []const u8) !void {
 fn test_boolean(expression: *const ast.Expression, value: bool) !void {
     switch (expression.*) {
         .boolean => |boolean| {
-            const exp_tok_type = if (value) TokenType.TRUE else TokenType.FALSE;
-
             try std.testing.expect(@TypeOf(boolean) == ast.Boolean);
+            const exp_tok_type = if (value) TokenType.TRUE else TokenType.FALSE;
             try std.testing.expectEqual(boolean.token.type, exp_tok_type);
-            // try std.testing.expectEqualStrings(boolean.token.literal, value);
             try std.testing.expectEqual(boolean.value, value);
-        },
-        else => unreachable,
-    }
-}
-
-fn test_infix_expression(expression: *const ast.Expression, left: anytype, operator: []const u8, right: anytype) !void {
-    switch (expression.*) {
-        .infix_expr => |infix_expr| {
-            try test_literal(infix_expr.left_expr, left);
-            try std.testing.expectEqualStrings(infix_expr.operator, operator);
-            try test_literal(infix_expr.right_expr, right);
         },
         else => unreachable,
     }
