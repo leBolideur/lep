@@ -101,34 +101,39 @@ pub const Parser = struct {
 
     fn parse_var_statement(self: *Parser) !ast.VarStatement {
         const var_st_token = self.current_token;
-        if (!try self.expect_peek(TokenType.IDENT)) return ParserError.MissingToken;
+        _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingToken;
+        // self.next();
 
         const ident_name = self.current_token.literal;
         const ident = ast.Identifier{ .token = self.current_token, .value = ident_name };
 
-        if (!try self.expect_peek(TokenType.ASSIGN)) return ParserError.MissingToken;
+        _ = self.expect_peek(TokenType.ASSIGN) catch return ParserError.MissingToken;
+        self.next();
 
-        // TOFIX: skip expression
-        while (self.current_token.type != TokenType.SEMICOLON)
-            self.next();
+        const expr = try self.parse_expression(Precedence.LOWEST);
+
+        _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
+        // self.next();
 
         return ast.VarStatement{
             .token = var_st_token,
             .name = ident,
-            .expression = undefined,
+            .expression = &expr,
         };
     }
 
     fn parse_ret_statement(self: *Parser) !ast.RetStatement {
         const ret_st_token = self.current_token;
+        self.next();
 
-        // TOFIX: skip expression
-        while (self.current_token.type != TokenType.SEMICOLON)
-            self.next();
+        const expr = try self.parse_expression(Precedence.LOWEST);
+
+        _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
+        self.next();
 
         return ast.RetStatement{
             .token = ret_st_token,
-            .expression = undefined,
+            .expression = &expr,
         };
     }
 
@@ -139,7 +144,7 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
 
-        if (!try self.expect_peek(TokenType.SEMICOLON)) return ParserError.MissingSemiCol;
+        _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
 
         return ast.ExprStatement{
             .token = expr_st_token,
