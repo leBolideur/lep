@@ -29,6 +29,7 @@ pub const Expression = union(enum) {
     infix_expr: InfixExpr,
     if_expression: IfExpression,
     func_literal: FunctionLiteral,
+    call_expression: CallExpression,
 
     pub fn debug_string(self: *const Expression, buf: *std.ArrayList(u8)) DebugError!void {
         try switch (self.*) {
@@ -38,6 +39,8 @@ pub const Expression = union(enum) {
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
             .if_expression => |ife| ife.debug_string(buf),
+            .func_literal => |fl| fl.debug_string(buf),
+            .call_expression => |call| call.debug_string(buf),
         };
     }
 };
@@ -245,15 +248,41 @@ pub const FunctionLiteral = struct {
     }
 
     pub fn debug_string(self: *const FunctionLiteral, buf: *std.ArrayList(u8)) DebugError!void {
-        try std.fmt.format(buf.*.writer(), "fn (", .{});
-        for (self.parameters.items) |param| {
-            try param.debug_string(buf) catch return DebugError.DebugString;
-            if (param != self.parameters.items[self.parameters.items.len - 1]) {
-                try std.fmt.format(buf.*.writer(), ", ", .{});
+        try std.fmt.format(buf.*.writer(), "fn(", .{});
+        const len = self.parameters.items.len;
+        var i: usize = 0;
+        while (i < len) : (i += 1) {
+            try self.parameters.items[i].debug_string(buf);
+            if (i != len - 1) {
+                try std.fmt.format(buf.*.writer(), ",", .{});
             }
         }
         try std.fmt.format(buf.*.writer(), "):\n", .{});
         self.body.debug_string(buf) catch return DebugError.DebugString;
         try std.fmt.format(buf.*.writer(), "\nend;", .{});
+    }
+};
+
+pub const CallExpression = struct {
+    token: Token,
+    function: *const Expression,
+    arguments: std.ArrayList(Expression),
+
+    pub fn token_literal(self: CallExpression) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const CallExpression, buf: *std.ArrayList(u8)) DebugError!void {
+        try self.function.debug_string(buf);
+        try std.fmt.format(buf.*.writer(), "(", .{});
+        var i: usize = 0;
+        const len = self.arguments.items.len;
+        while (i < len) : (i += 1) {
+            try self.arguments.items[i].debug_string(buf);
+            if (i != len - 1) {
+                try std.fmt.format(buf.*.writer(), ", ", .{});
+            }
+        }
+        try std.fmt.format(buf.*.writer(), ")", .{});
     }
 };

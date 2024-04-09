@@ -61,6 +61,7 @@ pub const Parser = struct {
         try precedences_map.put(TokenType.MINUS, Precedence.SUM);
         try precedences_map.put(TokenType.SLASH, Precedence.PRODUCT);
         try precedences_map.put(TokenType.ASTERISK, Precedence.PRODUCT);
+        try precedences_map.put(TokenType.LPAREN, Precedence.CALL);
 
         return Parser{
             .lexer = lexer,
@@ -179,6 +180,7 @@ pub const Parser = struct {
                 .SLASH,
                 .ASTERISK,
                 => ast.Expression{ .infix_expr = try self.parse_infix_expression(left_ptr) },
+                .LPAREN => ast.Expression{ .call_expression = try self.parse_call_expression(left_ptr) },
                 else => left_expr,
             };
         }
@@ -353,6 +355,37 @@ pub const Parser = struct {
         _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
 
         return identifiers;
+    }
+
+    fn parse_call_expression(self: *Parser, function: *const ast.Expression) ParserError!ast.CallExpression {
+        var call = ast.CallExpression{ .token = self.current_token, .arguments = undefined, .function = function };
+        call.arguments = try self.parse_call_arguments();
+        return call;
+    }
+
+    fn parse_call_arguments(self: *Parser) ParserError!std.ArrayList(ast.Expression) {
+        var args = std.ArrayList(ast.Expression).init(self.allocator.*);
+
+        if (self.peek_token.type == TokenType.RPAREN) {
+            self.next();
+            return args;
+        }
+
+        self.next();
+        var arg = try self.parse_expression(Precedence.LOWEST);
+        args.append(arg) catch {};
+
+        while (self.peek_token.type == TokenType.COMMA) {
+            self.next();
+            self.next();
+
+            arg = try self.parse_expression(Precedence.LOWEST);
+            args.append(arg) catch {};
+        }
+
+        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
+
+        return args;
     }
 
     fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!bool {

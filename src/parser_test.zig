@@ -201,6 +201,41 @@ test "Test function literal parameters" {
     }
 }
 
+test "Test call expressions" {
+    const expected = [_]struct { []const u8, []const u8, u8, u8, []const u8 }{
+        .{ "add(1, 2);", "add", 1, 2, "add(1, 2)" },
+        .{ "sub(5, 2);", "sub", 5, 2, "sub(5, 2)" },
+        .{ "mul(12, 6);", "mul", 12, 6, "mul(12, 6)" },
+        .{ "div(7, 3);", "div", 7, 3, "div(7, 3)" },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const program = try parser.parse();
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const expr_st = program.statements.items[0].expr_statement;
+        const call_expr = expr_st.expression.call_expression;
+
+        try std.testing.expect(@TypeOf(call_expr) == ast.CallExpression);
+        try test_identifier(call_expr.function, exp[1]);
+
+        try std.testing.expect(call_expr.arguments.items.len == 2);
+        try test_integer_literal(&call_expr.arguments.items[0], exp[2]);
+        try test_integer_literal(&call_expr.arguments.items[1], exp[3]);
+
+        var buf = std.ArrayList(u8).init(arena.allocator());
+        try call_expr.debug_string(&buf);
+        const str = try buf.toOwnedSlice();
+        try std.testing.expectEqualStrings(str, exp[4]);
+    }
+}
+
 test "Test Boolean expression statement" {
     const expected = [_]struct { []const u8, []const u8, bool }{
         .{ "true;", "true", true },
@@ -422,17 +457,32 @@ test "Test operators precedence" {
             "!(true == true);",
             "(!(true == true))",
         },
+        // Test function calls
+        .{
+            "a + add(b * c) + d;",
+            "((a + add((b * c))) + d)",
+        },
+        .{
+            "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));",
+            "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+        },
+        .{
+            "add(a + b + c * d / f + g);",
+            "add((((a + b) + ((c * d) / f)) + g))",
+        },
     };
 
     for (expected) |exp| {
         var lexer = Lexer.init(exp[0]);
-        var parser = try Parser.init(&lexer, &std.testing.allocator);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+        var parser = try Parser.init(&lexer, &arena.allocator());
 
         const program = try parser.parse();
         try std.testing.expect(program.statements.items.len == 1);
 
         const str = try program.debug_string();
-        defer std.testing.allocator.free(str);
+        // defer std.testing.allocator.free(str);
         try std.testing.expectEqualStrings(exp[1], str);
     }
 }
