@@ -45,7 +45,7 @@ pub const Parser = struct {
     current_token: Token,
     peek_token: Token,
 
-    program: ast.Program,
+    // program: ast.Program,
 
     precedences_map: std.AutoHashMap(TokenType, Precedence),
 
@@ -67,7 +67,7 @@ pub const Parser = struct {
             .lexer = lexer,
             .current_token = lexer.next(),
             .peek_token = lexer.next(),
-            .program = ast.Program.init(allocator),
+            // .program = ast.Program.init(allocator),
 
             .precedences_map = precedences_map,
 
@@ -80,15 +80,16 @@ pub const Parser = struct {
         self.peek_token = self.lexer.next();
     }
 
-    pub fn parse(self: *Parser) !ast.Program {
+    pub fn parseProgram(self: *Parser) !ast.Node {
+        var statements = std.ArrayList(ast.Statement).init(self.allocator.*);
+
         while (self.current_token.type != TokenType.EOF) {
             const st = try self.parse_statement();
-            try self.program.statements.append(st);
-
+            try statements.append(st);
             self.next();
         }
 
-        return self.program;
+        return ast.Node{ .program = ast.Program{ .statements = statements } };
     }
 
     fn parse_statement(self: *Parser) !ast.Statement {

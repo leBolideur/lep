@@ -6,6 +6,12 @@ const TokenType = token.TokenType;
 
 const DebugError = anyerror || error{DebugString};
 
+pub const Node = union(enum) {
+    program: Program,
+    statement: Statement,
+    expression: Expression,
+};
+
 pub const Statement = union(enum) {
     var_statement: VarStatement,
     ret_statement: RetStatement,
@@ -48,14 +54,14 @@ pub const Expression = union(enum) {
 pub const Program = struct {
     statements: std.ArrayList(Statement),
 
-    allocator: *const std.mem.Allocator,
+    // allocator: *const std.mem.Allocator,
 
-    pub fn init(allocator: *const std.mem.Allocator) Program {
-        return Program{
-            .statements = std.ArrayList(Statement).init(allocator.*),
-            .allocator = allocator,
-        };
-    }
+    // pub fn init(allocator: *const std.mem.Allocator) Program {
+    //     return Program{
+    //         .statements = std.ArrayList(Statement).init(allocator.*),
+    //         .allocator = allocator,
+    //     };
+    // }
 
     pub fn token_literal(self: Program) []const u8 {
         if (self.statements.len > 0)
@@ -74,9 +80,9 @@ pub const Program = struct {
         return buf.toOwnedSlice();
     }
 
-    pub fn close(self: Program) void {
-        self.statements.deinit();
-    }
+    // pub fn close(self: Program) void {
+    //     self.statements.deinit();
+    // }
 };
 
 pub const VarStatement = struct {

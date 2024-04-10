@@ -23,7 +23,7 @@ pub fn repl() !void {
 
         var lexer = Lexer.init(input[0..ret]);
         var parser = try Parser.init(&lexer, &alloc);
-        const program = try parser.parse();
+        const program = try parser.parseProgram();
         const str = try program.debug_string();
         try stdout.print("{s}\n", .{str});
     }
