@@ -22,6 +22,18 @@ test "Test Integer literal evaluation" {
     }
 }
 
+test "Test Boolean literal evaluation" {
+    const expected = [_]struct { []const u8, bool }{
+        .{ "true;", true },
+        .{ "false;", false },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        _ = try test_boolean_object(evaluated, exp[1]);
+    }
+}
+
 fn test_integer_object(object: Object.Object, expected: u64) !bool {
     switch (object) {
         .integer => |int| {
@@ -29,6 +41,19 @@ fn test_integer_object(object: Object.Object, expected: u64) !bool {
         },
         else => {
             try stderr.print("Object is not an Integer\n", .{});
+        },
+    }
+
+    return false;
+}
+
+fn test_boolean_object(object: Object.Object, expected: bool) !bool {
+    switch (object) {
+        .boolean => |boo| {
+            return boo.value == expected;
+        },
+        else => {
+            try stderr.print("Object is not a Boolean\n", .{});
         },
     }
 

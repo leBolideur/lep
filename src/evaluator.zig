@@ -12,6 +12,24 @@ const EvalError = error{BadNode};
 
 const stderr = std.io.getStdOut().writer();
 
+const TRUE = Object{
+    .boolean = Boolean{
+        .type = ObjectType.Boolean,
+        .value = true,
+    },
+};
+const FALSE = Object{
+    .boolean = Boolean{
+        .type = ObjectType.Boolean,
+        .value = false,
+    },
+};
+const NULL = Object{
+    .boolean = Null{
+        .type = ObjectType.Null,
+    },
+};
+
 pub const Evaluator = struct {
     pub fn eval(self: Evaluator, node: ast.Node) EvalError!Object {
         switch (node) {
@@ -31,7 +49,6 @@ pub const Evaluator = struct {
     }
 
     pub fn eval_expression(self: Evaluator, expression: *const ast.Expression) EvalError!Object {
-        _ = self;
         switch (expression.*) {
             .integer => |int| {
                 return Object{
@@ -40,6 +57,9 @@ pub const Evaluator = struct {
                         .value = int.value,
                     },
                 };
+            },
+            .boolean => |boo| {
+                return self.get_boolean(boo.value);
             },
             else => unreachable,
         }
@@ -50,5 +70,10 @@ pub const Evaluator = struct {
             .expr_statement => |expr_st| return try self.eval_expression(expr_st.expression),
             else => return Object{ .null = Null{ .type = ObjectType.Null } },
         }
+    }
+
+    fn get_boolean(_: Evaluator, value: bool) Object {
+        if (value) return TRUE;
+        return FALSE;
     }
 };
