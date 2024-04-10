@@ -9,9 +9,9 @@ pub const Object = union(enum) {
 
     pub fn inspect(self: Object) void {
         switch (self) {
-            .integer => |obj| obj.integer.inspect(),
-            .boolean => |obj| obj.integer.inspect(),
-            .null => |obj| obj.integer.inspect(),
+            .integer => |integer| integer.inspect(),
+            .boolean => |boolean| boolean.inspect(),
+            .null => |n| n.inspect(),
         }
     }
 };
@@ -21,7 +21,7 @@ pub const Integer = struct {
     value: u64,
 
     pub fn inspect(self: Integer) void {
-        std.debug.print("{}", self.value);
+        std.debug.print("{d}\n", .{self.value});
     }
 };
 
@@ -30,7 +30,7 @@ pub const Boolean = struct {
     value: bool,
 
     pub fn inspect(self: Boolean) void {
-        std.debug.print("{}", self.value);
+        std.debug.print("{?}\n", .{self.value});
     }
 };
 
@@ -38,6 +38,6 @@ pub const Null = struct {
     type: ObjectType,
 
     pub fn inspect(_: Null) void {
-        std.debug.print("null");
+        std.debug.print("null\n", .{});
     }
 };
