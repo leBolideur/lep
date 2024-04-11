@@ -30,7 +30,29 @@ const NULL = Object{
     },
 };
 
+const INFIX_OP = enum { PLUS, MINUS, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, DIFF };
+
 pub const Evaluator = struct {
+    infix_op_map: std.StringHashMap(INFIX_OP),
+
+    // allocator: *const std.mem.Allocator,
+    pub fn init(allocator: *const std.mem.Allocator) !Evaluator {
+        var infix_op_map = std.StringHashMap(INFIX_OP).init(allocator.*);
+        try infix_op_map.put("+", INFIX_OP.PLUS);
+        try infix_op_map.put("-", INFIX_OP.MINUS);
+        try infix_op_map.put("*", INFIX_OP.PRODUCT);
+        try infix_op_map.put("<", INFIX_OP.LT);
+        try infix_op_map.put(">", INFIX_OP.GT);
+        try infix_op_map.put("<=", INFIX_OP.LTE);
+        try infix_op_map.put(">=", INFIX_OP.GTE);
+        try infix_op_map.put("==", INFIX_OP.EQ);
+        try infix_op_map.put("!=", INFIX_OP.DIFF);
+
+        return Evaluator{
+            .infix_op_map = infix_op_map,
+        };
+    }
+
     pub fn eval(self: Evaluator, node: ast.Node) EvalError!Object {
         switch (node) {
             .program => |p| return try self.eval_program(p),
@@ -59,13 +81,22 @@ pub const Evaluator = struct {
                 };
             },
             .boolean => |boo| {
-                // Is this really return the reference ?
                 return self.get_boolean(boo.value);
             },
             .prefix_expr => |expr| {
                 const node = ast.Node{ .expression = expr.right_expr.* };
                 const right = try self.eval(node);
+
                 return try self.eval_prefix(expr.operator, right);
+            },
+            .infix_expr => |expr| {
+                const node_right = ast.Node{ .expression = expr.right_expr.* };
+                const right = try self.eval(node_right);
+
+                const node_left = ast.Node{ .expression = expr.right_expr.* };
+                const left = try self.eval(node_left);
+
+                return try self.eval_infix(expr.operator, left, right);
             },
             else => unreachable,
         }
@@ -89,12 +120,80 @@ pub const Evaluator = struct {
         }
     }
 
+    fn eval_infix(self: Evaluator, op: []const u8, left: Object, right: Object) EvalError!Object {
+        const left_type = @tagName(left);
+        const right_type = @tagName(left);
+
+        if (!std.mem.eql(u8, left_type, right_type)) {
+            stderr.print("All operands must have the same type\n", .{}) catch {};
+            return NULL;
+        }
+
+        // At this point left and right has the same type
+        switch (left) {
+            .integer => return self.eval_integer_infix(op, left, right),
+            else => unreachable,
+        }
+
+        return NULL;
+    }
+
+    fn eval_integer_infix(self: Evaluator, op_: []const u8, left_: Object, right_: Object) EvalError!Object {
+        const left = left_.integer.value;
+        const right = right_.integer.value;
+        const op = self.infix_op_map.get(op_);
+
+        switch (op.?) {
+            INFIX_OP.PLUS => {
+                const result = Integer{ .type = ObjectType.Integer, .value = left + right };
+                return Object{ .integer = result };
+            },
+            INFIX_OP.MINUS => {
+                const result = Integer{ .type = ObjectType.Integer, .value = left - right };
+                return Object{ .integer = result };
+            },
+            INFIX_OP.PRODUCT => {
+                const result = Integer{ .type = ObjectType.Integer, .value = left * right };
+                return Object{ .integer = result };
+            },
+            INFIX_OP.DIVIDE => {
+                if (right == 0) {
+                    stderr.print("Impossible divide by zero\n", .{}) catch {};
+                    return NULL;
+                }
+                const result = Integer{ .type = ObjectType.Integer, .value = @divFloor(left, right) };
+                return Object{ .integer = result };
+            },
+            INFIX_OP.LT => {
+                return self.get_boolean(left < right);
+            },
+            INFIX_OP.GT => {
+                return self.get_boolean(left > right);
+            },
+            INFIX_OP.LTE => {
+                return self.get_boolean(left <= right);
+            },
+            INFIX_OP.GTE => {
+                return self.get_boolean(left >= right);
+            },
+            INFIX_OP.EQ => {
+                return self.get_boolean(left == right);
+            },
+            INFIX_OP.DIFF => {
+                return self.get_boolean(left != right);
+            },
+
+            // else => {
+            //     stderr.print("Unknown operator\n", .{}) catch {};
+            //     return NULL;
+            // },
+        }
+    }
+
     fn eval_bang_op_expr(self: Evaluator, right: Object) EvalError!Object {
-        _ = self;
         switch (right) {
             .boolean => |bo| {
-                if (bo.value == true) return FALSE;
-                return TRUE;
+                return self.get_boolean(bo.value);
             },
             else => {
                 stderr.print("Bang operator must be use with Boolean only\n", .{}) catch {};
@@ -119,6 +218,7 @@ pub const Evaluator = struct {
     }
 
     fn get_boolean(_: Evaluator, value: bool) Object {
+        // Is this really return the reference ?
         if (value) return TRUE;
         return FALSE;
     }

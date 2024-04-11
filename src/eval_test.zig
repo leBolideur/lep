@@ -48,17 +48,48 @@ test "Test Prefix ! op with boolean" {
     }
 }
 
-test "Test Prefix - op with integers" {
+test "Test expressions with integers" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "5;", 5 },
         .{ "10;", 10 },
         .{ "-10;", -10 },
         .{ "-999;", -999 },
+        .{ "5 + 5 + 5 + 5 - 10;", 10 },
+        .{ "2 * 2 * 2 * 2 * 2;", 32 },
+        .{ "-50 + 100 + -50;", 0 },
+        .{ "5 * 2 + 10;", 20 },
+        .{ "5 + 2 * 10;", 25 },
+        .{ "20 + 2 * -10;", 0 },
+        .{ "50 / 2 * 2 + 10;", 60 },
+        .{ "2 * (5 + 10);", 30 },
+        .{ "3 * 3 * 3 + 10;", 37 },
+        .{ "3 * (3 * 3) + 10;", 37 },
+        .{ "(5 + 10 * 2 + 15 / 3) * 2 + -10;", 50 },
     };
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
         _ = try test_integer_object(evaluated, exp[1]);
+    }
+}
+
+test "Test expressions with booleans" {
+    const expected = [_]struct { []const u8, bool }{
+        .{ "true;", true },
+        .{ "false;", false },
+        .{ "1 < 2;", true },
+        .{ "1 > 2;", false },
+        .{ "1 < 1;", false },
+        .{ "1 > 1;", false },
+        .{ "1 == 1;", true },
+        .{ "1 != 1;", false },
+        .{ "1 == 2;", false },
+        .{ "1 != 2;", true },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        _ = try test_boolean_object(evaluated, exp[1]);
     }
 }
 
@@ -97,7 +128,7 @@ fn test_eval(input: []const u8) !Object.Object {
     var parser = try Parser.init(&lexer, &alloc);
     const program_ast = try parser.parse();
 
-    const evaluator = Evaluator{};
+    const evaluator = try Evaluator.init(&alloc);
 
     return try evaluator.eval(program_ast);
 }
