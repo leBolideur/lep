@@ -9,7 +9,7 @@ const Evaluator = @import("evaluator.zig").Evaluator;
 const stderr = std.io.getStdOut().writer();
 
 test "Test Integer literal evaluation" {
-    const expected = [_]struct { []const u8, u64 }{
+    const expected = [_]struct { []const u8, i64 }{
         .{ "5;", 5 },
         .{ "0;", 0 },
         .{ "10;", 10 },
@@ -34,7 +34,35 @@ test "Test Boolean literal evaluation" {
     }
 }
 
-fn test_integer_object(object: Object.Object, expected: u64) !bool {
+test "Test Prefix ! op with boolean" {
+    const expected = [_]struct { []const u8, bool }{
+        .{ "!true;", false },
+        .{ "!false;", true },
+        .{ "!!false;", false },
+        .{ "!!true;", true },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        _ = try test_boolean_object(evaluated, exp[1]);
+    }
+}
+
+test "Test Prefix - op with integers" {
+    const expected = [_]struct { []const u8, i64 }{
+        .{ "5;", 5 },
+        .{ "10;", 10 },
+        .{ "-10;", -10 },
+        .{ "-999;", -999 },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        _ = try test_integer_object(evaluated, exp[1]);
+    }
+}
+
+fn test_integer_object(object: Object.Object, expected: i64) !bool {
     switch (object) {
         .integer => |int| {
             return int.value == expected;
@@ -67,7 +95,7 @@ fn test_eval(input: []const u8) !Object.Object {
 
     var lexer = Lexer.init(input);
     var parser = try Parser.init(&lexer, &alloc);
-    const program_ast = try parser.parseProgram();
+    const program_ast = try parser.parse();
 
     const evaluator = Evaluator{};
 

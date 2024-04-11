@@ -25,7 +25,7 @@ const FALSE = Object{
     },
 };
 const NULL = Object{
-    .boolean = Null{
+    .null = Null{
         .type = ObjectType.Null,
     },
 };
@@ -48,7 +48,7 @@ pub const Evaluator = struct {
         return result;
     }
 
-    pub fn eval_expression(self: Evaluator, expression: *const ast.Expression) EvalError!Object {
+    fn eval_expression(self: Evaluator, expression: *const ast.Expression) EvalError!Object {
         switch (expression.*) {
             .integer => |int| {
                 return Object{
@@ -59,16 +59,62 @@ pub const Evaluator = struct {
                 };
             },
             .boolean => |boo| {
+                // Is this really return the reference ?
                 return self.get_boolean(boo.value);
+            },
+            .prefix_expr => |expr| {
+                const node = ast.Node{ .expression = expr.right_expr.* };
+                const right = try self.eval(node);
+                return try self.eval_prefix(expr.operator, right);
             },
             else => unreachable,
         }
     }
 
-    pub fn eval_statement(self: Evaluator, statement: ast.Statement) EvalError!Object {
+    fn eval_statement(self: Evaluator, statement: ast.Statement) EvalError!Object {
         switch (statement) {
             .expr_statement => |expr_st| return try self.eval_expression(expr_st.expression),
             else => return Object{ .null = Null{ .type = ObjectType.Null } },
+        }
+    }
+
+    fn eval_prefix(self: Evaluator, op: u8, right: Object) EvalError!Object {
+        switch (op) {
+            '!' => return try self.eval_bang_op_expr(right),
+            '-' => return try self.eval_minus_prefix_op_expr(right),
+            else => {
+                stderr.print("Unknown prefix operator\n", .{}) catch {};
+                return NULL;
+            },
+        }
+    }
+
+    fn eval_bang_op_expr(self: Evaluator, right: Object) EvalError!Object {
+        _ = self;
+        switch (right) {
+            .boolean => |bo| {
+                if (bo.value == true) return FALSE;
+                return TRUE;
+            },
+            else => {
+                stderr.print("Bang operator must be use with Boolean only\n", .{}) catch {};
+                return NULL;
+            },
+        }
+    }
+
+    fn eval_minus_prefix_op_expr(self: Evaluator, right: Object) EvalError!Object {
+        _ = self;
+        switch (right) {
+            .integer => |int| {
+                const integer = Integer{ .type = ObjectType.Integer, .value = -int.value };
+                return Object{ .integer = integer };
+            },
+
+            else => {
+                stderr.print("Minus operator must be use with Integers only\n", .{}) catch {};
+                return NULL;
+            },
         }
     }
 

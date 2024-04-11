@@ -25,7 +25,7 @@ pub fn repl() !void {
 
         var lexer = Lexer.init(input[0..ret]);
         var parser = try Parser.init(&lexer, &alloc);
-        const program = try parser.parseProgram();
+        const program = try parser.parse();
 
         const evaluator = Evaluator{};
         const object = try evaluator.eval(program);

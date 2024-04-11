@@ -80,7 +80,7 @@ pub const Parser = struct {
         self.peek_token = self.lexer.next();
     }
 
-    pub fn parseProgram(self: *Parser) !ast.Node {
+    pub fn parse(self: *Parser) !ast.Node {
         var statements = std.ArrayList(ast.Statement).init(self.allocator.*);
 
         while (self.current_token.type != TokenType.EOF) {
@@ -89,7 +89,7 @@ pub const Parser = struct {
             self.next();
         }
 
-        return ast.Node{ .program = ast.Program{ .statements = statements } };
+        return ast.Node{ .program = ast.Program{ .statements = statements, .allocator = self.allocator } };
     }
 
     fn parse_statement(self: *Parser) !ast.Statement {
@@ -204,7 +204,7 @@ pub const Parser = struct {
     }
 
     fn parse_integer_literal(self: *Parser) ParserError!ast.IntegerLiteral {
-        const to_int = std.fmt.parseInt(u64, self.current_token.literal, 10) catch {
+        const to_int = std.fmt.parseInt(i64, self.current_token.literal, 10) catch {
             stderr.print("parse string {s} to int failed!\n", .{self.current_token.literal}) catch {};
             return ParserError.ParseInteger;
         };

@@ -9,7 +9,7 @@ const Token = token.Token;
 const TokenType = token.TokenType;
 
 test "Test VAR statements" {
-    const expected = [_]struct { []const u8, []const u8, u64 }{
+    const expected = [_]struct { []const u8, []const u8, i64 }{
         .{ "var x = 5;", "x", 5 },
         .{ "var y = 10;", "y", 10 },
         .{ "var foobar = 83;", "foobar", 83 },
@@ -21,7 +21,8 @@ test "Test VAR statements" {
         defer arena.deinit();
 
         var parser = try Parser.init(&lexer, &arena.allocator());
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const var_st = program.statements.items[0].var_statement;
@@ -40,7 +41,7 @@ test "Test VAR statements" {
 }
 
 test "Test RET statements" {
-    const expected = [_]struct { []const u8, u64 }{
+    const expected = [_]struct { []const u8, i64 }{
         .{ "ret 5;", 5 },
         .{ "ret 20;", 20 },
     };
@@ -52,7 +53,8 @@ test "Test RET statements" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
 
         try std.testing.expect(program.statements.items.len == 1);
         const ret_st = program.statements.items[0].ret_statement;
@@ -77,7 +79,8 @@ test "Test Identifier expression statement" {
         defer arena.deinit();
 
         var parser = try Parser.init(&lexer, &arena.allocator());
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
@@ -88,7 +91,7 @@ test "Test Identifier expression statement" {
 }
 
 test "Test Integer expression statement" {
-    const expected = [_]struct { []const u8, []const u8, u64 }{
+    const expected = [_]struct { []const u8, []const u8, i64 }{
         .{ "5;", "5", 5 },
         .{ "10;", "10", 10 },
         .{ "42;", "42", 42 },
@@ -101,7 +104,8 @@ test "Test Integer expression statement" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
@@ -125,7 +129,8 @@ test "Test If expression" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
@@ -154,7 +159,8 @@ test "Test If-Else expression" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement.expression;
@@ -174,7 +180,7 @@ test "Test If-Else expression" {
 }
 
 test "Test function literal parameters" {
-    const expected = [_]struct { []const u8, u8 }{
+    const expected = [_]struct { []const u8, i64 }{
         .{ "fn(x, y): x + y; end;", 2 },
         .{ "fn(x, y): x - y; end;", 2 },
         .{ "fn(x, y, z): end;", 3 },
@@ -189,7 +195,8 @@ test "Test function literal parameters" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
@@ -201,7 +208,7 @@ test "Test function literal parameters" {
 }
 
 test "Test call expressions" {
-    const expected = [_]struct { []const u8, []const u8, u8, u8, []const u8 }{
+    const expected = [_]struct { []const u8, []const u8, i64, i64, []const u8 }{
         .{ "add(1, 2);", "add", 1, 2, "add(1, 2)" },
         .{ "sub(5, 2);", "sub", 5, 2, "sub(5, 2)" },
         .{ "mul(12, 6);", "mul", 12, 6, "mul(12, 6)" },
@@ -215,7 +222,8 @@ test "Test call expressions" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
@@ -246,7 +254,8 @@ test "Test Boolean expression statement" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
@@ -257,7 +266,7 @@ test "Test Boolean expression statement" {
 }
 
 test "Test Prefix expressions with Integer" {
-    const expected = [2]struct { []const u8, u8, []const u8, u64 }{
+    const expected = [2]struct { []const u8, u8, []const u8, i64 }{
         .{ "-5;", '-', "5", 5 },
         .{ "!10;", '!', "10", 10 },
     };
@@ -269,7 +278,8 @@ test "Test Prefix expressions with Integer" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const st = program.statements.items[0];
@@ -300,7 +310,8 @@ test "Test Prefix expressions with Boolean" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const st = program.statements.items[0];
@@ -318,7 +329,7 @@ test "Test Prefix expressions with Boolean" {
 }
 
 test "Test Infix expressions with Integer" {
-    const expected = [_]struct { []const u8, u64, []const u8, u64 }{
+    const expected = [_]struct { []const u8, i64, []const u8, i64 }{
         .{ "5 + 2;", 5, "+", 2 },
         .{ "5 - 5;", 5, "-", 5 },
         .{ "5 * 5;", 5, "*", 5 },
@@ -336,7 +347,8 @@ test "Test Infix expressions with Integer" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
         const st = program.statements.items[0];
 
@@ -367,7 +379,8 @@ test "Test Infix expressions with Boolean" {
 
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
         const st = program.statements.items[0];
 
@@ -488,7 +501,8 @@ test "Test operators precedence" {
         defer arena.deinit();
         var parser = try Parser.init(&lexer, &arena.allocator());
 
-        const program = try parser.parse();
+        const node = try parser.parse();
+        const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
         const str = try program.debug_string();
@@ -496,7 +510,7 @@ test "Test operators precedence" {
     }
 }
 
-fn test_integer_literal(expression: *const ast.Expression, value: u64) !void {
+fn test_integer_literal(expression: *const ast.Expression, value: i64) !void {
     switch (expression.*) {
         .integer => |int_lit| {
             try std.testing.expect(@TypeOf(int_lit) == ast.IntegerLiteral);

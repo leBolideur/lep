@@ -54,14 +54,14 @@ pub const Expression = union(enum) {
 pub const Program = struct {
     statements: std.ArrayList(Statement),
 
-    // allocator: *const std.mem.Allocator,
+    allocator: *const std.mem.Allocator,
 
-    // pub fn init(allocator: *const std.mem.Allocator) Program {
-    //     return Program{
-    //         .statements = std.ArrayList(Statement).init(allocator.*),
-    //         .allocator = allocator,
-    //     };
-    // }
+    pub fn init(allocator: *const std.mem.Allocator) Program {
+        return Program{
+            .statements = std.ArrayList(Statement).init(allocator.*),
+            .allocator = allocator,
+        };
+    }
 
     pub fn token_literal(self: Program) []const u8 {
         if (self.statements.len > 0)
@@ -149,7 +149,7 @@ pub const Identifier = struct {
 
 pub const IntegerLiteral = struct {
     token: Token,
-    value: u64,
+    value: i64,
 
     pub fn token_literal(self: IntegerLiteral) []const u8 {
         return self.token.literal;

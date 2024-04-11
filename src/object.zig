@@ -18,7 +18,7 @@ pub const Object = union(enum) {
 
 pub const Integer = struct {
     type: ObjectType,
-    value: u64,
+    value: i64,
 
     pub fn inspect(self: Integer) void {
         std.debug.print("{d}\n", .{self.value});
