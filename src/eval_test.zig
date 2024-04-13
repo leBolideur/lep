@@ -18,7 +18,7 @@ test "Test Integer literal evaluation" {
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
-        _ = try test_integer_object(evaluated, exp[1]);
+        try test_integer_object(evaluated, exp[1]);
     }
 }
 
@@ -30,7 +30,7 @@ test "Test Boolean literal evaluation" {
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
-        _ = try test_boolean_object(evaluated, exp[1]);
+        try test_boolean_object(evaluated, exp[1]);
     }
 }
 
@@ -44,7 +44,7 @@ test "Test Prefix ! op with boolean" {
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
-        _ = try test_boolean_object(evaluated, exp[1]);
+        try test_boolean_object(evaluated, exp[1]);
     }
 }
 
@@ -69,7 +69,7 @@ test "Test expressions with integers" {
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
-        _ = try test_integer_object(evaluated, exp[1]);
+        try test_integer_object(evaluated, exp[1]);
     }
 }
 
@@ -89,34 +89,30 @@ test "Test expressions with booleans" {
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
-        _ = try test_boolean_object(evaluated, exp[1]);
+        try test_boolean_object(evaluated, exp[1]);
     }
 }
 
-fn test_integer_object(object: Object.Object, expected: i64) !bool {
+fn test_integer_object(object: Object.Object, expected: i64) !void {
     switch (object) {
         .integer => |int| {
-            return int.value == expected;
+            try std.testing.expectEqual(int.value, expected);
         },
         else => {
             try stderr.print("Object is not an Integer\n", .{});
         },
     }
-
-    return false;
 }
 
-fn test_boolean_object(object: Object.Object, expected: bool) !bool {
+fn test_boolean_object(object: Object.Object, expected: bool) !void {
     switch (object) {
         .boolean => |boo| {
-            return boo.value == expected;
+            try std.testing.expectEqual(boo.value, expected);
         },
         else => {
             try stderr.print("Object is not a Boolean\n", .{});
         },
     }
-
-    return false;
 }
 
 fn test_eval(input: []const u8) !Object.Object {
