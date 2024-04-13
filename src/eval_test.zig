@@ -93,6 +93,30 @@ test "Test expressions with booleans" {
     }
 }
 
+test "Test conditions" {
+    const expected = [_]struct { []const u8, ?i64 }{
+        .{ "if (true): 10; end;", 10 },
+        .{ "if (false): 10; end;", null },
+        // .{ "if (1): 10; end;", 10 },
+        .{ "if (1 < 2): 10; end;", 10 },
+        .{ "if (1 > 2): 10; end;", null },
+        .{ "if (1 > 2): 10; else: 20; end;", 20 },
+        .{ "if (1 < 2): 10; else: 20; end;", 10 },
+    };
+
+    // if (5 * 5 + 10 > 34): 99; else: 100; end;
+    // if ((1000 / 2) + 250 * 2 == 1000): 9999; end;
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (evaluated) {
+            .integer => try test_integer_object(evaluated, exp[1].?),
+            .null => {},
+            else => unreachable,
+        }
+    }
+}
+
 fn test_integer_object(object: Object.Object, expected: i64) !void {
     switch (object) {
         .integer => |int| {
@@ -111,6 +135,17 @@ fn test_boolean_object(object: Object.Object, expected: bool) !void {
         },
         else => {
             try stderr.print("Object is not a Boolean\n", .{});
+        },
+    }
+}
+
+fn test_null_object(object: Object.Object) !void {
+    switch (object) {
+        .null => |boo| {
+            try std.testing.expectEqual(boo.value, null);
+        },
+        else => {
+            try stderr.print("Object is supposed to be a Null one\n", .{});
         },
     }
 }

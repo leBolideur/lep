@@ -71,6 +71,15 @@ pub const Evaluator = struct {
         return result;
     }
 
+    fn eval_block(self: Evaluator, block: ast.BlockStatement) EvalError!Object {
+        var result: Object = undefined;
+        for (block.statements.items) |statement| {
+            result = try self.eval_statement(statement);
+        }
+
+        return result;
+    }
+
     fn eval_expression(self: Evaluator, expression: *const ast.Expression) EvalError!Object {
         switch (expression.*) {
             .integer => |int| {
@@ -99,8 +108,32 @@ pub const Evaluator = struct {
 
                 return try self.eval_infix(expr.operator, left, right);
             },
+            .block_statement => |block| {
+                return try self.eval_block(block);
+            },
+            .if_expression => |if_expr| {
+                return try self.eval_if_expression(&if_expr);
+            },
             else => unreachable,
         }
+    }
+
+    fn eval_if_expression(self: Evaluator, expr: *const ast.IfExpression) EvalError!Object {
+        const condition = try self.eval_expression(expr.*.condition);
+
+        switch (condition) {
+            .boolean => {},
+            else => stderr.print("Condition of if/else must be a boolean\n", .{}) catch {},
+        }
+
+        if (condition.boolean.value) {
+            return self.eval_block(expr.*.consequence);
+        } else {
+            const alternative = expr.*.alternative orelse return NULL;
+            return self.eval_block(alternative);
+        }
+
+        return NULL;
     }
 
     fn eval_statement(self: Evaluator, statement: ast.Statement) EvalError!Object {

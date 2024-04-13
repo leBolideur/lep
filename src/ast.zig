@@ -46,6 +46,7 @@ pub const Expression = union(enum) {
     if_expression: IfExpression,
     func_literal: FunctionLiteral,
     call_expression: CallExpression,
+    block_statement: BlockStatement,
 
     pub fn debug_string(self: *const Expression, buf: *std.ArrayList(u8)) DebugError!void {
         try switch (self.*) {
@@ -57,6 +58,7 @@ pub const Expression = union(enum) {
             .if_expression => |ife| ife.debug_string(buf),
             .func_literal => |fl| fl.debug_string(buf),
             .call_expression => |call| call.debug_string(buf),
+            .block_statement => |block| block.debug_string(buf),
         };
     }
 };
