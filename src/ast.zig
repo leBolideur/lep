@@ -10,6 +10,16 @@ pub const Node = union(enum) {
     program: Program,
     statement: Statement,
     expression: Expression,
+
+    pub fn debug_string(self: Node, buf: *std.ArrayList(u8)) DebugError![]const u8 {
+        switch (self) {
+            .program => |prog| try prog.debug_string(buf),
+            .statement => |st| try st.debug_string(buf),
+            .expression => |expr| try expr.debug_string(buf),
+        }
+
+        return buf.toOwnedSlice();
+    }
 };
 
 pub const Statement = union(enum) {
@@ -54,12 +64,12 @@ pub const Expression = union(enum) {
 pub const Program = struct {
     statements: std.ArrayList(Statement),
 
-    allocator: *const std.mem.Allocator,
+    // allocator: *const std.mem.Allocator,
 
     pub fn init(allocator: *const std.mem.Allocator) Program {
         return Program{
             .statements = std.ArrayList(Statement).init(allocator.*),
-            .allocator = allocator,
+            // .allocator = allocator,
         };
     }
 
@@ -69,15 +79,10 @@ pub const Program = struct {
         return "";
     }
 
-    pub fn debug_string(self: Program) DebugError![]const u8 {
-        var buf = std.ArrayList(u8).init(self.allocator.*);
-        defer buf.deinit();
-
+    pub fn debug_string(self: Program, buf: *std.ArrayList(u8)) DebugError!void {
         for (self.statements.items) |st| {
-            st.debug_string(&buf) catch return DebugError.DebugString;
+            st.debug_string(buf) catch return DebugError.DebugString;
         }
-
-        return buf.toOwnedSlice();
     }
 
     // pub fn close(self: Program) void {

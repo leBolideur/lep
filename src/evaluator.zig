@@ -30,7 +30,7 @@ const NULL = Object{
     },
 };
 
-const INFIX_OP = enum { PLUS, MINUS, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, DIFF };
+const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ };
 
 pub const Evaluator = struct {
     infix_op_map: std.StringHashMap(INFIX_OP),
@@ -38,15 +38,16 @@ pub const Evaluator = struct {
     // allocator: *const std.mem.Allocator,
     pub fn init(allocator: *const std.mem.Allocator) !Evaluator {
         var infix_op_map = std.StringHashMap(INFIX_OP).init(allocator.*);
-        try infix_op_map.put("+", INFIX_OP.PLUS);
-        try infix_op_map.put("-", INFIX_OP.MINUS);
+        try infix_op_map.put("+", INFIX_OP.SUM);
+        try infix_op_map.put("-", INFIX_OP.SUB);
         try infix_op_map.put("*", INFIX_OP.PRODUCT);
+        try infix_op_map.put("/", INFIX_OP.DIVIDE);
         try infix_op_map.put("<", INFIX_OP.LT);
         try infix_op_map.put(">", INFIX_OP.GT);
         try infix_op_map.put("<=", INFIX_OP.LTE);
         try infix_op_map.put(">=", INFIX_OP.GTE);
         try infix_op_map.put("==", INFIX_OP.EQ);
-        try infix_op_map.put("!=", INFIX_OP.DIFF);
+        try infix_op_map.put("!=", INFIX_OP.NOT_EQ);
 
         return Evaluator{
             .infix_op_map = infix_op_map,
@@ -93,7 +94,7 @@ pub const Evaluator = struct {
                 const node_right = ast.Node{ .expression = expr.right_expr.* };
                 const right = try self.eval(node_right);
 
-                const node_left = ast.Node{ .expression = expr.right_expr.* };
+                const node_left = ast.Node{ .expression = expr.left_expr.* };
                 const left = try self.eval(node_left);
 
                 return try self.eval_infix(expr.operator, left, right);
@@ -122,7 +123,7 @@ pub const Evaluator = struct {
 
     fn eval_infix(self: Evaluator, op: []const u8, left: Object, right: Object) EvalError!Object {
         const left_type = @tagName(left);
-        const right_type = @tagName(left);
+        const right_type = @tagName(right);
 
         if (!std.mem.eql(u8, left_type, right_type)) {
             stderr.print("All operands must have the same type\n", .{}) catch {};
@@ -142,13 +143,14 @@ pub const Evaluator = struct {
         const left = left_.integer.value;
         const right = right_.integer.value;
         const op = self.infix_op_map.get(op_);
+        // std.debug.print("{d} {?} {d} >> {s}\n", .{ left, op, right, op_ });
 
         switch (op.?) {
-            INFIX_OP.PLUS => {
+            INFIX_OP.SUM => {
                 const result = Integer{ .type = ObjectType.Integer, .value = left + right };
                 return Object{ .integer = result };
             },
-            INFIX_OP.MINUS => {
+            INFIX_OP.SUB => {
                 const result = Integer{ .type = ObjectType.Integer, .value = left - right };
                 return Object{ .integer = result };
             },
@@ -179,7 +181,7 @@ pub const Evaluator = struct {
             INFIX_OP.EQ => {
                 return self.get_boolean(left == right);
             },
-            INFIX_OP.DIFF => {
+            INFIX_OP.NOT_EQ => {
                 return self.get_boolean(left != right);
             },
 
@@ -193,7 +195,7 @@ pub const Evaluator = struct {
     fn eval_bang_op_expr(self: Evaluator, right: Object) EvalError!Object {
         switch (right) {
             .boolean => |bo| {
-                return self.get_boolean(bo.value);
+                return self.get_boolean(!bo.value);
             },
             else => {
                 stderr.print("Bang operator must be use with Boolean only\n", .{}) catch {};

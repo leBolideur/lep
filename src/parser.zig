@@ -89,7 +89,7 @@ pub const Parser = struct {
             self.next();
         }
 
-        return ast.Node{ .program = ast.Program{ .statements = statements, .allocator = self.allocator } };
+        return ast.Node{ .program = ast.Program{ .statements = statements } };
     }
 
     fn parse_statement(self: *Parser) !ast.Statement {

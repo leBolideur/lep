@@ -27,12 +27,15 @@ pub fn repl() !void {
         var parser = try Parser.init(&lexer, &alloc);
         const program = try parser.parse();
 
-        const evaluator = Evaluator{};
+        const evaluator = try Evaluator.init(&alloc);
         const object = try evaluator.eval(program);
 
-        object.inspect();
+        // var buf = std.ArrayList(u8).init(alloc);
+        // defer buf.deinit();
 
-        // const str = try program.debug_string();
+        // const str = try program.debug_string(&buf);
         // try stdout.print("{s}\n", .{str});
+
+        object.inspect();
     }
 }
