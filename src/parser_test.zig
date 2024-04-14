@@ -236,7 +236,10 @@ test "Test call expressions" {
         try test_integer_literal(&call_expr.arguments.items[0], exp[2]);
         try test_integer_literal(&call_expr.arguments.items[1], exp[3]);
 
-        const str = try program.debug_string();
+        var buf = std.ArrayList(u8).init(arena.allocator());
+
+        try program.debug_string(&buf);
+        const str = try buf.toOwnedSlice();
         try std.testing.expectEqualStrings(str, exp[4]);
     }
 }
@@ -505,7 +508,10 @@ test "Test operators precedence" {
         const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
-        const str = try program.debug_string();
+        var buf = std.ArrayList(u8).init(arena.allocator());
+
+        try program.debug_string(&buf);
+        const str = try buf.toOwnedSlice();
         try std.testing.expectEqualStrings(exp[1], str);
     }
 }

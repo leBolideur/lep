@@ -115,14 +115,7 @@ pub const Evaluator = struct {
                 return try self.eval_if_expression(if_expr);
             },
             .identifier => |ident| {
-                const val = self.env.get(ident.value) catch return EvalError.EnvGetError;
-                return val orelse {
-                    return try eval_utils.new_error(
-                        self.allocator,
-                        "identifier not found: {s}\n",
-                        .{ident.value},
-                    );
-                };
+                return try self.eval_identifier(ident);
             },
             else => unreachable,
         }
@@ -153,6 +146,16 @@ pub const Evaluator = struct {
         return eval_utils.new_null();
     }
 
+    fn eval_identifier(self: Evaluator, ident: ast.Identifier) EvalError!*const Object {
+        const val = self.env.get(ident.value) catch return EvalError.EnvGetError;
+        return val orelse {
+            return try eval_utils.new_error(
+                self.allocator,
+                "identifier not found: {s}",
+                .{ident.value},
+            );
+        };
+    }
     // fn eval_ret_statement(self: Evaluator, ret_statement: ast.RetStatement) EvalError!*const Object {
     //     const expr = try self.eval_expression(ret_statement.expression);
     //     const ret = eval_utils.new_return(self.allocator, expr);
@@ -174,8 +177,7 @@ pub const Evaluator = struct {
                 const expr = try self.eval_expression(va.expression);
                 if (eval_utils.is_error(expr)) return expr;
 
-                const val = self.env.set(va.name.value, expr) catch return EvalError.EnvSetError;
-                return val orelse EvalError.EnvSetError;
+                return self.env.set(va.name.value, expr) catch return EvalError.EnvSetError;
             },
         }
     }
@@ -185,7 +187,6 @@ pub const Evaluator = struct {
             '!' => return try self.eval_bang_op_expr(right),
             '-' => return try self.eval_minus_prefix_op_expr(right),
             else => {
-                // stderr.print("Unknown prefix operator\n", .{}) catch {};
                 return try eval_utils.new_error(self.allocator, "unknown operator {c}{s}", .{ op, right.typename() });
             },
         }
@@ -236,7 +237,6 @@ pub const Evaluator = struct {
                 .{ left_.typename(), op_, right_.typename() },
             );
         };
-        // std.debug.print("{d} {?} {d} >> {s}\n", .{ left, op, right, op_ });
 
         switch (op) {
             INFIX_OP.SUM => {
@@ -253,7 +253,6 @@ pub const Evaluator = struct {
             },
             INFIX_OP.DIVIDE => {
                 if (right == 0) {
-                    // stderr.print("Impossible divide by zero\n", .{}) catch {};
                     return try eval_utils.new_error(self.allocator, "Impossible division by zero > {d} / 0", .{left});
                 }
                 const object = try eval_utils.new_integer(self.allocator, @divFloor(left, right));
@@ -286,8 +285,6 @@ pub const Evaluator = struct {
                 return eval_utils.new_boolean(!bo.value);
             },
             else => {
-                // stderr.print("Bang operator must be use with Boolean only\n", .{}) catch {};
-                // _ = self;
                 return try eval_utils.new_error(self.allocator, "Bang operator must be use with Boolean only > {s}", .{right.typename()});
             },
         }
@@ -300,7 +297,6 @@ pub const Evaluator = struct {
                 return object;
             },
             else => {
-                // stderr.print("Minus operator must be use with Integers only\n", .{}) catch {};
                 return try eval_utils.new_error(self.allocator, "unknown operator: -{s}", .{right.typename()});
             },
         }

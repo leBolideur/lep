@@ -114,7 +114,6 @@ pub const Parser = struct {
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
         _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
-        self.next();
 
         return ast.VarStatement{
             .token = var_st_token,
@@ -132,8 +131,6 @@ pub const Parser = struct {
 
         _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
 
-        self.next();
-
         return ast.RetStatement{
             .token = ret_st_token,
             .expression = expr_ptr,
@@ -149,8 +146,6 @@ pub const Parser = struct {
 
         if (self.peek_token.type == TokenType.END or self.peek_token.type == TokenType.SEMICOLON) {
             self.next();
-        } else if (self.peek_token.type != TokenType.EOF) {
-            _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
         }
 
         return ast.ExprStatement{
@@ -161,7 +156,6 @@ pub const Parser = struct {
 
     fn parse_expression(self: *Parser, precedence: Precedence) ParserError!ast.Expression {
         // Check if the current token may be a Prefix expr
-        std.debug.print("\ncurrent: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
         var left_expr = switch (self.current_token.type) {
             .IDENT => ast.Expression{ .identifier = try self.parse_identifier() },
             .INT => ast.Expression{ .integer = try self.parse_integer_literal() },

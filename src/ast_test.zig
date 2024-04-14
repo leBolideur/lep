@@ -17,7 +17,7 @@ test "Test the AST string debug" {
                 .token = Token{ .literal = "myVar", .type = TokenType.IDENT },
                 .value = "myVar",
             },
-            .expression = ast.Expression{
+            .expression = &ast.Expression{
                 .identifier = ast.Identifier{
                     .token = Token{ .literal = "anotherVar", .type = TokenType.IDENT },
                     .value = "anotherVar",
@@ -26,12 +26,17 @@ test "Test the AST string debug" {
         },
     };
 
-    var program = ast.Program.init(&std.testing.allocator);
-    defer program.close();
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    var program = ast.Program.init(&alloc);
 
     try program.statements.append(var_st);
-    const string = try program.debug_string();
-    try std.testing.expectEqualStrings("var myVar = anotherVar;", string);
 
-    std.testing.allocator.free(string);
+    var buf = std.ArrayList(u8).init(alloc);
+
+    try program.debug_string(&buf);
+    const str = try buf.toOwnedSlice();
+    try std.testing.expectEqualStrings("var myVar = anotherVar;", str);
 }

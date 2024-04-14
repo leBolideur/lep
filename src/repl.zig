@@ -34,12 +34,6 @@ pub fn repl() !void {
         const evaluator = try Evaluator.init(&alloc, &env);
         const object = try evaluator.eval(program);
 
-        // var buf = std.ArrayList(u8).init(alloc);
-        // defer buf.deinit();
-
-        // const str = try program.debug_string(&buf);
-        // try stdout.print("{s}\n", .{str});
-
         object.inspect();
     }
 }

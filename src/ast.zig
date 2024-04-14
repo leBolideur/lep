@@ -99,8 +99,8 @@ pub const VarStatement = struct {
         try std.fmt.format(buf.*.writer(), "{s} ", .{token_str});
         try self.name.debug_string(buf);
         try std.fmt.format(buf.*.writer(), " = ", .{});
-
         try self.expression.debug_string(buf);
+        try std.fmt.format(buf.*.writer(), ";", .{});
     }
 };
 

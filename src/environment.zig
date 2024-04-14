@@ -14,12 +14,12 @@ pub const Environment = struct {
     }
 
     pub fn get(self: *Environment, name: []const u8) EnvError!?*const Object {
-        const value = self.string_map.get(name) orelse return EnvError.Undeclared;
-        return value;
+        const val = self.string_map.get(name); // orelse EnvError.Undeclared;
+        return val;
     }
 
-    pub fn set(self: *Environment, name: []const u8, value: *const Object) EnvError!?*const Object {
+    pub fn set(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
         self.string_map.put(name, value) catch return EnvError.SetError;
-        return self.string_map.get(name);
+        return self.string_map.get(name) orelse EnvError.Undeclared;
     }
 };

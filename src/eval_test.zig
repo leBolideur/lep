@@ -121,9 +121,9 @@ test "Test conditions" {
 test "Test return statement" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "ret 10;", 10 },
-        // .{ "ret 10; 9;", 10 },
-        // .{ "ret 2 * 5; 9;", 10 },
-        // .{ "9; ret 2 * 5; 9;", 10 },
+        .{ "ret 10; 9;", 10 },
+        .{ "ret 2 * 5; 9;", 10 },
+        .{ "9; ret 2 * 5; 9;", 10 },
         .{
             \\if (10 > 1):
             \\  if (10 > 1):
@@ -195,9 +195,9 @@ test "Test errors" {
 test "Test bindings" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "var a = 5; a;", 5 },
-        // .{ "var a = 5 * 5; a;", 25 },
-        // .{ "var a = 5; var b = a; b;", 5 },
-        // .{ "var a = 5; var b = a; var c = a + b + 5; c;", 15 },
+        .{ "var a = 5 * 5; a;", 25 },
+        .{ "var a = 5; var b = a; b;", 5 },
+        .{ "var a = 5; var b = a; var c = a + b + 5; c;", 15 },
     };
 
     for (expected) |exp| {
