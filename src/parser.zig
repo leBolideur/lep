@@ -147,8 +147,11 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
 
-        // _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
-        if (self.peek_token.type == TokenType.SEMICOLON) self.next();
+        if (self.current_token.type == TokenType.END and self.peek_token.type == TokenType.SEMICOLON) {
+            self.next();
+        } else if (self.peek_token.type != TokenType.EOF) {
+            _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
+        }
 
         return ast.ExprStatement{
             .token = expr_st_token,

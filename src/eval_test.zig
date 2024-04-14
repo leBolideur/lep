@@ -95,11 +95,11 @@ test "Test expressions with booleans" {
 
 test "Test conditions" {
     const expected = [_]struct { []const u8, ?i64 }{
-        .{ "if (true): 10; end;", 10 },
+        .{ "if (true): 10; end", 10 },
         .{ "if (false): 10; end;", null },
-        .{ "if (1 < 2): 10; end;", 10 },
+        .{ "if (1 < 2): 10; end", 10 },
         .{ "if (1 > 2): 10; end;", null },
-        .{ "if (1 > 2): 10; else: 20; end;", 20 },
+        .{ "if (1 > 2): 10; else: 20; end", 20 },
         .{ "if (1 < 2): 10; else: 20; end;", 10 },
     };
 
@@ -120,7 +120,7 @@ test "Test conditions" {
 test "Test return statement" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "ret 10;", 10 },
-        // .{ "ret 10; 9;", 10 },
+        .{ "ret 10; 9", 10 },
         // .{ "ret 2 * 5; 9;", 10 },
         // .{ "9; ret 2 * 5; 9;", 10 },
         .{

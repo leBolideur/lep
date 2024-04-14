@@ -114,8 +114,9 @@ pub const RetStatement = struct {
 
     pub fn debug_string(self: RetStatement, buf: *std.ArrayList(u8)) DebugError!void {
         const token_str = try self.token.get_str();
-        try std.fmt.format(buf.*.writer(), "{s}", .{token_str});
+        try std.fmt.format(buf.*.writer(), "{s} ", .{token_str});
         self.expression.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), ";", .{});
     }
 };
 
@@ -242,7 +243,7 @@ pub const IfExpression = struct {
             try std.fmt.format(buf.*.writer(), "\nelse:\n", .{});
             self.alternative.?.debug_string(buf) catch return DebugError.DebugString;
         }
-        try std.fmt.format(buf.*.writer(), "\nend;", .{});
+        try std.fmt.format(buf.*.writer(), "\nend", .{});
     }
 };
 
@@ -267,7 +268,7 @@ pub const FunctionLiteral = struct {
         }
         try std.fmt.format(buf.*.writer(), "):\n", .{});
         self.body.debug_string(buf) catch return DebugError.DebugString;
-        try std.fmt.format(buf.*.writer(), "\nend;", .{});
+        try std.fmt.format(buf.*.writer(), "\nend", .{});
     }
 };
 
