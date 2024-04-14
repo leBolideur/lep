@@ -97,7 +97,6 @@ test "Test conditions" {
     const expected = [_]struct { []const u8, ?i64 }{
         .{ "if (true): 10; end;", 10 },
         .{ "if (false): 10; end;", null },
-        // .{ "if (1): 10; end;", 10 },
         .{ "if (1 < 2): 10; end;", 10 },
         .{ "if (1 > 2): 10; end;", null },
         .{ "if (1 > 2): 10; else: 20; end;", 20 },
@@ -105,11 +104,12 @@ test "Test conditions" {
     };
 
     // if (5 * 5 + 10 > 34): 99; else: 100; end;
+    // if (5 * 5 + 10 < 34): 99; else: 100; end;
     // if ((1000 / 2) + 250 * 2 == 1000): 9999; end;
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
-        switch (evaluated) {
+        switch (evaluated.*) {
             .integer => try test_integer_object(evaluated, exp[1].?),
             .null => {},
             else => unreachable,
@@ -117,8 +117,34 @@ test "Test conditions" {
     }
 }
 
-fn test_integer_object(object: Object.Object, expected: i64) !void {
-    switch (object) {
+test "Test return statement" {
+    const expected = [_]struct { []const u8, i64 }{
+        .{ "ret 10;", 10 },
+        // .{ "ret 10; 9;", 10 },
+        // .{ "ret 2 * 5; 9;", 10 },
+        // .{ "9; ret 2 * 5; 9;", 10 },
+        .{
+            \\if (10 > 1):
+            \\  if (10 > 1):
+            \\      ret 10;
+            \\  end
+            \\  ret 1;
+            \\end
+            ,
+            10,
+        },
+    };
+
+    // if (10 > 1): if (10 > 1): ret 10; end; ret 1;end;
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_integer_object(evaluated, exp[1]);
+    }
+}
+
+fn test_integer_object(object: *const Object.Object, expected: i64) !void {
+    switch (object.*) {
         .integer => |int| {
             try std.testing.expectEqual(int.value, expected);
         },
@@ -128,8 +154,8 @@ fn test_integer_object(object: Object.Object, expected: i64) !void {
     }
 }
 
-fn test_boolean_object(object: Object.Object, expected: bool) !void {
-    switch (object) {
+fn test_boolean_object(object: *const Object.Object, expected: bool) !void {
+    switch (object.*) {
         .boolean => |boo| {
             try std.testing.expectEqual(boo.value, expected);
         },
@@ -139,10 +165,10 @@ fn test_boolean_object(object: Object.Object, expected: bool) !void {
     }
 }
 
-fn test_null_object(object: Object.Object) !void {
-    switch (object) {
-        .null => |boo| {
-            try std.testing.expectEqual(boo.value, null);
+fn test_null_object(object: *const Object.Object) !void {
+    switch (object.*) {
+        .null => |nu| {
+            try std.testing.expectEqual(nu.value, null);
         },
         else => {
             try stderr.print("Object is supposed to be a Null one\n", .{});
@@ -150,14 +176,20 @@ fn test_null_object(object: Object.Object) !void {
     }
 }
 
-fn test_eval(input: []const u8) !Object.Object {
+fn test_eval(input: []const u8) !*const Object.Object {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+    // defer arena.deinit();
     var alloc = arena.allocator();
 
     var lexer = Lexer.init(input);
     var parser = try Parser.init(&lexer, &alloc);
     const program_ast = try parser.parse();
+
+    // var buf = std.ArrayList(u8).init(alloc);
+    // defer buf.deinit();
+
+    // const str = try program_ast.debug_string(&buf);
+    // std.debug.print("{s}\n", .{str});
 
     const evaluator = try Evaluator.init(&alloc);
 

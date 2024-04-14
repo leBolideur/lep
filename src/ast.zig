@@ -26,12 +26,14 @@ pub const Statement = union(enum) {
     var_statement: VarStatement,
     ret_statement: RetStatement,
     expr_statement: ExprStatement,
+    block_statement: BlockStatement,
 
     pub fn debug_string(self: Statement, buf: *std.ArrayList(u8)) DebugError!void {
         try switch (self) {
             .var_statement => |vs| vs.debug_string(buf),
             .ret_statement => |rs| rs.debug_string(buf),
             .expr_statement => |es| es.debug_string(buf),
+            .block_statement => |block| block.debug_string(buf),
         };
     }
 };
@@ -46,7 +48,6 @@ pub const Expression = union(enum) {
     if_expression: IfExpression,
     func_literal: FunctionLiteral,
     call_expression: CallExpression,
-    block_statement: BlockStatement,
 
     pub fn debug_string(self: *const Expression, buf: *std.ArrayList(u8)) DebugError!void {
         try switch (self.*) {
@@ -58,7 +59,6 @@ pub const Expression = union(enum) {
             .if_expression => |ife| ife.debug_string(buf),
             .func_literal => |fl| fl.debug_string(buf),
             .call_expression => |call| call.debug_string(buf),
-            .block_statement => |block| block.debug_string(buf),
         };
     }
 };
@@ -66,12 +66,9 @@ pub const Expression = union(enum) {
 pub const Program = struct {
     statements: std.ArrayList(Statement),
 
-    // allocator: *const std.mem.Allocator,
-
     pub fn init(allocator: *const std.mem.Allocator) Program {
         return Program{
             .statements = std.ArrayList(Statement).init(allocator.*),
-            // .allocator = allocator,
         };
     }
 
@@ -86,10 +83,6 @@ pub const Program = struct {
             st.debug_string(buf) catch return DebugError.DebugString;
         }
     }
-
-    // pub fn close(self: Program) void {
-    //     self.statements.deinit();
-    // }
 };
 
 pub const VarStatement = struct {
@@ -128,7 +121,6 @@ pub const RetStatement = struct {
 
 // To allow "statement" like: a + 10;
 pub const ExprStatement = struct {
-    // The first token of the expression
     token: Token,
     expression: *const Expression,
 

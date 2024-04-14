@@ -147,7 +147,8 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
 
-        _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
+        // _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
+        if (self.peek_token.type == TokenType.SEMICOLON) self.next();
 
         return ast.ExprStatement{
             .token = expr_st_token,
@@ -166,7 +167,7 @@ pub const Parser = struct {
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
             .FN => ast.Expression{ .func_literal = try self.parse_function_literal() },
             else => {
-                stderr.print("No prefix parse function for token: {s}\n", .{self.current_token.literal}) catch {};
+                stderr.print("No prefix parse function for token > {s}\n", .{self.current_token.literal}) catch {};
                 return ParseFnsError.NoPrefixFn;
             },
         };
@@ -247,17 +248,17 @@ pub const Parser = struct {
 
         _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
 
-        if_expresssion.consequence = try self.parse_statement_block();
+        if_expresssion.consequence = try self.parse_block_statement();
 
         if (self.current_token.type == TokenType.ELSE) {
             _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
-            if_expresssion.alternative = try self.parse_statement_block();
+            if_expresssion.alternative = try self.parse_block_statement();
         }
 
         return if_expresssion;
     }
 
-    fn parse_statement_block(self: *Parser) ParserError!ast.BlockStatement {
+    fn parse_block_statement(self: *Parser) ParserError!ast.BlockStatement {
         var statements_list = std.ArrayList(ast.Statement).init(self.allocator.*);
         var block = ast.BlockStatement{
             .token = self.current_token,
@@ -265,7 +266,10 @@ pub const Parser = struct {
         };
         self.next();
 
-        while (!self.current_token_is(TokenType.END) and !self.current_token_is(TokenType.ELSE)) {
+        while (!self.current_token_is(TokenType.END) and
+            !self.current_token_is(TokenType.ELSE) and
+            !self.current_token_is(TokenType.EOF))
+        {
             const statement = try self.parse_statement();
             statements_list.append(statement) catch {};
 
@@ -289,7 +293,7 @@ pub const Parser = struct {
         var right_expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
 
         const right_expr = self.parse_expression(Precedence.PREFIX) catch {
-            stderr.print("Error parsing right expression of Infixed one!\n", .{}) catch {};
+            stderr.print("Error parsing right expression of Prefixed one!\n", .{}) catch {};
             return ParserError.ParseExpr;
         };
 
@@ -335,7 +339,7 @@ pub const Parser = struct {
         func_lit.parameters = try self.parse_function_parameters();
         _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
 
-        func_lit.body = try self.parse_statement_block();
+        func_lit.body = try self.parse_block_statement();
 
         return func_lit;
     }
