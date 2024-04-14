@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const ObjectType = union(enum) { Integer, Boolean, Null, Return, Error };
+pub const ObjectType = union(enum) { Integer, Boolean, Null, Return, Error, Ident };
 
 pub const Object = union(enum) {
     integer: Integer,
@@ -8,6 +8,7 @@ pub const Object = union(enum) {
     null: Null,
     ret: Return,
     err: Error,
+    ident: Ident,
 
     pub fn inspect(self: Object) void {
         switch (self) {
@@ -16,6 +17,7 @@ pub const Object = union(enum) {
             .null => |n| n.inspect(),
             .ret => |ret| ret.inspect(),
             .err => |err| err.inspect(),
+            .ident => |ident| ident.inspect(),
         }
     }
 
@@ -26,7 +28,19 @@ pub const Object = union(enum) {
             .null => "Null",
             .ret => "Ret",
             .err => "Error",
+            .ident => |ident| ident.name,
         };
+    }
+};
+
+pub const Ident = struct {
+    type: ObjectType,
+    name: []const u8,
+    value: *const Object,
+
+    pub fn inspect(self: Ident) void {
+        std.debug.print("{s} = ", .{self.name});
+        self.value.*.inspect();
     }
 };
 

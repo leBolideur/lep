@@ -7,6 +7,8 @@ const Parser = @import("parser.zig").Parser;
 
 const Evaluator = @import("evaluator.zig").Evaluator;
 
+const Environment = @import("environment.zig").Environment;
+
 pub fn repl() !void {
     const stdin = std.io.getStdIn().reader();
     const stdout = std.io.getStdOut().writer();
@@ -14,6 +16,8 @@ pub fn repl() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     var alloc = arena.allocator();
+
+    var env = try Environment.init(&alloc);
 
     while (true) {
         var input: [50]u8 = undefined;
@@ -27,7 +31,7 @@ pub fn repl() !void {
         var parser = try Parser.init(&lexer, &alloc);
         const program = try parser.parse();
 
-        const evaluator = try Evaluator.init(&alloc);
+        const evaluator = try Evaluator.init(&alloc, &env);
         const object = try evaluator.eval(program);
 
         // var buf = std.ArrayList(u8).init(alloc);

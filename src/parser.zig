@@ -147,7 +147,7 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
 
-        if (self.current_token.type == TokenType.END and self.peek_token.type == TokenType.SEMICOLON) {
+        if (self.peek_token.type == TokenType.END or self.peek_token.type == TokenType.SEMICOLON) {
             self.next();
         } else if (self.peek_token.type != TokenType.EOF) {
             _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
@@ -161,6 +161,7 @@ pub const Parser = struct {
 
     fn parse_expression(self: *Parser, precedence: Precedence) ParserError!ast.Expression {
         // Check if the current token may be a Prefix expr
+        std.debug.print("\ncurrent: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
         var left_expr = switch (self.current_token.type) {
             .IDENT => ast.Expression{ .identifier = try self.parse_identifier() },
             .INT => ast.Expression{ .integer = try self.parse_integer_literal() },

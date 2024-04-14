@@ -7,15 +7,19 @@ const Object = obj_import.Object;
 const eval_utils = @import("evaluator_utils.zig");
 const EvalError = eval_utils.EvalError;
 
+const Environment = @import("environment.zig").Environment;
+
 const stderr = std.io.getStdOut().writer();
 
 const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ };
 
 pub const Evaluator = struct {
     infix_op_map: std.StringHashMap(INFIX_OP),
+    env: *Environment,
 
     allocator: *const std.mem.Allocator,
-    pub fn init(allocator: *const std.mem.Allocator) !Evaluator {
+
+    pub fn init(allocator: *const std.mem.Allocator, env: *Environment) !Evaluator {
         var infix_op_map = std.StringHashMap(INFIX_OP).init(allocator.*);
         try infix_op_map.put("+", INFIX_OP.SUM);
         try infix_op_map.put("-", INFIX_OP.SUB);
@@ -30,6 +34,7 @@ pub const Evaluator = struct {
 
         return Evaluator{
             .infix_op_map = infix_op_map,
+            .env = env,
             .allocator = allocator,
         };
     }
@@ -109,6 +114,16 @@ pub const Evaluator = struct {
             .if_expression => |if_expr| {
                 return try self.eval_if_expression(if_expr);
             },
+            .identifier => |ident| {
+                const val = self.env.get(ident.value) catch return EvalError.EnvGetError;
+                return val orelse {
+                    return try eval_utils.new_error(
+                        self.allocator,
+                        "identifier not found: {s}\n",
+                        .{ident.value},
+                    );
+                };
+            },
             else => unreachable,
         }
     }
@@ -155,7 +170,13 @@ pub const Evaluator = struct {
                 return eval_utils.new_return(self.allocator, expr);
             },
             .block_statement => |block| return try self.eval_block(block),
-            else => return eval_utils.new_null(),
+            .var_statement => |va| {
+                const expr = try self.eval_expression(va.expression);
+                if (eval_utils.is_error(expr)) return expr;
+
+                const val = self.env.set(va.name.value, expr) catch return EvalError.EnvSetError;
+                return val orelse EvalError.EnvSetError;
+            },
         }
     }
 

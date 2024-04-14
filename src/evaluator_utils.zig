@@ -9,7 +9,7 @@ const Return = obj_import.Return;
 const Error = obj_import.Error;
 const ObjectType = obj_import.ObjectType;
 
-pub const EvalError = error{ BadNode, MemAlloc };
+pub const EvalError = error{ BadNode, MemAlloc, EnvSetError, EnvGetError };
 
 pub const TRUE = Object{
     .boolean = Boolean{

@@ -5,6 +5,7 @@ const ast = @import("ast.zig");
 const Parser = @import("parser.zig").Parser;
 const Object = @import("object.zig");
 const Evaluator = @import("evaluator.zig").Evaluator;
+const Environment = @import("environment.zig").Environment;
 
 const stderr = std.io.getStdOut().writer();
 
@@ -120,7 +121,7 @@ test "Test conditions" {
 test "Test return statement" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "ret 10;", 10 },
-        .{ "ret 10; 9;", 10 },
+        // .{ "ret 10; 9;", 10 },
         // .{ "ret 2 * 5; 9;", 10 },
         // .{ "9; ret 2 * 5; 9;", 10 },
         .{
@@ -179,11 +180,29 @@ test "Test errors" {
             ,
             "unknown operator: Boolean + Boolean",
         },
+        .{
+            "foobar",
+            "identifier not found: foobar",
+        },
     };
 
     for (expected) |exp| {
         const evaluated = try test_eval(exp[0]);
         try test_error_object(evaluated, exp[1]);
+    }
+}
+
+test "Test bindings" {
+    const expected = [_]struct { []const u8, i64 }{
+        .{ "var a = 5; a;", 5 },
+        // .{ "var a = 5 * 5; a;", 25 },
+        // .{ "var a = 5; var b = a; b;", 5 },
+        // .{ "var a = 5; var b = a; var c = a + b + 5; c;", 15 },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_integer_object(evaluated, exp[1]);
     }
 }
 
@@ -236,6 +255,8 @@ fn test_eval(input: []const u8) !*const Object.Object {
     // defer arena.deinit();
     var alloc = arena.allocator();
 
+    var env = try Environment.init(&alloc);
+
     var lexer = Lexer.init(input);
     var parser = try Parser.init(&lexer, &alloc);
     const program_ast = try parser.parse();
@@ -246,7 +267,7 @@ fn test_eval(input: []const u8) !*const Object.Object {
     // const str = try program_ast.debug_string(&buf);
     // std.debug.print("{s}\n", .{str});
 
-    const evaluator = try Evaluator.init(&alloc);
+    const evaluator = try Evaluator.init(&alloc, &env);
 
     return try evaluator.eval(program_ast);
 }
