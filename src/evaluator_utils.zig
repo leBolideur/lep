@@ -66,3 +66,10 @@ pub fn new_boolean(value: bool) *const Object {
 pub fn new_null() *const Object {
     return &NULL;
 }
+
+pub fn is_error(object: *const Object) bool {
+    return switch (object.*) {
+        .err => true,
+        else => false,
+    };
+}

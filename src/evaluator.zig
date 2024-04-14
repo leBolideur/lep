@@ -51,6 +51,10 @@ pub const Evaluator = struct {
                 .ret => |ret| {
                     return ret.value;
                 },
+                .err => |err| {
+                    stderr.print("\nError >> {s}", .{err.msg}) catch {};
+                    return result;
+                },
                 else => {},
             }
         }
@@ -65,6 +69,10 @@ pub const Evaluator = struct {
 
             switch (result.*) {
                 .ret => {
+                    return result;
+                },
+                .err => |err| {
+                    stderr.print("\nError >> {s}", .{err.msg}) catch {};
                     return result;
                 },
                 else => {},
@@ -85,12 +93,16 @@ pub const Evaluator = struct {
             },
             .prefix_expr => |expr| {
                 const right = try self.eval_expression(expr.right_expr);
+                if (eval_utils.is_error(right)) return right;
 
                 return try self.eval_prefix(expr.operator, right);
             },
             .infix_expr => |expr| {
                 const right = try self.eval_expression(expr.right_expr);
+                if (eval_utils.is_error(right)) return right;
+
                 const left = try self.eval_expression(expr.left_expr);
+                if (eval_utils.is_error(left)) return left;
 
                 return try self.eval_infix(expr.operator, left, right);
             },
@@ -103,6 +115,7 @@ pub const Evaluator = struct {
 
     fn eval_if_expression(self: Evaluator, expr: ast.IfExpression) EvalError!*const Object {
         const condition = try self.eval_expression(expr.condition);
+        if (eval_utils.is_error(condition)) return condition;
 
         switch (condition.*) {
             .boolean => |boo| {
@@ -125,17 +138,22 @@ pub const Evaluator = struct {
         return eval_utils.new_null();
     }
 
-    fn eval_ret_statement(self: Evaluator, ret_statement: ast.RetStatement) EvalError!*const Object {
-        const expr = try self.eval_expression(ret_statement.expression);
-        const ret = eval_utils.new_return(self.allocator, expr);
+    // fn eval_ret_statement(self: Evaluator, ret_statement: ast.RetStatement) EvalError!*const Object {
+    //     const expr = try self.eval_expression(ret_statement.expression);
+    //     const ret = eval_utils.new_return(self.allocator, expr);
 
-        return ret;
-    }
+    //     return ret;
+    // }
 
     fn eval_statement(self: Evaluator, statement: ast.Statement) EvalError!*const Object {
         switch (statement) {
             .expr_statement => |expr_st| return try self.eval_expression(expr_st.expression),
-            .ret_statement => |ret| return try self.eval_ret_statement(ret),
+            .ret_statement => |ret| {
+                const expr = try self.eval_expression(ret.expression);
+                if (eval_utils.is_error(expr)) return expr;
+
+                return eval_utils.new_return(self.allocator, expr);
+            },
             .block_statement => |block| return try self.eval_block(block),
             else => return eval_utils.new_null(),
         }

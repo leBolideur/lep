@@ -120,7 +120,7 @@ test "Test conditions" {
 test "Test return statement" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "ret 10;", 10 },
-        .{ "ret 10; 9", 10 },
+        .{ "ret 10; 9;", 10 },
         // .{ "ret 2 * 5; 9;", 10 },
         // .{ "9; ret 2 * 5; 9;", 10 },
         .{
@@ -166,7 +166,7 @@ test "Test errors" {
             "unknown operator: Boolean + Boolean",
         },
         .{
-            "if (10 > 1) { true + false; }",
+            "if (10 > 1): true + false; end",
             "unknown operator: Boolean + Boolean",
         },
         .{
@@ -193,7 +193,7 @@ fn test_error_object(object: *const Object.Object, expected: []const u8) !void {
             try std.testing.expectEqualStrings(err.msg, expected);
         },
         else => {
-            try stderr.print("Object is not an Integer\n", .{});
+            try stderr.print("\nObject is not an Error\n", .{});
         },
     }
 }
@@ -204,7 +204,7 @@ fn test_integer_object(object: *const Object.Object, expected: i64) !void {
             try std.testing.expectEqual(int.value, expected);
         },
         else => {
-            try stderr.print("Object is not an Integer\n", .{});
+            try stderr.print("\nObject is not an Integer\n", .{});
         },
     }
 }
@@ -215,7 +215,7 @@ fn test_boolean_object(object: *const Object.Object, expected: bool) !void {
             try std.testing.expectEqual(boo.value, expected);
         },
         else => {
-            try stderr.print("Object is not a Boolean\n", .{});
+            try stderr.print("\nObject is not a Boolean\n", .{});
         },
     }
 }
@@ -226,7 +226,7 @@ fn test_null_object(object: *const Object.Object) !void {
             try std.testing.expectEqual(nu.value, null);
         },
         else => {
-            try stderr.print("Object is supposed to be a Null one\n", .{});
+            try stderr.print("\nObject is supposed to be a Null one\n", .{});
         },
     }
 }
