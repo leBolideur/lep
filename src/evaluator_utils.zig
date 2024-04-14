@@ -6,6 +6,7 @@ const Integer = obj_import.Integer;
 const Null = obj_import.Null;
 const Boolean = obj_import.Boolean;
 const Return = obj_import.Return;
+const Error = obj_import.Error;
 const ObjectType = obj_import.ObjectType;
 
 pub const EvalError = error{ BadNode, MemAlloc };
@@ -41,6 +42,18 @@ pub fn new_return(allocator: *const std.mem.Allocator, object: *const Object) !*
     var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
     const ret = Return{ .type = ObjectType.Return, .value = object };
     ptr.* = Object{ .ret = ret };
+
+    return ptr;
+}
+
+pub fn new_error(allocator: *const std.mem.Allocator, comptime fmt: []const u8, args: anytype) !*const Object {
+    // _ = fmt;
+    // _ = args;
+    // const msg = "";
+    const msg = std.fmt.allocPrint(allocator.*, fmt, args) catch return EvalError.MemAlloc;
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const err = Error{ .type = ObjectType.Error, .msg = msg };
+    ptr.* = Object{ .err = err };
 
     return ptr;
 }

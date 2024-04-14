@@ -143,6 +143,61 @@ test "Test return statement" {
     }
 }
 
+test "Test errors" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{
+            "5 + true;",
+            "type mismatch: Integer + Boolean",
+        },
+        .{
+            "5 + true; 5;",
+            "type mismatch: Integer + Boolean",
+        },
+        .{
+            "-true",
+            "unknown operator: -Boolean",
+        },
+        .{
+            "true + false;",
+            "unknown operator: Boolean + Boolean",
+        },
+        .{
+            "5; true + false; 5;",
+            "unknown operator: Boolean + Boolean",
+        },
+        .{
+            "if (10 > 1) { true + false; }",
+            "unknown operator: Boolean + Boolean",
+        },
+        .{
+            \\if (10 > 1):
+            \\  if (10 > 1):
+            \\      ret true + false;
+            \\  end
+            \\  ret 1;
+            \\end
+            ,
+            "unknown operator: Boolean + Boolean",
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_error_object(evaluated, exp[1]);
+    }
+}
+
+fn test_error_object(object: *const Object.Object, expected: []const u8) !void {
+    switch (object.*) {
+        .err => |err| {
+            try std.testing.expectEqualStrings(err.msg, expected);
+        },
+        else => {
+            try stderr.print("Object is not an Integer\n", .{});
+        },
+    }
+}
+
 fn test_integer_object(object: *const Object.Object, expected: i64) !void {
     switch (object.*) {
         .integer => |int| {

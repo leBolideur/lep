@@ -113,7 +113,13 @@ pub const Evaluator = struct {
                     return self.eval_block(alternative);
                 }
             },
-            else => stderr.print("Condition of if/else must be a boolean\n", .{}) catch {},
+            else => {
+                return try eval_utils.new_error(
+                    self.allocator,
+                    "Condition of if/else must be a boolean, found {s} instead\n",
+                    .{condition.*.typename()},
+                );
+            },
         }
 
         return eval_utils.new_null();
@@ -140,8 +146,8 @@ pub const Evaluator = struct {
             '!' => return try self.eval_bang_op_expr(right),
             '-' => return try self.eval_minus_prefix_op_expr(right),
             else => {
-                stderr.print("Unknown prefix operator\n", .{}) catch {};
-                return eval_utils.new_null();
+                // stderr.print("Unknown prefix operator\n", .{}) catch {};
+                return try eval_utils.new_error(self.allocator, "unknown operator {c}{s}", .{ op, right.typename() });
             },
         }
     }
@@ -152,21 +158,27 @@ pub const Evaluator = struct {
         left: *const Object,
         right: *const Object,
     ) EvalError!*const Object {
-        const left_type = @tagName(left.*);
-        const right_type = @tagName(right.*);
-
-        if (!std.mem.eql(u8, left_type, right_type)) {
-            stderr.print("All operands must have the same type\n", .{}) catch {};
-            return eval_utils.new_null();
-        }
-
-        // At this point left and right has the same type
         switch (left.*) {
-            .integer => return self.eval_integer_infix(op, left, right),
-            else => unreachable,
+            .integer => {
+                switch (right.*) {
+                    .integer => return self.eval_integer_infix(op, left, right),
+                    else => {
+                        return try eval_utils.new_error(
+                            self.allocator,
+                            "type mismatch: {s} {s} {s}",
+                            .{ left.typename(), op, right.typename() },
+                        );
+                    },
+                }
+            },
+            else => {
+                return try eval_utils.new_error(
+                    self.allocator,
+                    "unknown operator: {s} {s} {s}",
+                    .{ left.typename(), op, right.typename() },
+                );
+            },
         }
-
-        return eval_utils.new_null();
     }
 
     fn eval_integer_infix(
@@ -177,10 +189,17 @@ pub const Evaluator = struct {
     ) EvalError!*const Object {
         const left = left_.integer.value;
         const right = right_.integer.value;
-        const op = self.infix_op_map.get(op_);
+
+        const op = self.infix_op_map.get(op_) orelse {
+            return try eval_utils.new_error(
+                self.allocator,
+                "unknown operator: {s} {s} {s}",
+                .{ left_.typename(), op_, right_.typename() },
+            );
+        };
         // std.debug.print("{d} {?} {d} >> {s}\n", .{ left, op, right, op_ });
 
-        switch (op.?) {
+        switch (op) {
             INFIX_OP.SUM => {
                 const object = try eval_utils.new_integer(self.allocator, left + right);
                 return object;
@@ -195,8 +214,8 @@ pub const Evaluator = struct {
             },
             INFIX_OP.DIVIDE => {
                 if (right == 0) {
-                    stderr.print("Impossible divide by zero\n", .{}) catch {};
-                    return eval_utils.new_null();
+                    // stderr.print("Impossible divide by zero\n", .{}) catch {};
+                    return try eval_utils.new_error(self.allocator, "Impossible division by zero > {d} / 0", .{left});
                 }
                 const object = try eval_utils.new_integer(self.allocator, @divFloor(left, right));
                 return object;
@@ -222,14 +241,15 @@ pub const Evaluator = struct {
         }
     }
 
-    fn eval_bang_op_expr(_: Evaluator, right: *const Object) EvalError!*const Object {
+    fn eval_bang_op_expr(self: Evaluator, right: *const Object) EvalError!*const Object {
         switch (right.*) {
             .boolean => |bo| {
                 return eval_utils.new_boolean(!bo.value);
             },
             else => {
-                stderr.print("Bang operator must be use with Boolean only\n", .{}) catch {};
-                return eval_utils.new_null();
+                // stderr.print("Bang operator must be use with Boolean only\n", .{}) catch {};
+                // _ = self;
+                return try eval_utils.new_error(self.allocator, "Bang operator must be use with Boolean only > {s}", .{right.typename()});
             },
         }
     }
@@ -240,10 +260,9 @@ pub const Evaluator = struct {
                 const object = try eval_utils.new_integer(self.allocator, -int.value);
                 return object;
             },
-
             else => {
-                stderr.print("Minus operator must be use with Integers only\n", .{}) catch {};
-                return eval_utils.new_null();
+                // stderr.print("Minus operator must be use with Integers only\n", .{}) catch {};
+                return try eval_utils.new_error(self.allocator, "unknown operator: -{s}", .{right.typename()});
             },
         }
     }
