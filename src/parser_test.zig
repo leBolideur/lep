@@ -182,9 +182,9 @@ test "Test If-Else expression" {
 test "Test function literal parameters" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "fn(x, y): x + y; end;", 2 },
-        .{ "fn(x, y): x - y; end;", 2 },
+        .{ "fn(x, y): x - y; end", 2 },
         .{ "fn(x, y, z): end;", 3 },
-        .{ "fn(x): x; end;", 1 },
+        .{ "fn(x): x; end", 1 },
         .{ "fn(): end;", 0 },
     };
 

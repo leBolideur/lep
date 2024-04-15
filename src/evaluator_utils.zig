@@ -7,9 +7,14 @@ const Null = obj_import.Null;
 const Boolean = obj_import.Boolean;
 const Return = obj_import.Return;
 const Error = obj_import.Error;
+const Func = obj_import.Func;
 const ObjectType = obj_import.ObjectType;
 
-pub const EvalError = error{ BadNode, MemAlloc, EnvSetError, EnvGetError };
+const Environment = @import("environment.zig").Environment;
+
+const ast = @import("ast.zig");
+
+pub const EvalError = error{ BadNode, MemAlloc, EnvAddError, EnvGetError, EnvExtendError };
 
 pub const TRUE = Object{
     .boolean = Boolean{
@@ -38,6 +43,24 @@ pub fn new_integer(allocator: *const std.mem.Allocator, value: i64) !*const Obje
     return ptr;
 }
 
+pub fn new_func(
+    allocator: *const std.mem.Allocator,
+    env: *const Environment,
+    func_literal: ast.FunctionLiteral,
+) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = Func{
+        .type = ObjectType.Func,
+        .parameters = func_literal.parameters,
+        .body = func_literal.body,
+        .env = env,
+    };
+    ptr.* = Object{ .func = result };
+
+    return ptr;
+}
+
 pub fn new_return(allocator: *const std.mem.Allocator, object: *const Object) !*const Object {
     var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
     const ret = Return{ .type = ObjectType.Return, .value = object };
@@ -46,7 +69,11 @@ pub fn new_return(allocator: *const std.mem.Allocator, object: *const Object) !*
     return ptr;
 }
 
-pub fn new_error(allocator: *const std.mem.Allocator, comptime fmt: []const u8, args: anytype) !*const Object {
+pub fn new_error(
+    allocator: *const std.mem.Allocator,
+    comptime fmt: []const u8,
+    args: anytype,
+) !*const Object {
     // _ = fmt;
     // _ = args;
     // const msg = "";

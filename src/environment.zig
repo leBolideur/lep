@@ -6,18 +6,35 @@ const EnvError = error{ MemAlloc, Undeclared, SetError };
 
 pub const Environment = struct {
     table: std.hash_map.StringHashMap(*const Object),
+    outer: ?*Environment,
     allocator: *const std.mem.Allocator,
 
     pub fn init(allocator: *const std.mem.Allocator) EnvError!Environment {
         return Environment{
             .table = std.hash_map.StringHashMap(*const Object).init(allocator.*),
+            .outer = null,
             .allocator = allocator,
         };
     }
 
+    pub fn extend_env(self: *Environment) EnvError!*Environment {
+        var ptr = self.allocator.create(Environment) catch return EnvError.MemAlloc;
+        ptr.* = Environment{
+            .table = std.hash_map.StringHashMap(*const Object).init(self.allocator.*),
+            .outer = self,
+            .allocator = self.allocator,
+        };
+
+        return ptr;
+    }
+
     pub fn get(self: *Environment, name: []const u8) EnvError!?*const Object {
-        const val = self.table.get(name);
-        return val;
+        const ret = self.table.get(name);
+
+        if (ret == null and self.outer != null) {
+            return self.outer.?.table.get(name);
+        }
+        return ret;
     }
 
     pub fn add(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {

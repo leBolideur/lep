@@ -206,6 +206,63 @@ test "Test bindings" {
     }
 }
 
+test "Test functions" {
+    const expected = [_]struct { []const u8, u8, []const u8, []const u8 }{
+        .{ "fn(x): x + 2; end", 1, "x", "(x + 2)" },
+        .{ "fn(x, y): x + y; end;", 2, "x, y", "(x + y)" },
+        .{ "fn(x, foo, bar): x + foo * bar; end", 3, "x, foo, bar", "(x + (foo * bar))" },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_func_object(evaluated, exp);
+    }
+}
+
+test "Test functions call" {
+    const expected = [_]struct { []const u8, i64 }{
+        .{ "var identity = fn(x): x; end identity(5);", 5 },
+        .{ "var identity = fn(x): return x; end identity(5);", 5 },
+        .{ "var double = fn(x): x * 2; end double(5);", 10 },
+        .{ "var add = fn(x, y): x + y; end add(5, 5);", 10 },
+        .{ "var add = fn(x, y): x + y; end add(5 + 5, add(5, 5));", 20 },
+        .{ "fn(x): x;end(5)", 5 },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_integer_object(evaluated, exp[1]);
+    }
+}
+
+fn test_func_object(object: *const Object.Object, expected: anytype) !void {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    switch (object.*) {
+        .func => |func| {
+            try std.testing.expectEqual(func.parameters.items.len, expected[1]);
+
+            var params_buf = std.ArrayList(u8).init(alloc);
+            for (func.parameters.items, 1..) |param, i| {
+                try param.debug_string(&params_buf);
+                if (i != func.parameters.items.len) {
+                    try std.fmt.format(params_buf.writer(), ", ", .{});
+                }
+            }
+            try std.testing.expectEqualStrings(try params_buf.toOwnedSlice(), expected[2]);
+
+            var body_buf = std.ArrayList(u8).init(alloc);
+            try func.body.debug_string(&body_buf);
+            try std.testing.expectEqualStrings(try body_buf.toOwnedSlice(), expected[3]);
+        },
+        else => {
+            try stderr.print("\nObject is not a Func\n", .{});
+        },
+    }
+}
+
 fn test_error_object(object: *const Object.Object, expected: []const u8) !void {
     switch (object.*) {
         .err => |err| {
@@ -252,22 +309,15 @@ fn test_null_object(object: *const Object.Object) !void {
 
 fn test_eval(input: []const u8) !*const Object.Object {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    // defer arena.deinit();
     var alloc = arena.allocator();
 
     var env = try Environment.init(&alloc);
 
     var lexer = Lexer.init(input);
     var parser = try Parser.init(&lexer, &alloc);
+
     const program_ast = try parser.parse();
+    const evaluator = try Evaluator.init(&alloc);
 
-    // var buf = std.ArrayList(u8).init(alloc);
-    // defer buf.deinit();
-
-    // const str = try program_ast.debug_string(&buf);
-    // std.debug.print("{s}\n", .{str});
-
-    const evaluator = try Evaluator.init(&alloc, &env);
-
-    return try evaluator.eval(program_ast);
+    return try evaluator.eval(program_ast, &env);
 }

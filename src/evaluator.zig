@@ -15,11 +15,10 @@ const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ 
 
 pub const Evaluator = struct {
     infix_op_map: std.StringHashMap(INFIX_OP),
-    env: *Environment,
 
     allocator: *const std.mem.Allocator,
 
-    pub fn init(allocator: *const std.mem.Allocator, env: *Environment) !Evaluator {
+    pub fn init(allocator: *const std.mem.Allocator) !Evaluator {
         var infix_op_map = std.StringHashMap(INFIX_OP).init(allocator.*);
         try infix_op_map.put("+", INFIX_OP.SUM);
         try infix_op_map.put("-", INFIX_OP.SUB);
@@ -34,23 +33,26 @@ pub const Evaluator = struct {
 
         return Evaluator{
             .infix_op_map = infix_op_map,
-            .env = env,
             .allocator = allocator,
         };
     }
 
-    pub fn eval(self: Evaluator, node: ast.Node) EvalError!*const Object {
+    pub fn eval(
+        self: Evaluator,
+        node: ast.Node,
+        env: *Environment,
+    ) EvalError!*const Object {
         switch (node) {
-            .program => |p| return try self.eval_program(p),
-            .statement => |s| return try self.eval_statement(s),
-            .expression => |e| return try self.eval_expression(&e),
+            .program => |p| return try self.eval_program(p, env),
+            .statement => |s| return try self.eval_statement(s, env),
+            .expression => |e| return try self.eval_expression(&e, env),
         }
     }
 
-    fn eval_program(self: Evaluator, program: ast.Program) EvalError!*const Object {
+    fn eval_program(self: Evaluator, program: ast.Program, env: *Environment) EvalError!*const Object {
         var result: *const Object = undefined;
         for (program.statements.items) |statement| {
-            result = try self.eval_statement(statement);
+            result = try self.eval_statement(statement, env);
 
             switch (result.*) {
                 .ret => |ret| {
@@ -66,10 +68,14 @@ pub const Evaluator = struct {
         return result;
     }
 
-    fn eval_block(self: Evaluator, block: ast.BlockStatement) EvalError!*const Object {
+    fn eval_block(
+        self: Evaluator,
+        block: ast.BlockStatement,
+        env: *Environment,
+    ) EvalError!*const Object {
         var result: *const Object = undefined;
         for (block.statements.items) |statement| {
-            result = try self.eval_statement(statement);
+            result = try self.eval_statement(statement, env);
 
             switch (result.*) {
                 .ret => {
@@ -85,7 +91,11 @@ pub const Evaluator = struct {
         return result;
     }
 
-    fn eval_expression(self: Evaluator, expression: *const ast.Expression) EvalError!*const Object {
+    fn eval_expression(
+        self: Evaluator,
+        expression: *const ast.Expression,
+        env: *Environment,
+    ) EvalError!*const Object {
         switch (expression.*) {
             .integer => |int| {
                 const object = try eval_utils.new_integer(self.allocator, int.value);
@@ -95,41 +105,104 @@ pub const Evaluator = struct {
                 return eval_utils.new_boolean(boo.value);
             },
             .prefix_expr => |expr| {
-                const right = try self.eval_expression(expr.right_expr);
+                const right = try self.eval_expression(expr.right_expr, env);
                 if (eval_utils.is_error(right)) return right;
 
                 return try self.eval_prefix(expr.operator, right);
             },
             .infix_expr => |expr| {
-                const right = try self.eval_expression(expr.right_expr);
+                const right = try self.eval_expression(expr.right_expr, env);
                 if (eval_utils.is_error(right)) return right;
 
-                const left = try self.eval_expression(expr.left_expr);
+                const left = try self.eval_expression(expr.left_expr, env);
                 if (eval_utils.is_error(left)) return left;
 
                 return try self.eval_infix(expr.operator, left, right);
             },
             .if_expression => |if_expr| {
-                return try self.eval_if_expression(if_expr);
+                return try self.eval_if_expression(if_expr, env);
             },
             .identifier => |ident| {
-                return try self.eval_identifier(ident);
+                return try self.eval_identifier(ident, env);
             },
-            else => unreachable,
+            .func_literal => |func| {
+                return try eval_utils.new_func(self.allocator, env, func);
+            },
+            .call_expression => |call| {
+                const func = try self.eval_expression(call.function, env);
+                if (eval_utils.is_error(func)) return func;
+
+                const params = try self.eval_multiple_expr(&call.arguments, env);
+                return self.apply_function(func, &params, env);
+            },
         }
     }
 
-    fn eval_if_expression(self: Evaluator, expr: ast.IfExpression) EvalError!*const Object {
-        const condition = try self.eval_expression(expr.condition);
+    fn apply_function(
+        self: Evaluator,
+        object: *const Object,
+        args: *const std.ArrayList(*const Object),
+        env: *Environment,
+    ) EvalError!*const Object {
+        switch (object.*) {
+            .func => |func| {
+                var func_env = env.extend_env() catch return EvalError.EnvExtendError;
+
+                if (args.items.len != func.parameters.items.len) {
+                    return try eval_utils.new_error(
+                        self.allocator,
+                        "Incorrect number of arguments\n",
+                        .{},
+                    );
+                }
+                for (args.items, func.parameters.items) |arg, param| {
+                    _ = func_env.add(param.value, arg) catch return EvalError.EnvAddError;
+                }
+
+                return self.eval_block(func.body, func_env);
+            },
+            else => {
+                return try eval_utils.new_error(
+                    self.allocator,
+                    "Not a function\n",
+                    .{},
+                );
+            },
+        }
+    }
+
+    fn eval_multiple_expr(
+        self: Evaluator,
+        expressions: *const std.ArrayList(ast.Expression),
+        env: *Environment,
+    ) EvalError!std.ArrayList(*const Object) {
+        var params = std.ArrayList(*const Object).init(self.allocator.*);
+
+        for (expressions.items) |expr| {
+            const expression = try self.eval_expression(&expr, env);
+            if (eval_utils.is_error(expression)) return params;
+
+            params.append(expression) catch return EvalError.MemAlloc;
+        }
+
+        return params;
+    }
+
+    fn eval_if_expression(
+        self: Evaluator,
+        expr: ast.IfExpression,
+        env: *Environment,
+    ) EvalError!*const Object {
+        const condition = try self.eval_expression(expr.condition, env);
         if (eval_utils.is_error(condition)) return condition;
 
         switch (condition.*) {
             .boolean => |boo| {
                 if (boo.value) {
-                    return self.eval_block(expr.consequence);
+                    return self.eval_block(expr.consequence, env);
                 } else {
                     const alternative = expr.alternative orelse return eval_utils.new_null();
-                    return self.eval_block(alternative);
+                    return self.eval_block(alternative, env);
                 }
             },
             else => {
@@ -144,8 +217,8 @@ pub const Evaluator = struct {
         return eval_utils.new_null();
     }
 
-    fn eval_identifier(self: Evaluator, ident: ast.Identifier) EvalError!*const Object {
-        const val = self.env.get(ident.value) catch return EvalError.EnvGetError;
+    fn eval_identifier(self: Evaluator, ident: ast.Identifier, env: *Environment) EvalError!*const Object {
+        const val = env.get(ident.value) catch return EvalError.EnvGetError;
         const ret = val orelse {
             return try eval_utils.new_error(
                 self.allocator,
@@ -156,21 +229,21 @@ pub const Evaluator = struct {
         return ret;
     }
 
-    fn eval_statement(self: Evaluator, statement: ast.Statement) EvalError!*const Object {
+    fn eval_statement(self: Evaluator, statement: ast.Statement, env: *Environment) EvalError!*const Object {
         switch (statement) {
-            .expr_statement => |expr_st| return try self.eval_expression(expr_st.expression),
+            .expr_statement => |expr_st| return try self.eval_expression(expr_st.expression, env),
             .ret_statement => |ret| {
-                const expr = try self.eval_expression(ret.expression);
+                const expr = try self.eval_expression(ret.expression, env);
                 if (eval_utils.is_error(expr)) return expr;
 
                 return eval_utils.new_return(self.allocator, expr);
             },
-            .block_statement => |block| return try self.eval_block(block),
+            .block_statement => |block| return try self.eval_block(block, env),
             .var_statement => |va| {
-                const expr = try self.eval_expression(va.expression);
+                const expr = try self.eval_expression(va.expression, env);
                 if (eval_utils.is_error(expr)) return expr;
 
-                return self.env.add(va.name.value, expr) catch return EvalError.EnvSetError;
+                return env.add(va.name.value, expr) catch return EvalError.EnvAddError;
             },
         }
     }

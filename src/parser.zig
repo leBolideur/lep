@@ -339,6 +339,9 @@ pub const Parser = struct {
 
         func_lit.body = try self.parse_block_statement();
 
+        if (self.current_token.type == TokenType.END)
+            self.next();
+
         return func_lit;
     }
 
