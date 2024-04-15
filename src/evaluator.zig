@@ -56,8 +56,7 @@ pub const Evaluator = struct {
                 .ret => |ret| {
                     return ret.value;
                 },
-                .err => |err| {
-                    stderr.print("\nError >> {s}", .{err.msg}) catch {};
+                .err => |_| {
                     return result;
                 },
                 else => {},
@@ -76,8 +75,7 @@ pub const Evaluator = struct {
                 .ret => {
                     return result;
                 },
-                .err => |err| {
-                    stderr.print("\nError >> {s}", .{err.msg}) catch {};
+                .err => |_| {
                     return result;
                 },
                 else => {},
@@ -148,20 +146,15 @@ pub const Evaluator = struct {
 
     fn eval_identifier(self: Evaluator, ident: ast.Identifier) EvalError!*const Object {
         const val = self.env.get(ident.value) catch return EvalError.EnvGetError;
-        return val orelse {
+        const ret = val orelse {
             return try eval_utils.new_error(
                 self.allocator,
                 "identifier not found: {s}",
                 .{ident.value},
             );
         };
+        return ret;
     }
-    // fn eval_ret_statement(self: Evaluator, ret_statement: ast.RetStatement) EvalError!*const Object {
-    //     const expr = try self.eval_expression(ret_statement.expression);
-    //     const ret = eval_utils.new_return(self.allocator, expr);
-
-    //     return ret;
-    // }
 
     fn eval_statement(self: Evaluator, statement: ast.Statement) EvalError!*const Object {
         switch (statement) {
@@ -177,7 +170,7 @@ pub const Evaluator = struct {
                 const expr = try self.eval_expression(va.expression);
                 if (eval_utils.is_error(expr)) return expr;
 
-                return self.env.set(va.name.value, expr) catch return EvalError.EnvSetError;
+                return self.env.add(va.name.value, expr) catch return EvalError.EnvSetError;
             },
         }
     }

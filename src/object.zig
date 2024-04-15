@@ -49,7 +49,7 @@ pub const Integer = struct {
     value: i64,
 
     pub fn inspect(self: Integer) void {
-        std.debug.print("{d}\n", .{self.value});
+        std.debug.print("{d}", .{self.value});
     }
 };
 
@@ -58,7 +58,7 @@ pub const Boolean = struct {
     value: bool,
 
     pub fn inspect(self: Boolean) void {
-        std.debug.print("{?}\n", .{self.value});
+        std.debug.print("{?}", .{self.value});
     }
 };
 
@@ -66,7 +66,7 @@ pub const Null = struct {
     type: ObjectType,
 
     pub fn inspect(_: Null) void {
-        std.debug.print("null\n", .{});
+        std.debug.print("null", .{});
     }
 };
 
@@ -85,6 +85,6 @@ pub const Error = struct {
 
     pub fn inspect(self: Error) void {
         const stderr = std.io.getStdErr().writer();
-        stderr.print("\nError: {s}\n", .{self.msg}) catch {};
+        stderr.print("Error: {s}", .{self.msg}) catch {};
     }
 };
