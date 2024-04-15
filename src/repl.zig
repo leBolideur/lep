@@ -34,19 +34,6 @@ pub fn repl() !void {
         const evaluator = try Evaluator.init(&alloc, &env);
         const object = try evaluator.eval(program);
 
-        // object.inspect();
-
-        switch (object.*) {
-            .ident => |ident| {
-                std.debug.print("name >>> {s}\n", .{ident.name});
-            },
-            else => {},
-        }
-
-        var it = env.table.iterator();
-        while (it.next()) |v| {
-            const val = v.value_ptr.*;
-            std.debug.print("repl {s} = {?}\n", .{ v.key_ptr.*, val.integer.value });
-        }
+        object.inspect();
     }
 }
