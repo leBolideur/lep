@@ -3,7 +3,9 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const Environment = @import("environment.zig").Environment;
 
-pub const ObjectType = union(enum) { Integer, Boolean, Null, Return, Error, Ident, Func };
+pub const ObjectType = union(enum) { Integer, Boolean, Null, Return, Error, Func };
+
+pub const ObjectError = error{InspectFormatError};
 
 pub const Object = union(enum) {
     integer: Integer,
@@ -11,19 +13,17 @@ pub const Object = union(enum) {
     null: Null,
     ret: Return,
     err: Error,
-    // ident: Ident,
     func: Func,
 
-    pub fn inspect(self: Object) void {
-        switch (self) {
-            .integer => |integer| integer.inspect(),
-            .boolean => |boolean| boolean.inspect(),
-            .null => |n| n.inspect(),
-            .ret => |ret| ret.inspect(),
-            .err => |err| err.inspect(),
-            // .ident => |ident| ident.inspect(),
-            .func => |func| func.inspect(),
-        }
+    pub fn inspect(self: Object, buf: *std.ArrayList(u8)) ObjectError!void {
+        try switch (self) {
+            .integer => |integer| integer.inspect(buf),
+            .boolean => |boolean| boolean.inspect(buf),
+            .null => |n| n.inspect(buf),
+            .ret => |ret| ret.inspect(buf),
+            .err => |err| err.inspect(buf),
+            .func => |func| func.inspect(buf),
+        };
     }
 
     pub fn typename(self: Object) []const u8 {
@@ -33,7 +33,6 @@ pub const Object = union(enum) {
             .null => "Null",
             .ret => "Ret",
             .err => "Error",
-            // .ident => |ident| ident.name,
             .func => "Func",
         };
     }
@@ -45,37 +44,26 @@ pub const Func = struct {
     body: ast.BlockStatement,
     env: *const Environment,
 
-    pub fn inspect(self: Func, buf: *std.ArrayList(u8)) !void {
-        try std.fmt.format(buf.*.writer(), "fn(", .{});
+    pub fn inspect(self: Func, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "fn(", .{}) catch return ObjectError.InspectFormatError;
         for (self.parameters.items, 1..) |param, i| {
-            try param.debug_string(buf);
+            param.debug_string(buf) catch return ObjectError.InspectFormatError;
             if (i != self.parameters.items.len) {
-                try std.fmt.format(buf.*.writer(), ", ", .{});
+                std.fmt.format(buf.*.writer(), ", ", .{}) catch return ObjectError.InspectFormatError;
             }
         }
-        try std.fmt.format(buf.*.writer(), "): ", .{});
-        try self.body.debug_string(buf);
-        try std.fmt.format(buf.*.writer(), " end", .{});
+        std.fmt.format(buf.*.writer(), "): ", .{}) catch return ObjectError.InspectFormatError;
+        self.body.debug_string(buf) catch return ObjectError.InspectFormatError;
+        std.fmt.format(buf.*.writer(), " end", .{}) catch return ObjectError.InspectFormatError;
     }
 };
-
-// pub const Ident = struct {
-//     type: ObjectType,
-//     name: []const u8,
-//     value: *const Object,
-
-//     pub fn inspect(self: Ident) void {
-//         std.debug.print("{s} = ", .{self.name});
-//         self.value.*.inspect();
-//     }
-// };
 
 pub const Integer = struct {
     type: ObjectType,
     value: i64,
 
-    pub fn inspect(self: Integer) void {
-        std.debug.print("{d}", .{self.value});
+    pub fn inspect(self: Integer, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "{d}", .{self.value}) catch return ObjectError.InspectFormatError;
     }
 };
 
@@ -83,16 +71,16 @@ pub const Boolean = struct {
     type: ObjectType,
     value: bool,
 
-    pub fn inspect(self: Boolean) void {
-        std.debug.print("{?}", .{self.value});
+    pub fn inspect(self: Boolean, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "{?}", .{self.value}) catch return ObjectError.InspectFormatError;
     }
 };
 
 pub const Null = struct {
     type: ObjectType,
 
-    pub fn inspect(_: Null) void {
-        std.debug.print("null", .{});
+    pub fn inspect(_: Null, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "null", .{}) catch return ObjectError.InspectFormatError;
     }
 };
 
@@ -100,8 +88,8 @@ pub const Return = struct {
     type: ObjectType,
     value: *const Object,
 
-    pub fn inspect(self: Return) void {
-        self.value.inspect();
+    pub fn inspect(self: Return, buf: *std.ArrayList(u8)) ObjectError!void {
+        try self.value.inspect(buf);
     }
 };
 
@@ -109,8 +97,7 @@ pub const Error = struct {
     type: ObjectType,
     msg: []const u8,
 
-    pub fn inspect(self: Error) void {
-        const stderr = std.io.getStdErr().writer();
-        stderr.print("Error: {s}", .{self.msg}) catch {};
+    pub fn inspect(self: Error, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "{s}", .{self.msg}) catch return ObjectError.InspectFormatError;
     }
 };

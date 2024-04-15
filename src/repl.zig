@@ -12,6 +12,7 @@ const Environment = @import("environment.zig").Environment;
 pub fn repl() !void {
     const stdin = std.io.getStdIn().reader();
     const stdout = std.io.getStdOut().writer();
+    const stderr = std.io.getStdErr().writer();
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -31,9 +32,14 @@ pub fn repl() !void {
         var parser = try Parser.init(&lexer, &alloc);
         const program = try parser.parse();
 
-        const evaluator = try Evaluator.init(&alloc, &env);
-        const object = try evaluator.eval(program);
+        const evaluator = try Evaluator.init(&alloc);
+        const object = try evaluator.eval(program, &env);
 
-        object.inspect();
+        var buf = std.ArrayList(u8).init(alloc);
+        try object.inspect(&buf);
+        switch (object.*) {
+            .err => try stderr.print("error > {s}\n", .{try buf.toOwnedSlice()}),
+            else => try stdout.print("{s}\n", .{try buf.toOwnedSlice()}),
+        }
     }
 }

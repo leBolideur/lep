@@ -151,15 +151,20 @@ pub const Evaluator = struct {
                 if (args.items.len != func.parameters.items.len) {
                     return try eval_utils.new_error(
                         self.allocator,
-                        "Incorrect number of arguments\n",
-                        .{},
+                        "Incorrect number of arguments > args: {d}\tparams: {d}\n",
+                        .{ args.items.len, func.parameters.items.len },
                     );
                 }
                 for (args.items, func.parameters.items) |arg, param| {
+                    // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
                     _ = func_env.add(param.value, arg) catch return EvalError.EnvAddError;
                 }
 
-                return self.eval_block(func.body, func_env);
+                const eval_body = try self.eval_block(func.body, func_env);
+                return switch (eval_body.*) {
+                    .ret => |ret| ret.value,
+                    else => eval_body,
+                };
             },
             else => {
                 return try eval_utils.new_error(
@@ -173,16 +178,21 @@ pub const Evaluator = struct {
 
     fn eval_multiple_expr(
         self: Evaluator,
-        expressions: *const std.ArrayList(ast.Expression),
+        args: *const std.ArrayList(ast.Expression),
         env: *Environment,
     ) EvalError!std.ArrayList(*const Object) {
         var params = std.ArrayList(*const Object).init(self.allocator.*);
 
-        for (expressions.items) |expr| {
+        for (args.items) |expr| {
             const expression = try self.eval_expression(&expr, env);
             if (eval_utils.is_error(expression)) return params;
 
             params.append(expression) catch return EvalError.MemAlloc;
+
+            var buf = std.ArrayList(u8).init(self.allocator.*);
+            expression.inspect(&buf) catch {};
+            const str = buf.toOwnedSlice() catch unreachable;
+            std.debug.print("dbg >> {s}\targs len: {d}\n", .{ str, args.items.len });
         }
 
         return params;
