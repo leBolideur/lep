@@ -8,6 +8,8 @@ const Boolean = obj_import.Boolean;
 const Return = obj_import.Return;
 const Error = obj_import.Error;
 const Func = obj_import.Func;
+const NamedFunc = obj_import.NamedFunc;
+const LiteralFunc = obj_import.LiteralFunc;
 const ObjectType = obj_import.ObjectType;
 
 const Environment = @import("environment.zig").Environment;
@@ -46,18 +48,33 @@ pub fn new_integer(allocator: *const std.mem.Allocator, value: i64) !*const Obje
 pub fn new_func(
     allocator: *const std.mem.Allocator,
     env: *const Environment,
-    func_literal: ast.FunctionLiteral,
+    func: ast.Function,
 ) !*const Object {
     var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
+    switch (func) {
+        .named => |named| {
+            const named_func = NamedFunc{
+                .type = ObjectType.NamedFunc,
+                .name = named.name.value,
+                .parameters = named.func_literal.parameters,
+                .body = named.func_literal.body,
+                .env = env,
+            };
+            ptr.* = Object{ .named_func = named_func };
+        },
+        .literal => |f| {
+            const lit = LiteralFunc{
+                .type = ObjectType.LiteralFunc,
+                .parameters = f.parameters,
+                .body = f.body,
+                .env = env,
+            };
+            ptr.* = Object{ .literal_func = lit };
+        },
+    }
+
     // std.debug.print("new func -- params >> {d}\n", .{func_literal.parameters.items.len});
-    const result = Func{
-        .type = ObjectType.Func,
-        .parameters = func_literal.parameters,
-        .body = func_literal.body,
-        .env = env,
-    };
-    ptr.* = Object{ .func = result };
 
     return ptr;
 }

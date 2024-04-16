@@ -48,6 +48,7 @@ pub const TokenType = enum {
     IF,
     ELSE,
 
+    // TODO: Rename
     pub fn get_str_from_keyword(token_type: TokenType) ![]const u8 {
         const value = switch (token_type) {
             .FN => "fn",
@@ -58,6 +59,7 @@ pub const TokenType = enum {
             .FALSE => "false",
             .IF => "if",
             .ELSE => "else",
+            .SEMICOLON => ";",
             else => return TokenError.UndefinedToken,
         };
 

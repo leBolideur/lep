@@ -125,8 +125,13 @@ pub const Evaluator = struct {
             .identifier => |ident| {
                 return try self.eval_identifier(ident, env);
             },
-            .func_literal => |func| {
+            .func => |func| {
                 const fun = try eval_utils.new_func(self.allocator, env, func);
+                // try env.add_fn(fun);
+                switch (func) {
+                    .named => |named| _ = env.add_var(named.name.value, fun) catch return EvalError.EnvAddError,
+                    .literal => {},
+                }
 
                 // std.debug.print("eval_expr -- params >> {d}\n", .{func.parameters.items.len});
                 return fun;
@@ -150,39 +155,49 @@ pub const Evaluator = struct {
         args: std.ArrayList(*const Object),
         env: *Environment,
     ) EvalError!*const Object {
+        var parameters: std.ArrayList(ast.Identifier) = undefined;
+        var body: ast.BlockStatement = undefined;
         switch (object.*) {
-            .func => |func| {
-                if (args.items.len != func.parameters.items.len) {
-                    return try eval_utils.new_error(
-                        self.allocator,
-                        "Incorrect number of arguments > want: {d}, got: {d}\n",
-                        .{ func.parameters.items.len, args.items.len },
-                    );
-                }
-
-                var func_env = env.extend_env(args, &func.parameters) catch return EvalError.EnvExtendError;
-                // for (args.items, func.parameters.items) |arg, param| {
-                //     // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
-                //     _ = func_env.add(param.value, arg) catch return EvalError.EnvAddError;
-                // }
-                // std.debug.print("env >> {d}\tfunc_env >> {d}\n", .{ env.*.table.count(), func_env.*.table.count() });
-
-                const eval_body = try self.eval_block(func.body, func_env);
-
-                // unwrap to void return bubbleup
-                return switch (eval_body.*) {
-                    .ret => |ret| ret.value,
-                    else => eval_body,
-                };
+            .named_func => |f| {
+                parameters = f.parameters;
+                body = f.body;
             },
-            else => {
+            .literal_func => |f| {
+                parameters = f.parameters;
+                body = f.body;
+            },
+            else => |other| {
                 return try eval_utils.new_error(
                     self.allocator,
-                    "Not a function\n",
-                    .{},
+                    "Cannot apply function with object type: {?}\n",
+                    .{other},
                 );
             },
         }
+
+        // std.debug.print("object : {?}\n", .{object.*});
+        if (args.items.len != parameters.items.len) {
+            return try eval_utils.new_error(
+                self.allocator,
+                "Incorrect number of arguments > want: {d}, got: {d}\n",
+                .{ parameters.items.len, args.items.len },
+            );
+        }
+
+        var func_env = env.extend_env(args, parameters) catch return EvalError.EnvExtendError;
+        // for (args.items, func.parameters.items) |arg, param| {
+        //     // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
+        //     _ = func_env.add(param.value, arg) catch return EvalError.EnvAddError;
+        // }
+        // std.debug.print("env >> {d}\tfunc_env >> {d}\n", .{ env.*.table.count(), func_env.*.table.count() });
+
+        const eval_body = try self.eval_block(body, func_env);
+
+        // unwrap to void return bubbleup
+        return switch (eval_body.*) {
+            .ret => |ret| ret.value,
+            else => eval_body,
+        };
     }
 
     fn eval_multiple_expr(
@@ -238,7 +253,7 @@ pub const Evaluator = struct {
     }
 
     fn eval_identifier(self: Evaluator, ident: ast.Identifier, env: *Environment) EvalError!*const Object {
-        const val = env.get(ident.value) catch return EvalError.EnvGetError;
+        const val = env.get_var(ident.value) catch return EvalError.EnvGetError;
         const ret = val orelse {
             return try eval_utils.new_error(
                 self.allocator,
@@ -263,7 +278,7 @@ pub const Evaluator = struct {
                 const expr = try self.eval_expression(va.expression, env);
                 if (eval_utils.is_error(expr)) return expr;
 
-                return env.add(va.name.value, expr) catch return EvalError.EnvAddError;
+                return env.add_var(va.name.value, expr) catch return EvalError.EnvAddError;
             },
         }
     }

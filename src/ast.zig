@@ -38,6 +38,18 @@ pub const Statement = union(enum) {
     }
 };
 
+pub const Function = union(enum) {
+    named: NamedFunction,
+    literal: FunctionLiteral,
+
+    pub fn debug_string(self: *const Function, buf: *std.ArrayList(u8)) DebugError!void {
+        try switch (self.*) {
+            .named => |func| func.debug_string(buf),
+            .literal => |func| func.debug_string(buf),
+        };
+    }
+};
+
 pub const Expression = union(enum) {
     // Identifier can be an expression (use of binding) and a statement (binding)
     identifier: Identifier,
@@ -46,7 +58,9 @@ pub const Expression = union(enum) {
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
     if_expression: IfExpression,
-    func_literal: FunctionLiteral,
+    // func_literal: FunctionLiteral,
+    // named_func: NamedFunction,
+    func: Function,
     call_expression: CallExpression,
 
     pub fn debug_string(self: *const Expression, buf: *std.ArrayList(u8)) DebugError!void {
@@ -57,7 +71,9 @@ pub const Expression = union(enum) {
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
             .if_expression => |ife| ife.debug_string(buf),
-            .func_literal => |fl| fl.debug_string(buf),
+            // .func_literal => |fl| fl.debug_string(buf),
+            // .named_func => |na| na.debug_string(buf),
+            .func => |f| f.debug_string(buf),
             .call_expression => |call| call.debug_string(buf),
         };
     }
@@ -272,9 +288,35 @@ pub const FunctionLiteral = struct {
     }
 };
 
+pub const NamedFunction = struct {
+    func_literal: *const FunctionLiteral,
+    name: Identifier,
+
+    pub fn token_literal(self: NamedFunction) []const u8 {
+        return self.function_literal.token.literal ++ self.name.value;
+    }
+
+    pub fn debug_string(self: *const NamedFunction, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "fn {s}(", .{self.name.value});
+
+        const params = self.func_literal.parameters.items;
+        var i: usize = 0;
+        while (i < params.len) : (i += 1) {
+            try params[i].debug_string(buf);
+            if (i != params.len - 1) {
+                try std.fmt.format(buf.*.writer(), ",", .{});
+            }
+        }
+
+        try std.fmt.format(buf.*.writer(), "):\n", .{});
+        self.func_literal.body.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), "\nend", .{});
+    }
+};
+
 pub const CallExpression = struct {
     token: Token,
-    function: *const Expression,
+    function: *const Expression, // identifier or function literal
     arguments: std.ArrayList(Expression),
 
     pub fn token_literal(self: CallExpression) []const u8 {

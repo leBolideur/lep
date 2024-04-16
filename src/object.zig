@@ -3,7 +3,7 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const Environment = @import("environment.zig").Environment;
 
-pub const ObjectType = union(enum) { Integer, Boolean, Null, Return, Error, Func };
+pub const ObjectType = union(enum) { Integer, Boolean, Null, Return, Error, NamedFunc, LiteralFunc };
 
 pub const ObjectError = error{InspectFormatError};
 
@@ -13,7 +13,8 @@ pub const Object = union(enum) {
     null: Null,
     ret: Return,
     err: Error,
-    func: Func,
+    literal_func: LiteralFunc,
+    named_func: NamedFunc,
 
     pub fn inspect(self: Object, buf: *std.ArrayList(u8)) ObjectError!void {
         try switch (self) {
@@ -22,7 +23,8 @@ pub const Object = union(enum) {
             .null => |n| n.inspect(buf),
             .ret => |ret| ret.inspect(buf),
             .err => |err| err.inspect(buf),
-            .func => |func| func.inspect(buf),
+            .literal_func => |func| func.inspect(buf),
+            .named_func => |func| func.inspect(buf),
         };
     }
 
@@ -33,19 +35,54 @@ pub const Object = union(enum) {
             .null => "Null",
             .ret => "Ret",
             .err => "Error",
-            .func => "Func",
+            .literal_func => "Literal Func",
+            .named_func => "Named Func",
         };
     }
 };
 
-pub const Func = struct {
+pub const Func = union(enum) {
+    named: NamedFunc,
+    literal: LiteralFunc,
+
+    pub fn inspect(self: Func, buf: *std.ArrayList(u8)) ObjectError!void {
+        try switch (self) {
+            .named => |f| f.inspect(buf),
+            .literal => |f| f.inspect(buf),
+        };
+    }
+};
+
+pub const LiteralFunc = struct {
     type: ObjectType,
+    // name: []const u8,
     parameters: std.ArrayList(ast.Identifier),
     body: ast.BlockStatement,
     env: *const Environment,
 
-    pub fn inspect(self: Func, buf: *std.ArrayList(u8)) ObjectError!void {
+    pub fn inspect(self: LiteralFunc, buf: *std.ArrayList(u8)) ObjectError!void {
         std.fmt.format(buf.*.writer(), "fn(", .{}) catch return ObjectError.InspectFormatError;
+        for (self.parameters.items, 1..) |param, i| {
+            param.debug_string(buf) catch return ObjectError.InspectFormatError;
+            if (i != self.parameters.items.len) {
+                std.fmt.format(buf.*.writer(), ", ", .{}) catch return ObjectError.InspectFormatError;
+            }
+        }
+        std.fmt.format(buf.*.writer(), "): ", .{}) catch return ObjectError.InspectFormatError;
+        self.body.debug_string(buf) catch return ObjectError.InspectFormatError;
+        std.fmt.format(buf.*.writer(), " end", .{}) catch return ObjectError.InspectFormatError;
+    }
+};
+
+pub const NamedFunc = struct {
+    type: ObjectType,
+    name: []const u8,
+    parameters: std.ArrayList(ast.Identifier),
+    body: ast.BlockStatement,
+    env: *const Environment,
+
+    pub fn inspect(self: NamedFunc, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "fn {s}(", .{self.name}) catch return ObjectError.InspectFormatError;
         for (self.parameters.items, 1..) |param, i| {
             param.debug_string(buf) catch return ObjectError.InspectFormatError;
             if (i != self.parameters.items.len) {

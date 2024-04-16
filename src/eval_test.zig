@@ -221,12 +221,17 @@ test "Test functions" {
 
 test "Test functions call" {
     const expected = [_]struct { []const u8, i64 }{
-        // .{ "var identity = fn(x): x; end identity(5);", 5 },
-        // .{ "var identity = fn(x): ret x; end identity(5);", 5 },
-        // .{ "var double = fn(x): x * 2; end double(5);", 10 },
-        // .{ "var add = fn(x, y): x + y; end add(5, 5);", 10 },
-        .{ "var add = fn(x, y): ret x + y; end add(5 + 5, add(5, 5));", 20 },
-        // .{ "fn(x): x; end(5)", 5 },
+        .{ "var identity = fn(x): x; end; identity(5);", 5 },
+        .{ "fn identity(x): x; end identity(5);", 5 },
+        .{ "var identity = fn(x): ret x; end; identity(5);", 5 },
+        .{ "var double = fn(x): x * 2; end; double(5);", 10 },
+        .{ "fn double(x): x * 2; end double(7);", 14 },
+        .{ "var add = fn(x, y): x + y; end; add(5, 5);", 10 },
+        .{ "fn add(x, y): x + y; end add(6, 6);", 12 },
+        .{ "var add = fn(x, y): ret x + y; end; add(6 + 1, add(4, 3));", 14 },
+        .{ "fn add(x, y): ret x + y; end add(5 + 5, add(5, 5));", 20 },
+        .{ "fn(x): x; end(6)", 6 },
+        .{ "fn(x, y): x * y; end(6, 6)", 36 },
     };
 
     for (expected) |exp| {
@@ -283,7 +288,7 @@ fn test_integer_object(object: *const Object.Object, expected: i64) !void {
         },
         else => |e| {
             try stderr.print("\nObject is not an Integer. Detail:\n\t>>> {s}\n", .{e.err.msg});
-            // @panic("");
+            @panic("");
         },
     }
 }

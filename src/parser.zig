@@ -22,6 +22,7 @@ const ParserError = ParseFnsError || error{
     ParseInteger,
     ParseIdentifier,
     MissingLeftParen,
+    MissingFuncIdent,
 };
 
 const Precedence = enum(u8) {
@@ -113,7 +114,7 @@ pub const Parser = struct {
         var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
-        _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
+        _ = try self.expect_peek(TokenType.SEMICOLON);
 
         return ast.VarStatement{
             .token = var_st_token,
@@ -163,7 +164,7 @@ pub const Parser = struct {
             .TRUE, .FALSE => ast.Expression{ .boolean = try self.parse_boolean() },
             .LPAREN => try self.parse_grouped_expression(),
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
-            .FN => ast.Expression{ .func_literal = try self.parse_function_literal() },
+            .FN => ast.Expression{ .func = try self.parse_function_literal() },
             else => {
                 stderr.print("No prefix parse function for token > {s}\n", .{self.current_token.literal}) catch {};
                 return ParseFnsError.NoPrefixFn;
@@ -264,9 +265,9 @@ pub const Parser = struct {
         };
         self.next();
 
-        while (!self.current_token_is(TokenType.END) and
-            !self.current_token_is(TokenType.ELSE) and
-            !self.current_token_is(TokenType.EOF))
+        while (!self.expect_current(TokenType.END) and
+            !self.expect_current(TokenType.ELSE) and
+            !self.expect_current(TokenType.EOF))
         {
             const statement = try self.parse_statement();
             statements_list.append(statement) catch {};
@@ -325,24 +326,51 @@ pub const Parser = struct {
         return infix_expr;
     }
 
-    fn parse_function_literal(self: *Parser) ParserError!ast.FunctionLiteral {
-        var func_lit = ast.FunctionLiteral{
+    fn parse_function_literal(self: *Parser) ParserError!ast.Function {
+        const lit_ptr = self.allocator.create(ast.FunctionLiteral) catch return ParserError.MemAlloc;
+
+        lit_ptr.* = ast.FunctionLiteral{
             .token = self.current_token,
             .parameters = undefined,
             .body = undefined,
         };
+        var named_func = ast.NamedFunction{
+            .name = undefined,
+            .func_literal = lit_ptr,
+        };
+        var is_named = false;
+
+        if (self.peek_token.type == TokenType.IDENT) {
+            _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingFuncIdent;
+            named_func.name = try self.parse_identifier();
+            is_named = true;
+        }
 
         _ = self.expect_peek(TokenType.LPAREN) catch return ParserError.MissingLeftParen;
 
-        func_lit.parameters = try self.parse_function_parameters();
+        lit_ptr.*.parameters = try self.parse_function_parameters();
         _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
 
-        func_lit.body = try self.parse_block_statement();
+        lit_ptr.*.body = try self.parse_block_statement();
 
-        if (self.current_token.type == TokenType.END)
+        if (is_named) {
+            if (self.expect_current(TokenType.END)) {
+                try self.unexpect_peek(TokenType.SEMICOLON);
+                self.next();
+            }
+            // else {
+            //     return ParserError.MissingEnd;
+            // }
+
+            return ast.Function{ .named = named_func };
+        }
+
+        if (self.expect_current(TokenType.SEMICOLON))
             self.next();
 
-        return func_lit;
+        return ast.Function{
+            .literal = lit_ptr.*,
+        };
     }
 
     fn parse_function_parameters(self: *Parser) ParserError!std.ArrayList(ast.Identifier) {
@@ -406,15 +434,35 @@ pub const Parser = struct {
             self.next();
             return true;
         }
-        stderr.print("Syntax error! Expected {!s}, got {!s}\n", .{
-            self.current_token.get_str(),
+        stderr.print("Syntax error! Expected '{!s}' before '{!s}'\n", .{
+            expected_type.get_str_from_keyword(),
             self.peek_token.get_str(),
         }) catch {};
         return ParserError.BadToken;
     }
 
-    fn current_token_is(self: *Parser, token_type: TokenType) bool {
+    fn expect_current(self: *Parser, token_type: TokenType) bool {
         return self.current_token.type == token_type;
+    }
+
+    fn unexpect_current(self: *Parser, expected_type: TokenType) ParserError!void {
+        if (self.current_token.type == expected_type) {
+            stderr.print("Syntax error! Too much {!s}\n", .{
+                self.current_token.get_str(),
+                // self.peek_token.get_str(),
+            }) catch {};
+            return ParserError.BadToken;
+        }
+    }
+
+    fn unexpect_peek(self: *Parser, expected_type: TokenType) ParserError!void {
+        if (self.peek_token.type == expected_type) {
+            stderr.print("Syntax error! Too much {!s} after {!s}\n", .{
+                self.peek_token.get_str(),
+                self.current_token.get_str(),
+            }) catch {};
+            return ParserError.BadToken;
+        }
     }
 
     fn peek_precedence(self: *Parser) Precedence {

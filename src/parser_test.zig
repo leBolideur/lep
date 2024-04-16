@@ -179,7 +179,7 @@ test "Test If-Else expression" {
     }
 }
 
-test "Test function literal parameters" {
+test "Test function Literal parameters" {
     const expected = [_]struct { []const u8, i64 }{
         .{ "fn(x, y): x + y; end;", 2 },
         .{ "fn(x, y): x - y; end", 2 },
@@ -199,11 +199,53 @@ test "Test function literal parameters" {
         const program = node.program;
         try std.testing.expect(program.statements.items.len == 1);
 
-        const expr_st = program.statements.items[0].expr_statement;
-        const func_lit = expr_st.expression.func_literal;
+        const func = program.statements.items[0].expr_statement.expression.func;
+        const func_lit = switch (func) {
+            .literal => |lit| lit,
+            else => {
+                @panic("Not a literal function\n");
+            },
+        };
+        // = expr_st.expression.func_literal;
 
         try std.testing.expect(@TypeOf(func_lit) == ast.FunctionLiteral);
+        // try std.testing.expectEqualStrings(func_lit.name.value, exp[0]);
         try std.testing.expect(func_lit.parameters.items.len == exp[1]);
+    }
+}
+
+test "Test Named function parameters" {
+    const expected = [_]struct { []const u8, []const u8, i64 }{
+        .{ "fn test(x, y): x + y; end", "test", 2 },
+        .{ "fn test_u(x, y): x - y; end", "test_u", 2 },
+        .{ "fn add(x, y, z): end", "add", 3 },
+        .{ "fn print(x): x; end", "print", 1 },
+        .{ "fn void(): end", "void", 0 },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const func = program.statements.items[0].expr_statement.expression.func;
+        const named_func = switch (func) {
+            .named => |named| named,
+            else => {
+                @panic("Not a named function\n");
+            },
+        };
+        // const func_lit = expr_st.expression.func_literal;
+
+        try std.testing.expect(@TypeOf(named_func) == ast.NamedFunction);
+        try std.testing.expectEqualStrings(named_func.name.value, exp[1]);
+        try std.testing.expect(named_func.func_literal.parameters.items.len == exp[2]);
     }
 }
 
