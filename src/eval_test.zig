@@ -225,7 +225,7 @@ test "Test functions call" {
         // .{ "var identity = fn(x): ret x; end identity(5);", 5 },
         // .{ "var double = fn(x): x * 2; end double(5);", 10 },
         // .{ "var add = fn(x, y): x + y; end add(5, 5);", 10 },
-        .{ "var add = fn(x, y): x + y; end add(5 + 5, add(5, 5));", 20 },
+        .{ "var add = fn(x, y): ret x + y; end add(5 + 5, add(5, 5));", 20 },
         // .{ "fn(x): x; end(5)", 5 },
     };
 
@@ -324,5 +324,13 @@ fn test_eval(input: []const u8) !*const Object.Object {
     const program_ast = try parser.parse();
     const evaluator = try Evaluator.init(&alloc);
 
-    return try evaluator.eval(program_ast, &env);
+    const evaluated = try evaluator.eval(program_ast, &env);
+
+    // var buf = std.ArrayList(u8).init(std.testing.allocator);
+    // defer buf.deinit();
+    // try evaluated.inspect(&buf);
+    // const str = try buf.toOwnedSlice();
+    // std.debug.print("\ninspect >> {s}\n", .{str});
+
+    return evaluated;
 }

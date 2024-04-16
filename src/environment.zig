@@ -2,6 +2,8 @@ const std = @import("std");
 
 const Object = @import("object.zig").Object;
 
+const ast = @import("ast.zig");
+
 const EnvError = error{ MemAlloc, Undeclared, SetError };
 
 pub const Environment = struct {
@@ -17,13 +19,22 @@ pub const Environment = struct {
         };
     }
 
-    pub fn extend_env(self: *Environment) EnvError!*Environment {
+    pub fn extend_env(
+        self: *Environment,
+        args: std.ArrayList(*const Object),
+        params: *const std.ArrayList(ast.Identifier),
+    ) EnvError!*Environment {
         var ptr = self.allocator.create(Environment) catch return EnvError.MemAlloc;
         ptr.* = Environment{
             .table = std.hash_map.StringHashMap(*const Object).init(self.allocator.*),
             .outer = self,
             .allocator = self.allocator,
         };
+
+        for (args.items, params.items) |arg, param| {
+            // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
+            _ = ptr.add(param.value, arg) catch return EnvError.SetError;
+        }
 
         return ptr;
     }

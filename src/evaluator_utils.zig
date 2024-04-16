@@ -50,6 +50,7 @@ pub fn new_func(
 ) !*const Object {
     var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
+    // std.debug.print("new func -- params >> {d}\n", .{func_literal.parameters.items.len});
     const result = Func{
         .type = ObjectType.Func,
         .parameters = func_literal.parameters,

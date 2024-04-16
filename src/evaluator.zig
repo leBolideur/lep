@@ -126,14 +126,20 @@ pub const Evaluator = struct {
                 return try self.eval_identifier(ident, env);
             },
             .func_literal => |func| {
-                return try eval_utils.new_func(self.allocator, env, func);
+                const fun = try eval_utils.new_func(self.allocator, env, func);
+
+                // std.debug.print("eval_expr -- params >> {d}\n", .{func.parameters.items.len});
+                return fun;
             },
             .call_expression => |call| {
                 const func = try self.eval_expression(call.function, env);
                 if (eval_utils.is_error(func)) return func;
 
-                const params = try self.eval_multiple_expr(&call.arguments, env);
-                return self.apply_function(func, &params, env);
+                // std.debug.print("evaluator -- before args >> {d}\n", .{call.arguments.items.len});
+                const args = try self.eval_multiple_expr(&call.arguments, env);
+                // std.debug.print("evaluator -- args after >> {d}\n", .{args.items.len});
+
+                return self.apply_function(func, args, env);
             },
         }
     }
@@ -141,26 +147,29 @@ pub const Evaluator = struct {
     fn apply_function(
         self: Evaluator,
         object: *const Object,
-        args: *const std.ArrayList(*const Object),
+        args: std.ArrayList(*const Object),
         env: *Environment,
     ) EvalError!*const Object {
         switch (object.*) {
             .func => |func| {
-                var func_env = env.extend_env() catch return EvalError.EnvExtendError;
-
                 if (args.items.len != func.parameters.items.len) {
                     return try eval_utils.new_error(
                         self.allocator,
-                        "Incorrect number of arguments > args: {d}\tparams: {d}\n",
-                        .{ args.items.len, func.parameters.items.len },
+                        "Incorrect number of arguments > want: {d}, got: {d}\n",
+                        .{ func.parameters.items.len, args.items.len },
                     );
                 }
-                for (args.items, func.parameters.items) |arg, param| {
-                    // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
-                    _ = func_env.add(param.value, arg) catch return EvalError.EnvAddError;
-                }
+
+                var func_env = env.extend_env(args, &func.parameters) catch return EvalError.EnvExtendError;
+                // for (args.items, func.parameters.items) |arg, param| {
+                //     // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
+                //     _ = func_env.add(param.value, arg) catch return EvalError.EnvAddError;
+                // }
+                // std.debug.print("env >> {d}\tfunc_env >> {d}\n", .{ env.*.table.count(), func_env.*.table.count() });
 
                 const eval_body = try self.eval_block(func.body, func_env);
+
+                // unwrap to void return bubbleup
                 return switch (eval_body.*) {
                     .ret => |ret| ret.value,
                     else => eval_body,
@@ -181,21 +190,22 @@ pub const Evaluator = struct {
         args: *const std.ArrayList(ast.Expression),
         env: *Environment,
     ) EvalError!std.ArrayList(*const Object) {
-        var params = std.ArrayList(*const Object).init(self.allocator.*);
+        var args_evaluated = std.ArrayList(*const Object).init(self.allocator.*);
 
-        for (args.items) |expr| {
-            const expression = try self.eval_expression(&expr, env);
-            if (eval_utils.is_error(expression)) return params;
+        // std.debug.print("\tmultiple args evaluated: {d}\n", .{args.items.len});
+        for (args.items) |arg| {
+            const expression = try self.eval_expression(&arg, env);
+            // if (eval_utils.is_error(expression)) return args_evaluated;
 
-            params.append(expression) catch return EvalError.MemAlloc;
+            args_evaluated.append(expression) catch return EvalError.MemAlloc;
 
-            var buf = std.ArrayList(u8).init(self.allocator.*);
-            expression.inspect(&buf) catch {};
-            const str = buf.toOwnedSlice() catch unreachable;
-            std.debug.print("dbg >> {s}\targs len: {d}\n", .{ str, args.items.len });
+            // var buf = std.ArrayList(u8).init(self.allocator.*);
+            // expression.inspect(&buf) catch {};
+            // const str = buf.toOwnedSlice() catch unreachable;
         }
 
-        return params;
+        // std.debug.print("multiple return arsg >> {d}\\n", .{args_evaluated.items.len});
+        return args_evaluated;
     }
 
     fn eval_if_expression(
