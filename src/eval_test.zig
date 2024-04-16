@@ -206,11 +206,24 @@ test "Test bindings" {
     }
 }
 
-test "Test functions" {
+test "Test Literal functions" {
     const expected = [_]struct { []const u8, u8, []const u8, []const u8 }{
         .{ "fn(x): x + 2; end", 1, "x", "(x + 2)" },
         .{ "fn(x, y): x + y; end;", 2, "x, y", "(x + y)" },
         .{ "fn(x, foo, bar): x + foo * bar; end", 3, "x, foo, bar", "(x + (foo * bar))" },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_func_object(evaluated, exp);
+    }
+}
+
+test "Test Named functions" {
+    const expected = [_]struct { []const u8, u8, []const u8, []const u8 }{
+        .{ "fn plus_two(x): x + 2; end", 1, "x", "(x + 2)" },
+        .{ "fn add(x, y): x + y; end", 2, "x, y", "(x + y)" },
+        .{ "fn foobar(x, foo, bar): x + foo * bar; end", 3, "x, foo, bar", "(x + (foo * bar))" },
     };
 
     for (expected) |exp| {
@@ -245,8 +258,25 @@ fn test_func_object(object: *const Object.Object, expected: anytype) !void {
     defer arena.deinit();
     var alloc = arena.allocator();
 
+    // TODO: Refactor
     switch (object.*) {
-        .func => |func| {
+        .literal_func => |func| {
+            try std.testing.expectEqual(func.parameters.items.len, expected[1]);
+
+            var params_buf = std.ArrayList(u8).init(alloc);
+            for (func.parameters.items, 1..) |param, i| {
+                try param.debug_string(&params_buf);
+                if (i != func.parameters.items.len) {
+                    try std.fmt.format(params_buf.writer(), ", ", .{});
+                }
+            }
+            try std.testing.expectEqualStrings(try params_buf.toOwnedSlice(), expected[2]);
+
+            var body_buf = std.ArrayList(u8).init(alloc);
+            try func.body.debug_string(&body_buf);
+            try std.testing.expectEqualStrings(try body_buf.toOwnedSlice(), expected[3]);
+        },
+        .named_func => |func| {
             try std.testing.expectEqual(func.parameters.items.len, expected[1]);
 
             var params_buf = std.ArrayList(u8).init(alloc);
