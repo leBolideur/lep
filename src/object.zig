@@ -3,9 +3,21 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const Environment = @import("environment.zig").Environment;
 
-pub const ObjectType = union(enum) { Integer, Boolean, String, Null, Return, Error, NamedFunc, LiteralFunc };
+const builtins = @import("builtins.zig");
 
-pub const ObjectError = error{InspectFormatError};
+pub const ObjectType = union(enum) {
+    Integer,
+    Boolean,
+    String,
+    Null,
+    Return,
+    Error,
+    NamedFunc,
+    LiteralFunc,
+    Builtin,
+};
+
+pub const ObjectError = error{ InspectFormatError, MemAlloc };
 
 pub const Object = union(enum) {
     integer: Integer,
@@ -16,17 +28,19 @@ pub const Object = union(enum) {
     err: Error,
     literal_func: LiteralFunc,
     named_func: NamedFunc,
+    builtin: BuiltinObject,
 
     pub fn inspect(self: Object, buf: *std.ArrayList(u8)) ObjectError!void {
         try switch (self) {
             .integer => |integer| integer.inspect(buf),
             .boolean => |boolean| boolean.inspect(buf),
             .string => |string| string.inspect(buf),
-            .null => |n| n.inspect(buf),
+            .null => |null_| null_.inspect(buf),
             .ret => |ret| ret.inspect(buf),
             .err => |err| err.inspect(buf),
             .literal_func => |func| func.inspect(buf),
             .named_func => |func| func.inspect(buf),
+            .builtin => |builtin| builtin.inspect(buf),
         };
     }
 
@@ -40,6 +54,7 @@ pub const Object = union(enum) {
             .err => "Error",
             .literal_func => "Literal Func",
             .named_func => "Named Func",
+            .builtin => "Builtin function",
         };
     }
 };
@@ -95,6 +110,15 @@ pub const NamedFunc = struct {
         std.fmt.format(buf.*.writer(), "): ", .{}) catch return ObjectError.InspectFormatError;
         self.body.debug_string(buf) catch return ObjectError.InspectFormatError;
         std.fmt.format(buf.*.writer(), " end", .{}) catch return ObjectError.InspectFormatError;
+    }
+};
+
+pub const BuiltinObject = struct {
+    type: ObjectType,
+    function: builtins.BuiltinFunction,
+
+    pub fn inspect(_: BuiltinObject, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "builtin function", .{}) catch return ObjectError.InspectFormatError;
     }
 };
 

@@ -12,8 +12,11 @@ const Func = obj_import.Func;
 const NamedFunc = obj_import.NamedFunc;
 const LiteralFunc = obj_import.LiteralFunc;
 const ObjectType = obj_import.ObjectType;
+const BuiltinObject = obj_import.BuiltinObject;
 
 const Environment = @import("environment.zig").Environment;
+
+const BuiltinFunction = @import("builtins.zig").BuiltinFunction;
 
 const ast = @import("ast.zig");
 
@@ -51,6 +54,15 @@ pub fn new_string(allocator: *const std.mem.Allocator, value: []const u8) !*cons
 
     const result = String{ .type = ObjectType.String, .value = value };
     ptr.* = Object{ .string = result };
+
+    return ptr;
+}
+
+pub fn new_builtin(allocator: *const std.mem.Allocator, function: BuiltinFunction) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = BuiltinObject{ .type = ObjectType.Builtin, .function = function };
+    ptr.* = Object{ .builtin = result };
 
     return ptr;
 }
@@ -100,9 +112,6 @@ pub fn new_error(
     comptime fmt: []const u8,
     args: anytype,
 ) !*const Object {
-    // _ = fmt;
-    // _ = args;
-    // const msg = "";
     const msg = std.fmt.allocPrint(allocator.*, fmt, args) catch return EvalError.MemAlloc;
     var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
     const err = Error{ .type = ObjectType.Error, .msg = msg };

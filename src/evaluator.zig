@@ -3,11 +3,14 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const obj_import = @import("object.zig");
 const Object = obj_import.Object;
+const BuiltinObject = obj_import.BuiltinObject;
 
 const eval_utils = @import("evaluator_utils.zig");
 const EvalError = eval_utils.EvalError;
 
 const Environment = @import("environment.zig").Environment;
+
+const builtins = @import("builtins.zig");
 
 const stderr = std.io.getStdOut().writer();
 
@@ -15,6 +18,7 @@ const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ 
 
 pub const Evaluator = struct {
     infix_op_map: std.StringHashMap(INFIX_OP),
+    builtins_map: std.StringHashMap(*const Object),
 
     allocator: *const std.mem.Allocator,
 
@@ -31,8 +35,12 @@ pub const Evaluator = struct {
         try infix_op_map.put("==", INFIX_OP.EQ);
         try infix_op_map.put("!=", INFIX_OP.NOT_EQ);
 
+        var builtins_map = std.StringHashMap(*const Object).init(allocator.*);
+        try builtins_map.put("len", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.len));
+
         return Evaluator{
             .infix_op_map = infix_op_map,
+            .builtins_map = builtins_map,
             .allocator = allocator,
         };
     }
@@ -172,6 +180,9 @@ pub const Evaluator = struct {
                 body = f.body;
                 env = f.env;
             },
+            .builtin => |b| {
+                return b.function.call(self.allocator, args);
+            },
             else => |other| {
                 return try eval_utils.new_error(
                     self.allocator,
@@ -246,14 +257,18 @@ pub const Evaluator = struct {
 
     fn eval_identifier(self: Evaluator, ident: ast.Identifier, env: *Environment) EvalError!*const Object {
         const val = env.get_var(ident.value) catch return EvalError.EnvGetError;
-        const ret = val orelse {
-            return try eval_utils.new_error(
-                self.allocator,
-                "identifier not found: {s}",
-                .{ident.value},
-            );
-        };
-        return ret;
+        if (val == null) {
+            const builtin = self.builtins_map.get(ident.value);
+            if (builtin != null) {
+                return builtin.?;
+            }
+        }
+
+        return try eval_utils.new_error(
+            self.allocator,
+            "identifier not found: {s}",
+            .{ident.value},
+        );
     }
 
     fn eval_statement(self: Evaluator, statement: ast.Statement, env: *Environment) EvalError!*const Object {

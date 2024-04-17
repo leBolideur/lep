@@ -63,6 +63,52 @@ test "Test String concatenation" {
     }
 }
 
+test "Test Builtin functions" {
+    const Result = union(enum) {
+        res: i64,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\len("hello");
+            ,
+            Result{ .res = 5 },
+        },
+        .{
+            \\len("hello, world!");
+            ,
+            Result{ .res = 13 },
+        },
+        .{
+            \\len("This house has people in it...");
+            ,
+            Result{ .res = 30 },
+        },
+        .{
+            "len(1);",
+            Result{ .err = "argument to `len` not supported, got Integer" },
+        },
+        .{
+            \\len("one", "two");
+            ,
+            Result{ .err = "wrong number of arguments. got=2, want=1" },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .res => |int_res| {
+                try test_integer_object(evaluated, int_res);
+            },
+            .err => |msg| {
+                const returned_err_msg = evaluated.err.msg;
+                try std.testing.expectEqualStrings(msg, returned_err_msg);
+            },
+        }
+    }
+}
+
 test "Test Prefix ! op with boolean" {
     const expected = [_]struct { []const u8, bool }{
         .{ "!true;", false },
