@@ -9,6 +9,7 @@ pub const ObjectType = union(enum) {
     Integer,
     Boolean,
     String,
+    Array,
     Null,
     Return,
     Error,
@@ -23,6 +24,7 @@ pub const Object = union(enum) {
     integer: Integer,
     boolean: Boolean,
     string: String,
+    array: Array,
     null: Null,
     ret: Return,
     err: Error,
@@ -35,6 +37,7 @@ pub const Object = union(enum) {
             .integer => |integer| integer.inspect(buf),
             .boolean => |boolean| boolean.inspect(buf),
             .string => |string| string.inspect(buf),
+            .array => |array| array.inspect(buf),
             .null => |null_| null_.inspect(buf),
             .ret => |ret| ret.inspect(buf),
             .err => |err| err.inspect(buf),
@@ -49,6 +52,7 @@ pub const Object = union(enum) {
             .integer => "Integer",
             .boolean => "Boolean",
             .string => "String",
+            .array => "Array",
             .null => "Null",
             .ret => "Ret",
             .err => "Error",
@@ -137,6 +141,22 @@ pub const String = struct {
 
     pub fn inspect(self: String, buf: *std.ArrayList(u8)) ObjectError!void {
         std.fmt.format(buf.*.writer(), "{s}", .{self.value}) catch return ObjectError.InspectFormatError;
+    }
+};
+
+pub const Array = struct {
+    type: ObjectType,
+    elements: std.ArrayList(*const Object),
+
+    pub fn inspect(self: Array, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "[", .{}) catch return ObjectError.InspectFormatError;
+        for (self.elements.items, 1..) |param, i| {
+            param.inspect(buf) catch return ObjectError.InspectFormatError;
+            if (i != self.elements.items.len) {
+                std.fmt.format(buf.*.writer(), ", ", .{}) catch return ObjectError.InspectFormatError;
+            }
+        }
+        std.fmt.format(buf.*.writer(), " ];", .{}) catch return ObjectError.InspectFormatError;
     }
 };
 

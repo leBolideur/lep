@@ -115,6 +115,13 @@ pub const Evaluator = struct {
             .string => |string| {
                 return eval_utils.new_string(self.allocator, string.value);
             },
+            .array => |array| {
+                const elements = try self.eval_multiple_expr(&array.elements, env);
+                return try eval_utils.new_array(self.allocator, elements);
+            },
+            .index_expr => |_| {
+                unreachable;
+            },
             .prefix_expr => |expr| {
                 const right = try self.eval_expression(expr.right_expr, env);
                 if (eval_utils.is_error(right)) return right;

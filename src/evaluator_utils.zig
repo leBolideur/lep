@@ -4,6 +4,7 @@ const obj_import = @import("object.zig");
 const Object = obj_import.Object;
 const Integer = obj_import.Integer;
 const String = obj_import.String;
+const Array = obj_import.Array;
 const Null = obj_import.Null;
 const Boolean = obj_import.Boolean;
 const Return = obj_import.Return;
@@ -54,6 +55,15 @@ pub fn new_string(allocator: *const std.mem.Allocator, value: []const u8) !*cons
 
     const result = String{ .type = ObjectType.String, .value = value };
     ptr.* = Object{ .string = result };
+
+    return ptr;
+}
+
+pub fn new_array(allocator: *const std.mem.Allocator, elements: std.ArrayList(*const Object)) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = Array{ .type = ObjectType.String, .elements = elements };
+    ptr.* = Object{ .array = result };
 
     return ptr;
 }

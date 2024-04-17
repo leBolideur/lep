@@ -63,6 +63,24 @@ test "Test String concatenation" {
     }
 }
 
+test "Test Array literal evaluation" {
+    const expected = [_]struct { []const u8, u8, [3]u8 }{
+        .{ "[1, 2 * 2, 3 + 3];", 3, [_]u8{ 1, 4, 6 } },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try std.testing.expectEqualStrings(evaluated.typename(), "Array");
+
+        const elements = evaluated.array.elements.items;
+        try std.testing.expectEqual(elements.len, exp[1]);
+
+        for (elements, 0..) |elem, i| {
+            try test_integer_object(elem, exp[2][i]);
+        }
+    }
+}
+
 test "Test Builtin functions" {
     const Result = union(enum) {
         res: i64,
