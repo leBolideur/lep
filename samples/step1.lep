@@ -1,0 +1,18 @@
+var my_number = 1 + 20;
+
+fn my_func(number):
+    ret number + 1;
+end
+
+var other = my_func(4);
+
+!-/*5;
+5 < 10 > 5;
+
+if 5 < 10:
+    ret true;
+else:
+    ret false;
+end
+
+10 == 10; 10 != 9;

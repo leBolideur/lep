@@ -5,6 +5,7 @@ const Token = token_import.Token;
 const TokenType = token_import.TokenType;
 
 const stdout = std.io.getStdIn().writer();
+const stderr = std.io.getStdErr().writer();
 
 pub const Lexer = struct {
     input: []const u8,
@@ -96,6 +97,7 @@ pub const Lexer = struct {
                     token = Token{ .type = TokenType.INT, .literal = digit };
                     return token;
                 } else {
+                    stderr.print("Illegal char: {c}\n", .{self.current_char}) catch {};
                     token = Token{ .type = TokenType.ILLEGAL, .literal = "ILLEGAL" };
                     return token;
                 }
