@@ -17,6 +17,8 @@ pub const TokenType = enum {
     IDENT,
     INT,
 
+    STRING,
+
     // Operators
     ASSIGN,
     PLUS,

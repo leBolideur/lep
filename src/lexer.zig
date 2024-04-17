@@ -53,6 +53,12 @@ pub const Lexer = struct {
             ';' => token = Token{ .type = TokenType.SEMICOLON, .literal = ";" },
             ',' => token = Token{ .type = TokenType.COMMA, .literal = "," },
 
+            '"' => {
+                self.read_char();
+                const string = self.read_string();
+                token = Token{ .type = TokenType.STRING, .literal = string };
+            },
+
             '=' => {
                 if (self.peek_char() == '=') {
                     self.read_char();
@@ -119,6 +125,16 @@ pub const Lexer = struct {
         return self.input[start_pos..self.position];
     }
 
+    fn read_string(self: *Lexer) []const u8 {
+        const start_pos = self.position;
+        while (true) {
+            self.read_char();
+            if (self.current_char == '"' or self.current_char == '0') break;
+        }
+
+        return self.input[start_pos..self.position];
+    }
+
     fn read_digit(self: *Lexer) []const u8 {
         const start_pos = self.position;
         while (std.ascii.isDigit(self.current_char)) self.read_char();
@@ -148,6 +164,8 @@ test "test the lexer" {
         \\ret false;
         \\end;
         \\10 == 10; 10 != 9;
+        \\"foo-bar?!@";
+        \\"Hello, World!";
     ;
 
     const expected = [_]Token{
@@ -221,6 +239,11 @@ test "test the lexer" {
         Token{ .type = TokenType.INT, .literal = "10" },
         Token{ .type = TokenType.NOT_EQ, .literal = "!=" },
         Token{ .type = TokenType.INT, .literal = "9" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+
+        Token{ .type = TokenType.STRING, .literal = "foo-bar?!@" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.STRING, .literal = "Hello, World!" },
         Token{ .type = TokenType.SEMICOLON, .literal = ";" },
 
         Token{ .type = TokenType.EOF, .literal = "EOF" },

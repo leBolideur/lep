@@ -116,6 +116,31 @@ test "Test Integer expression statement" {
     }
 }
 
+test "Test String expression statement" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{ "\"hello\";", "hello" },
+        .{ "\"hello, world!\";", "hello, world!" },
+        .{ "\"foo-bar?!@\";", "foo-bar?!@" },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const expr_st = program.statements.items[0].expr_statement;
+
+        try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
+        try std.testing.expectEqualStrings(expr_st.token.literal, exp[1]);
+    }
+}
+
 test "Test If expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8 }{
         .{ "if x == y:  x; end;", "x", "==", "y", "x" },
@@ -206,7 +231,6 @@ test "Test function Literal parameters" {
                 @panic("Not a literal function\n");
             },
         };
-        // = expr_st.expression.func_literal;
 
         try std.testing.expect(@TypeOf(func_lit) == ast.FunctionLiteral);
         // try std.testing.expectEqualStrings(func_lit.name.value, exp[0]);
@@ -304,9 +328,7 @@ test "Test Boolean expression statement" {
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
-        const expr = expr_st.expression;
-
-        try test_boolean(expr, exp[2]);
+        try test_boolean(expr_st.expression, exp[2]);
     }
 }
 

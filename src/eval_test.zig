@@ -35,6 +35,34 @@ test "Test Boolean literal evaluation" {
     }
 }
 
+test "Test String literal evaluation" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{ "\"hello\";", "hello" },
+        .{ "\"hello, world!\";", "hello, world!" },
+        .{ "\"foo-bar?!@\";", "foo-bar?!@" },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_string_object(evaluated, exp[1]);
+    }
+}
+
+test "Test String concatenation" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{
+            \\"hello" + ", " + "world!";
+            ,
+            "hello, world!",
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_string_object(evaluated, exp[1]);
+    }
+}
+
 test "Test Prefix ! op with boolean" {
     const expected = [_]struct { []const u8, bool }{
         .{ "!true;", false },
@@ -153,6 +181,11 @@ test "Test errors" {
         .{
             "5 + true; 5;",
             "type mismatch: Integer + Boolean",
+        },
+        .{
+            \\"hello" - "world";
+            ,
+            "unknown operator: String - String",
         },
         .{
             "-true",
@@ -377,6 +410,18 @@ fn test_integer_object(object: *const Object.Object, expected: i64) !void {
         },
         else => |e| {
             try stderr.print("\nObject is not an Integer. Detail:\n\t>>> {s}\n", .{e.err.msg});
+            @panic("");
+        },
+    }
+}
+
+fn test_string_object(object: *const Object.Object, expected: []const u8) !void {
+    switch (object.*) {
+        .string => |string| {
+            try std.testing.expectEqualStrings(string.value, expected);
+        },
+        else => |e| {
+            try stderr.print("\nObject is not a String. Detail:\n\t>>> {s}\n", .{e.err.msg});
             @panic("");
         },
     }

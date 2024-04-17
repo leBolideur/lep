@@ -3,13 +3,14 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const Environment = @import("environment.zig").Environment;
 
-pub const ObjectType = union(enum) { Integer, Boolean, Null, Return, Error, NamedFunc, LiteralFunc };
+pub const ObjectType = union(enum) { Integer, Boolean, String, Null, Return, Error, NamedFunc, LiteralFunc };
 
 pub const ObjectError = error{InspectFormatError};
 
 pub const Object = union(enum) {
     integer: Integer,
     boolean: Boolean,
+    string: String,
     null: Null,
     ret: Return,
     err: Error,
@@ -20,6 +21,7 @@ pub const Object = union(enum) {
         try switch (self) {
             .integer => |integer| integer.inspect(buf),
             .boolean => |boolean| boolean.inspect(buf),
+            .string => |string| string.inspect(buf),
             .null => |n| n.inspect(buf),
             .ret => |ret| ret.inspect(buf),
             .err => |err| err.inspect(buf),
@@ -32,6 +34,7 @@ pub const Object = union(enum) {
         return switch (self) {
             .integer => "Integer",
             .boolean => "Boolean",
+            .string => "String",
             .null => "Null",
             .ret => "Ret",
             .err => "Error",
@@ -101,6 +104,15 @@ pub const Integer = struct {
 
     pub fn inspect(self: Integer, buf: *std.ArrayList(u8)) ObjectError!void {
         std.fmt.format(buf.*.writer(), "{d}", .{self.value}) catch return ObjectError.InspectFormatError;
+    }
+};
+
+pub const String = struct {
+    type: ObjectType,
+    value: []const u8,
+
+    pub fn inspect(self: String, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "{s}", .{self.value}) catch return ObjectError.InspectFormatError;
     }
 };
 

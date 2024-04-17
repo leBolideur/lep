@@ -104,6 +104,9 @@ pub const Evaluator = struct {
             .boolean => |boo| {
                 return eval_utils.new_boolean(boo.value);
             },
+            .string => |string| {
+                return eval_utils.new_string(self.allocator, string.value);
+            },
             .prefix_expr => |expr| {
                 const right = try self.eval_expression(expr.right_expr, env);
                 if (eval_utils.is_error(right)) return right;
@@ -301,6 +304,18 @@ pub const Evaluator = struct {
                     },
                 }
             },
+            .string => {
+                switch (right.*) {
+                    .string => return self.eval_string_infix(op, left, right),
+                    else => {
+                        return try eval_utils.new_error(
+                            self.allocator,
+                            "type mismatch: {s} {s} {s}",
+                            .{ left.typename(), op, right.typename() },
+                        );
+                    },
+                }
+            },
             else => {
                 return try eval_utils.new_error(
                     self.allocator,
@@ -365,6 +380,47 @@ pub const Evaluator = struct {
             },
             INFIX_OP.NOT_EQ => {
                 return eval_utils.new_boolean(left != right);
+            },
+        }
+    }
+
+    fn eval_string_infix(
+        self: Evaluator,
+        op_: []const u8,
+        left_: *const Object,
+        right_: *const Object,
+    ) EvalError!*const Object {
+        const left = left_.string.value;
+        const right = right_.string.value;
+
+        const op = self.infix_op_map.get(op_) orelse {
+            return try eval_utils.new_error(
+                self.allocator,
+                "unknown operator: {s} {s} {s}",
+                .{ left_.typename(), op_, right_.typename() },
+            );
+        };
+
+        switch (op) {
+            INFIX_OP.SUM => {
+                const left_len = left.len;
+                const right_len = right.len;
+                const total = left_len + right_len;
+
+                var buf = self.allocator.alloc(u8, total) catch return EvalError.MemAlloc;
+                std.mem.copy(u8, buf[0..left_len], left);
+                std.mem.copy(u8, buf[left_len..total], right);
+
+                // Be careful with 'buf' in case of allocator type change
+                const object = try eval_utils.new_string(self.allocator, buf);
+                return object;
+            },
+            else => {
+                return try eval_utils.new_error(
+                    self.allocator,
+                    "unknown operator: {s} {s} {s}",
+                    .{ left_.typename(), op_, right_.typename() },
+                );
             },
         }
     }

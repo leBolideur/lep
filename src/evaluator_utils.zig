@@ -3,6 +3,7 @@ const std = @import("std");
 const obj_import = @import("object.zig");
 const Object = obj_import.Object;
 const Integer = obj_import.Integer;
+const String = obj_import.String;
 const Null = obj_import.Null;
 const Boolean = obj_import.Boolean;
 const Return = obj_import.Return;
@@ -41,6 +42,15 @@ pub fn new_integer(allocator: *const std.mem.Allocator, value: i64) !*const Obje
 
     const result = Integer{ .type = ObjectType.Integer, .value = value };
     ptr.* = Object{ .integer = result };
+
+    return ptr;
+}
+
+pub fn new_string(allocator: *const std.mem.Allocator, value: []const u8) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = String{ .type = ObjectType.String, .value = value };
+    ptr.* = Object{ .string = result };
 
     return ptr;
 }
