@@ -8,14 +8,14 @@ const EnvError = error{ MemAlloc, Undeclared, SetError };
 
 pub const Environment = struct {
     var_table: std.hash_map.StringHashMap(*const Object),
-    fn_table: std.hash_map.StringHashMap(*const Object),
+    // fn_table: std.hash_map.StringHashMap(*const Object),
     outer: ?*const Environment,
     allocator: *const std.mem.Allocator,
 
     pub fn init(allocator: *const std.mem.Allocator) EnvError!Environment {
         return Environment{
             .var_table = std.hash_map.StringHashMap(*const Object).init(allocator.*),
-            .fn_table = std.hash_map.StringHashMap(*const Object).init(allocator.*),
+            // .fn_table = std.hash_map.StringHashMap(*const Object).init(allocator.*),
             .outer = null,
             .allocator = allocator,
         };
@@ -29,7 +29,7 @@ pub const Environment = struct {
         var ptr = self.allocator.create(Environment) catch return EnvError.MemAlloc;
         ptr.* = Environment{
             .var_table = std.hash_map.StringHashMap(*const Object).init(self.allocator.*),
-            .fn_table = std.hash_map.StringHashMap(*const Object).init(self.allocator.*),
+            // .fn_table = std.hash_map.StringHashMap(*const Object).init(self.allocator.*),
             .outer = self,
             .allocator = self.allocator,
         };
@@ -42,15 +42,15 @@ pub const Environment = struct {
     }
 
     pub fn get_var(self: *Environment, name: []const u8) EnvError!?*const Object {
-        var ret = self.var_table.get(name);
+        const ret = self.var_table.get(name);
 
         if (ret == null and self.outer != null) {
-            ret = self.outer.?.var_table.get(name);
+            return self.outer.?.var_table.get(name);
         }
 
-        if (ret == null) {
-            ret = self.fn_table.get(name);
-        }
+        // if (ret == null) {
+        //     ret = self.fn_table.get(name);
+        // }
         return ret;
     }
 
@@ -71,13 +71,13 @@ pub const Environment = struct {
         return value;
     }
 
-    pub fn add_fn(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
-        // TO FIX: investigate, not normal
-        const dupe = self.allocator.dupe(u8, name) catch return EnvError.MemAlloc;
-        self.fn_table.put(dupe, value) catch return EnvError.SetError;
+    // pub fn add_fn(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
+    //     // TO FIX: investigate, not normal
+    //     const dupe = self.allocator.dupe(u8, name) catch return EnvError.MemAlloc;
+    //     self.fn_table.put(dupe, value) catch return EnvError.SetError;
 
-        return value;
-    }
+    //     return value;
+    // }
 };
 
 test "test add and get" {

@@ -102,7 +102,6 @@ pub const Parser = struct {
     }
 
     fn parse_var_statement(self: *Parser) !ast.VarStatement {
-        std.debug.print("var -- current: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
         const var_st_token = self.current_token;
         _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingToken;
 
@@ -157,7 +156,6 @@ pub const Parser = struct {
     }
 
     fn parse_expression(self: *Parser, precedence: Precedence) ParserError!ast.Expression {
-        std.debug.print("current: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
         // Check if the current token may be a Prefix expr
         var left_expr = switch (self.current_token.type) {
             .IDENT => ast.Expression{ .identifier = try self.parse_identifier() },
@@ -343,7 +341,6 @@ pub const Parser = struct {
         var is_named = false;
 
         if (self.peek_token.type == TokenType.IDENT) {
-            std.debug.print("named fn -- current: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
             _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingFuncIdent;
 
             named_func.name = try self.parse_identifier();

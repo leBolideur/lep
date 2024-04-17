@@ -281,6 +281,37 @@ test "Test closure" {
     }
 }
 
+test "Test high order functions" {
+    const expected = [_]struct { []const u8, i64 }{
+        .{
+            \\var add = fn(x, y): ret x+y; end;
+            \\var apply = fn(func, a, b): ret func(a,b); end;
+            \\apply(add, 7, 3);
+            ,
+            10,
+        },
+        .{
+            \\var sub = fn(x, y): x-y; end;
+            \\var apply = fn(func, a, b): ret func(a,b); end;
+            \\apply(sub, 7, 3);
+            ,
+            4,
+        },
+        .{
+            \\var mul = fn(x, y): ret x*y; end;
+            \\var apply = fn(func, a, b): func(a,b); end;
+            \\apply(mul, 7, 3);
+            ,
+            21,
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_integer_object(evaluated, exp[1]);
+    }
+}
+
 fn test_func_object(object: *const Object.Object, expected: anytype) !void {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

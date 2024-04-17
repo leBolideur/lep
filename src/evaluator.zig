@@ -129,7 +129,7 @@ pub const Evaluator = struct {
                 const fun = try eval_utils.new_func(self.allocator, env, func);
                 // try env.add_fn(fun);
                 switch (func) {
-                    .named => |named| _ = env.add_fn(named.name.value, fun) catch return EvalError.EnvAddError,
+                    .named => |named| _ = env.add_var(named.name.value, fun) catch return EvalError.EnvAddError,
                     .literal => {},
                 }
 
@@ -178,7 +178,6 @@ pub const Evaluator = struct {
             },
         }
 
-        // std.debug.print("object : {?}\n", .{object.*});
         if (args.items.len != parameters.items.len) {
             return try eval_utils.new_error(
                 self.allocator,
@@ -188,12 +187,6 @@ pub const Evaluator = struct {
         }
 
         var func_env = env.extend_env(args, parameters) catch return EvalError.EnvExtendError;
-        // for (args.items, func.parameters.items) |arg, param| {
-        //     // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
-        //     _ = func_env.add(param.value, arg) catch return EvalError.EnvAddError;
-        // }
-        // std.debug.print("env >> {d}\tfunc_env >> {d}\n", .{ env.*.table.count(), func_env.*.table.count() });
-
         const eval_body = try self.eval_block(body, func_env);
 
         // unwrap to void return bubbleup
@@ -210,19 +203,12 @@ pub const Evaluator = struct {
     ) EvalError!std.ArrayList(*const Object) {
         var args_evaluated = std.ArrayList(*const Object).init(self.allocator.*);
 
-        // std.debug.print("\tmultiple args evaluated: {d}\n", .{args.items.len});
         for (args.items) |arg| {
             const expression = try self.eval_expression(&arg, env);
-            // if (eval_utils.is_error(expression)) return args_evaluated;
 
             args_evaluated.append(expression) catch return EvalError.MemAlloc;
-
-            // var buf = std.ArrayList(u8).init(self.allocator.*);
-            // expression.inspect(&buf) catch {};
-            // const str = buf.toOwnedSlice() catch unreachable;
         }
 
-        // std.debug.print("multiple return arsg >> {d}\\n", .{args_evaluated.items.len});
         return args_evaluated;
     }
 

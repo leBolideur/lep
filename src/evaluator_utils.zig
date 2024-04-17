@@ -74,8 +74,6 @@ pub fn new_func(
         },
     }
 
-    // std.debug.print("new func -- params >> {d}\n", .{func_literal.parameters.items.len});
-
     return ptr;
 }
 
