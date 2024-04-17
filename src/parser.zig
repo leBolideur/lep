@@ -34,6 +34,7 @@ const Precedence = enum(u8) {
     PRODUCT,
     PREFIX,
     CALL,
+    INDEX,
 
     pub fn less_than(self: Precedence, prec: Precedence) bool {
         return @intFromEnum(self) < @intFromEnum(prec);
@@ -64,6 +65,7 @@ pub const Parser = struct {
         try precedences_map.put(TokenType.SLASH, Precedence.PRODUCT);
         try precedences_map.put(TokenType.ASTERISK, Precedence.PRODUCT);
         try precedences_map.put(TokenType.LPAREN, Precedence.CALL);
+        try precedences_map.put(TokenType.LBRACK, Precedence.INDEX);
 
         return Parser{
             .lexer = lexer,
@@ -192,6 +194,7 @@ pub const Parser = struct {
                 .ASTERISK,
                 => ast.Expression{ .infix_expr = try self.parse_infix_expression(left_ptr) },
                 .LPAREN => ast.Expression{ .call_expression = try self.parse_call_expression(left_ptr) },
+                .LBRACK => ast.Expression{ .index_expr = try self.parse_index_expression(left_ptr) },
                 else => left_expr,
             };
         }
@@ -230,6 +233,23 @@ pub const Parser = struct {
             .token = self.current_token,
             .elements = try self.parse_expressions_list(TokenType.RBRACK),
         };
+    }
+
+    fn parse_index_expression(self: *Parser, left: *const ast.Expression) ParserError!ast.IndexExpression {
+        var index_expr = ast.IndexExpression{
+            .token = self.current_token,
+            .left = left,
+            .index = undefined,
+        };
+
+        self.next();
+        var index_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        index_ptr.* = try self.parse_expression(Precedence.LOWEST);
+        index_expr.index = index_ptr;
+
+        _ = try self.expect_peek(TokenType.RBRACK);
+
+        return index_expr;
     }
 
     fn parse_boolean(self: *Parser) ParserError!ast.Boolean {
