@@ -56,6 +56,7 @@ pub const Expression = union(enum) {
     integer: IntegerLiteral,
     boolean: Boolean,
     string: StringLiteral,
+    array: ArrayLiteral,
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
     if_expression: IfExpression,
@@ -70,6 +71,7 @@ pub const Expression = union(enum) {
             .integer => |int| int.debug_string(buf),
             .boolean => |bo| bo.debug_string(buf),
             .string => |str| str.debug_string(buf),
+            .string => |arr| arr.debug_string(buf),
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
             .if_expression => |ife| ife.debug_string(buf),
@@ -188,6 +190,32 @@ pub const StringLiteral = struct {
 
     pub fn debug_string(self: *const StringLiteral, buf: *std.ArrayList(u8)) DebugError!void {
         try std.fmt.format(buf.*.writer(), "{s}", .{self.value});
+    }
+};
+
+pub const ArrayLiteral = struct {
+    token: Token,
+    elements: std.ArrayList(Expression),
+
+    pub fn token_literal(self: ArrayLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const ArrayLiteral, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "[", .{});
+
+        const len = self.elements.items.len;
+        var i: usize = 0;
+        while (i < len) : (i += 1) {
+            try self.parameters.items[i].debug_string(buf);
+            if (i != len - 1) {
+                try std.fmt.format(buf.*.writer(), ",", .{});
+            }
+        }
+        self.body.debug_string(buf) catch return DebugError.DebugString;
+
+        try std.fmt.format(buf.*.writer(), "]", .{});
+        try std.fmt.format(buf.*.writer(), ";", .{});
     }
 };
 

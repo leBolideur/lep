@@ -17,6 +17,7 @@ const ParserError = ParseFnsError || error{
     MissingColon,
     MissingEnd,
     MissingRightParen,
+    MissingRightBracket,
     MemAlloc,
     ParseExpr,
     ParseInteger,
@@ -161,6 +162,7 @@ pub const Parser = struct {
             .IDENT => ast.Expression{ .identifier = try self.parse_identifier() },
             .INT => ast.Expression{ .integer = try self.parse_integer_literal() },
             .STRING => ast.Expression{ .string = try self.parse_string_literal() },
+            .LBRACK => ast.Expression{ .array = try self.parse_array_literal() },
             .MINUS, .BANG => ast.Expression{ .prefix_expr = try self.parse_prefix_expression() },
             .TRUE, .FALSE => ast.Expression{ .boolean = try self.parse_boolean() },
             .LPAREN => try self.parse_grouped_expression(),
@@ -220,6 +222,13 @@ pub const Parser = struct {
         return ast.StringLiteral{
             .token = self.current_token,
             .value = self.current_token.literal,
+        };
+    }
+
+    fn parse_array_literal(self: *Parser) ParserError!ast.ArrayLiteral {
+        return ast.ArrayLiteral{
+            .token = self.current_token,
+            .elements = try self.parse_expressions_list(TokenType.RBRACK),
         };
     }
 
@@ -407,34 +416,41 @@ pub const Parser = struct {
     }
 
     fn parse_call_expression(self: *Parser, function: *const ast.Expression) ParserError!ast.CallExpression {
-        var call = ast.CallExpression{ .token = self.current_token, .arguments = undefined, .function = function };
-        call.arguments = try self.parse_call_arguments();
-        return call;
+        return ast.CallExpression{
+            .token = self.current_token,
+            .arguments = try self.parse_expressions_list(TokenType.RPAREN),
+            .function = function,
+        };
     }
 
-    fn parse_call_arguments(self: *Parser) ParserError!std.ArrayList(ast.Expression) {
-        var args = std.ArrayList(ast.Expression).init(self.allocator.*);
+    fn parse_expressions_list(self: *Parser, end: TokenType) ParserError!std.ArrayList(ast.Expression) {
+        var list = std.ArrayList(ast.Expression).init(self.allocator.*);
 
-        if (self.peek_token.type == TokenType.RPAREN) {
+        if (self.peek_token.type == end) {
             self.next();
-            return args;
+            return list;
         }
 
         self.next();
         var arg = try self.parse_expression(Precedence.LOWEST);
-        args.append(arg) catch {};
+        list.append(arg) catch {};
 
         while (self.peek_token.type == TokenType.COMMA) {
             self.next();
             self.next();
 
             arg = try self.parse_expression(Precedence.LOWEST);
-            args.append(arg) catch {};
+            list.append(arg) catch {};
         }
 
-        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
+        var err = ParserError.MissingRightParen;
+        if (end == TokenType.RBRACK) {
+            err = ParserError.MissingRightBracket;
+        }
 
-        return args;
+        _ = self.expect_peek(end) catch return err;
+
+        return list;
     }
 
     fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!bool {

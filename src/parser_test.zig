@@ -141,6 +141,31 @@ test "Test String expression statement" {
     }
 }
 
+test "Test Array expression statement" {
+    const expected = [_]struct { []const u8, usize }{
+        .{ "[1, 2];", 2 },
+        .{ "[0];", 1 },
+        .{ "[];", 0 },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const array = program.statements.items[0].expr_statement.expression.array;
+
+        try std.testing.expect(@TypeOf(array) == ast.ArrayLiteral);
+        try std.testing.expectEqual(array.elements.items.len, exp[1]);
+    }
+}
+
 test "Test If expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8 }{
         .{ "if x == y:  x; end;", "x", "==", "y", "x" },

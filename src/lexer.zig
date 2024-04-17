@@ -75,6 +75,8 @@ pub const Lexer = struct {
             ':' => token = Token{ .type = TokenType.COLON, .literal = ":" },
             '(' => token = Token{ .type = TokenType.LPAREN, .literal = "(" },
             ')' => token = Token{ .type = TokenType.RPAREN, .literal = ")" },
+            '[' => token = Token{ .type = TokenType.LBRACK, .literal = "[" },
+            ']' => token = Token{ .type = TokenType.RBRACK, .literal = "]" },
             '!' => {
                 if (self.peek_char() == '=') {
                     self.read_char();
@@ -166,6 +168,7 @@ test "test the lexer" {
         \\10 == 10; 10 != 9;
         \\"foo-bar?!@";
         \\"Hello, World!";
+        \\[1, 2];
     ;
 
     const expected = [_]Token{
@@ -244,6 +247,13 @@ test "test the lexer" {
         Token{ .type = TokenType.STRING, .literal = "foo-bar?!@" },
         Token{ .type = TokenType.SEMICOLON, .literal = ";" },
         Token{ .type = TokenType.STRING, .literal = "Hello, World!" },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+
+        Token{ .type = TokenType.LBRACK, .literal = "[" },
+        Token{ .type = TokenType.INT, .literal = "1" },
+        Token{ .type = TokenType.COMMA, .literal = "," },
+        Token{ .type = TokenType.INT, .literal = "2" },
+        Token{ .type = TokenType.RBRACK, .literal = "]" },
         Token{ .type = TokenType.SEMICOLON, .literal = ";" },
 
         Token{ .type = TokenType.EOF, .literal = "EOF" },
