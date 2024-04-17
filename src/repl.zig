@@ -21,7 +21,7 @@ pub fn repl() !void {
     var env = try Environment.init(&alloc);
 
     while (true) {
-        var input: [50]u8 = undefined;
+        var input: [100]u8 = undefined;
 
         try stdout.print("\n>> ", .{});
         const ret = try stdin.read(&input);

@@ -253,6 +253,34 @@ test "Test functions call" {
     }
 }
 
+test "Test closure" {
+    const expected = [_]struct { []const u8, i64 }{
+        .{
+            \\var newAdder = fn(x):
+            \\  ret fn(y): ret x + y; end;
+            \\end;
+            \\var addTwo = newAdder(2);
+            \\addTwo(6);
+            ,
+            8,
+        },
+        // .{
+        //     \\fn mul_by(x):
+        //     \\   ret fn(y): ret x * y; end;
+        //     \\end
+        //     \\var mul_by_ten = mul_by(10);
+        //     \\mul_by_ten(2);
+        //     ,
+        //     20,
+        // },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_integer_object(evaluated, exp[1]);
+    }
+}
+
 fn test_func_object(object: *const Object.Object, expected: anytype) !void {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

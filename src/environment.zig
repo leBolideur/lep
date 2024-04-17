@@ -9,7 +9,7 @@ const EnvError = error{ MemAlloc, Undeclared, SetError };
 pub const Environment = struct {
     var_table: std.hash_map.StringHashMap(*const Object),
     fn_table: std.hash_map.StringHashMap(*const Object),
-    outer: ?*Environment,
+    outer: ?*const Environment,
     allocator: *const std.mem.Allocator,
 
     pub fn init(allocator: *const std.mem.Allocator) EnvError!Environment {
@@ -22,7 +22,7 @@ pub const Environment = struct {
     }
 
     pub fn extend_env(
-        self: *Environment,
+        self: *const Environment,
         args: std.ArrayList(*const Object),
         params: std.ArrayList(ast.Identifier),
     ) EnvError!*Environment {
@@ -35,7 +35,6 @@ pub const Environment = struct {
         };
 
         for (args.items, params.items) |arg, param| {
-            // std.debug.print("arg >> {s}\tparam >> {s}\n", .{ arg.typename(), param.value });
             _ = ptr.add_var(param.value, arg) catch return EnvError.SetError;
         }
 
@@ -43,10 +42,14 @@ pub const Environment = struct {
     }
 
     pub fn get_var(self: *Environment, name: []const u8) EnvError!?*const Object {
-        const ret = self.var_table.get(name);
+        var ret = self.var_table.get(name);
 
         if (ret == null and self.outer != null) {
-            return self.outer.?.var_table.get(name);
+            ret = self.outer.?.var_table.get(name);
+        }
+
+        if (ret == null) {
+            ret = self.fn_table.get(name);
         }
         return ret;
     }
@@ -56,33 +59,25 @@ pub const Environment = struct {
         const dupe = self.allocator.dupe(u8, name) catch return EnvError.MemAlloc;
         self.var_table.put(dupe, value) catch return EnvError.SetError;
 
+        // std.debug.print("\nTable content :\n", .{});
+        // var iter = self.var_table.valueIterator();
+        // while (iter.next()) |item| {
+        //     var buf = std.ArrayList(u8).init(self.allocator.*);
+        //     item.*.inspect(&buf) catch {};
+        //     const str = buf.toOwnedSlice() catch "";
+        //     std.debug.print("\t> {s}\n", .{str});
+        // }
+
         return value;
     }
 
-    // pub fn get_fn(self: *Environment, name: []const u8) EnvError!?*const Object {
-    //     const ret = self.fn_table.get(name);
+    pub fn add_fn(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
+        // TO FIX: investigate, not normal
+        const dupe = self.allocator.dupe(u8, name) catch return EnvError.MemAlloc;
+        self.fn_table.put(dupe, value) catch return EnvError.SetError;
 
-    //     if (ret == null and self.outer != null) {
-    //         return self.outer.?.fn_table.get(name);
-    //     }
-    //     return ret;
-    // }
-
-    // pub fn add_fn(self: *Environment, value: *const Object) EnvError!*const Object {
-    //     switch (value.*) {
-    //         .func => |func| {
-    //             // TO FIX: investigate, not normal
-    //             // const dupe = self.allocator.dupe(u8, name) catch return EnvError.MemAlloc;
-    //             self.fn_table.put(func.name, value) catch return EnvError.SetError;
-    //         },
-    //         else => {
-    //             const stderr = std.io.getStdErr().writer();
-    //             stderr.print("add_fn - object is not a function\n", .{}) catch {};
-    //         },
-    //     }
-
-    //     return value;
-    // }
+        return value;
+    }
 };
 
 test "test add and get" {

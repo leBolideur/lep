@@ -102,6 +102,7 @@ pub const Parser = struct {
     }
 
     fn parse_var_statement(self: *Parser) !ast.VarStatement {
+        std.debug.print("var -- current: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
         const var_st_token = self.current_token;
         _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingToken;
 
@@ -156,6 +157,7 @@ pub const Parser = struct {
     }
 
     fn parse_expression(self: *Parser, precedence: Precedence) ParserError!ast.Expression {
+        std.debug.print("current: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
         // Check if the current token may be a Prefix expr
         var left_expr = switch (self.current_token.type) {
             .IDENT => ast.Expression{ .identifier = try self.parse_identifier() },
@@ -166,7 +168,7 @@ pub const Parser = struct {
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
             .FN => ast.Expression{ .func = try self.parse_function_literal() },
             else => {
-                stderr.print("No prefix parse function for token > {s}\n", .{self.current_token.literal}) catch {};
+                stderr.print("No prefix parse function for token '{s}'\n", .{self.current_token.literal}) catch {};
                 return ParseFnsError.NoPrefixFn;
             },
         };
@@ -341,7 +343,9 @@ pub const Parser = struct {
         var is_named = false;
 
         if (self.peek_token.type == TokenType.IDENT) {
+            std.debug.print("named fn -- current: {s}\tpeek: {s}\n", .{ self.current_token.literal, self.peek_token.literal });
             _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingFuncIdent;
+
             named_func.name = try self.parse_identifier();
             is_named = true;
         }
@@ -357,10 +361,9 @@ pub const Parser = struct {
             if (self.expect_current(TokenType.END)) {
                 try self.unexpect_peek(TokenType.SEMICOLON);
                 self.next();
+            } else {
+                return ParserError.MissingEnd;
             }
-            // else {
-            //     return ParserError.MissingEnd;
-            // }
 
             return ast.Function{ .named = named_func };
         }

@@ -129,7 +129,7 @@ pub const Evaluator = struct {
                 const fun = try eval_utils.new_func(self.allocator, env, func);
                 // try env.add_fn(fun);
                 switch (func) {
-                    .named => |named| _ = env.add_var(named.name.value, fun) catch return EvalError.EnvAddError,
+                    .named => |named| _ = env.add_fn(named.name.value, fun) catch return EvalError.EnvAddError,
                     .literal => {},
                 }
 
@@ -144,7 +144,7 @@ pub const Evaluator = struct {
                 const args = try self.eval_multiple_expr(&call.arguments, env);
                 // std.debug.print("evaluator -- args after >> {d}\n", .{args.items.len});
 
-                return self.apply_function(func, args, env);
+                return self.apply_function(func, args);
             },
         }
     }
@@ -153,18 +153,21 @@ pub const Evaluator = struct {
         self: Evaluator,
         object: *const Object,
         args: std.ArrayList(*const Object),
-        env: *Environment,
+        // env: *Environment,
     ) EvalError!*const Object {
         var parameters: std.ArrayList(ast.Identifier) = undefined;
         var body: ast.BlockStatement = undefined;
+        var env: *const Environment = undefined;
         switch (object.*) {
             .named_func => |f| {
                 parameters = f.parameters;
                 body = f.body;
+                env = f.env;
             },
             .literal_func => |f| {
                 parameters = f.parameters;
                 body = f.body;
+                env = f.env;
             },
             else => |other| {
                 return try eval_utils.new_error(
