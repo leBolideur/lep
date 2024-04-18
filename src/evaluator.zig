@@ -269,6 +269,8 @@ pub const Evaluator = struct {
             if (builtin != null) {
                 return builtin.?;
             }
+        } else {
+            return val.?;
         }
 
         return try eval_utils.new_error(
