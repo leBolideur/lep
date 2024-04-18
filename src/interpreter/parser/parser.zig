@@ -48,8 +48,6 @@ pub const Parser = struct {
     current_token: Token,
     peek_token: Token,
 
-    // program: ast.Program,
-
     precedences_map: std.AutoHashMap(TokenType, Precedence),
 
     allocator: *const std.mem.Allocator,
@@ -71,7 +69,6 @@ pub const Parser = struct {
             .lexer = lexer,
             .current_token = lexer.next(),
             .peek_token = lexer.next(),
-            // .program = ast.Program.init(allocator),
 
             .precedences_map = precedences_map,
 
@@ -159,7 +156,6 @@ pub const Parser = struct {
     }
 
     fn parse_expression(self: *Parser, precedence: Precedence) ParserError!ast.Expression {
-        // Check if the current token may be a Prefix expr
         var left_expr = switch (self.current_token.type) {
             .IDENT => ast.Expression{ .identifier = try self.parse_identifier() },
             .INT => ast.Expression{ .integer = try self.parse_integer_literal() },
@@ -182,7 +178,6 @@ pub const Parser = struct {
 
             self.next();
 
-            // Look for an Infix expr for the peek_token
             left_expr = switch (self.current_token.type) {
                 .EQ,
                 .NOT_EQ,
@@ -493,7 +488,6 @@ pub const Parser = struct {
         if (self.current_token.type == expected_type) {
             stderr.print("Syntax error! Too much {!s}\n", .{
                 self.current_token.get_str(),
-                // self.peek_token.get_str(),
             }) catch {};
             return ParserError.BadToken;
         }

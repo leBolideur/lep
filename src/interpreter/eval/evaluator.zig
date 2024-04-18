@@ -194,7 +194,6 @@ pub const Evaluator = struct {
         self: Evaluator,
         object: *const Object,
         args: std.ArrayList(*const Object),
-        // env: *Environment,
     ) EvalError!*const Object {
         var parameters: std.ArrayList(ast.Identifier) = undefined;
         var body: ast.BlockStatement = undefined;

@@ -61,8 +61,6 @@ pub const Expression = union(enum) {
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
     if_expression: IfExpression,
-    // func_literal: FunctionLiteral,
-    // named_func: NamedFunction,
     func: Function,
     call_expression: CallExpression,
 
@@ -77,8 +75,6 @@ pub const Expression = union(enum) {
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
             .if_expression => |ife| ife.debug_string(buf),
-            // .func_literal => |fl| fl.debug_string(buf),
-            // .named_func => |na| na.debug_string(buf),
             .func => |f| f.debug_string(buf),
             .call_expression => |call| call.debug_string(buf),
         };
