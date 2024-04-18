@@ -114,7 +114,7 @@ test "Test Array indexing evaluation" {
     }
 }
 
-test "Test Builtin functions" {
+test "Test len Builtin function" {
     const Result = union(enum) {
         res: i64,
         err: []const u8,
@@ -143,6 +143,50 @@ test "Test Builtin functions" {
             \\len("one", "two");
             ,
             Result{ .err = "wrong number of arguments. got=2, want=1" },
+        },
+        .{
+            \\len(["one", "two"]);
+            ,
+            Result{ .res = 2 },
+        },
+        .{
+            \\len(["one", "two", 5, 6]);
+            ,
+            Result{ .res = 4 },
+        },
+        .{
+            \\len([2*2, 4+3, 100/2]);
+            ,
+            Result{ .res = 3 },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .res => |int_res| {
+                try test_integer_object(evaluated, int_res);
+            },
+            .err => |msg| {
+                const returned_err_msg = evaluated.err.msg;
+                try std.testing.expectEqualStrings(msg, returned_err_msg);
+            },
+        }
+    }
+}
+
+test "Test push Builtin functions" {
+    const Result = union(enum) {
+        res: i64,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\var array = [2*2, 4+3, 100/2];
+            \\var clone = push(array, 18);
+            \\len(clone);
+            ,
+            Result{ .res = 4 },
         },
     };
 

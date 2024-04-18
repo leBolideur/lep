@@ -38,6 +38,7 @@ pub const Evaluator = struct {
 
         var builtins_map = std.StringHashMap(*const Object).init(allocator.*);
         try builtins_map.put("len", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.len));
+        try builtins_map.put("push", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.push));
 
         return Evaluator{
             .infix_op_map = infix_op_map,
@@ -207,7 +208,7 @@ pub const Evaluator = struct {
                 env = f.env;
             },
             .builtin => |b| {
-                return b.function.call(self.allocator, args);
+                return b.function.call(self.allocator, args) catch return EvalError.BuiltinCall;
             },
             else => |other| {
                 return try eval_utils.new_error(

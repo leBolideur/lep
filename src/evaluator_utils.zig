@@ -21,7 +21,7 @@ const BuiltinFunction = @import("builtins.zig").BuiltinFunction;
 
 const ast = @import("ast.zig");
 
-pub const EvalError = error{ BadNode, MemAlloc, EnvAddError, EnvGetError, EnvExtendError };
+pub const EvalError = error{ BadNode, MemAlloc, EnvAddError, EnvGetError, EnvExtendError, BuiltinCall };
 
 pub const TRUE = Object{
     .boolean = Boolean{
