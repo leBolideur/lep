@@ -14,7 +14,9 @@ pub const Lexer = struct {
 
     // Token position
     line: u32 = 1,
-    pos: usize = 0,
+    token_end: usize = 0,
+    token_start: usize = 0,
+    last_line_len: usize = 0,
 
     pub fn init(input: []const u8) Lexer {
         var lexer = Lexer{
@@ -31,12 +33,11 @@ pub const Lexer = struct {
             self.current_char = 0;
         } else {
             self.current_char = self.input[self.read_position];
+            self.token_end += 1;
         }
 
         self.position = self.read_position;
         self.read_position += 1;
-
-        self.pos = self.position;
     }
 
     fn peek_char(self: *Lexer) u8 {
@@ -48,11 +49,14 @@ pub const Lexer = struct {
     }
 
     fn new_token(self: Lexer, type_: TokenType, literal: []const u8) Token {
+        var end_pos = self.token_end;
+        if (self.current_char == ' ') end_pos -= 1;
         return Token{
             .type = type_,
             .literal = literal,
             .line = self.line,
-            .pos = self.pos,
+            .start_pos = self.token_start,
+            .end_pos = end_pos,
         };
     }
 
@@ -61,67 +65,70 @@ pub const Lexer = struct {
 
         self.skip_whitespaces();
 
+        self.token_start = self.read_position - self.last_line_len;
+
         switch (self.current_char) {
-            ';' => token = self.new_token(TokenType.SEMICOLON, ";"), // Token{ .type = TokenType.SEMICOLON, .literal = ";" },
-            ',' => token = Token{ .type = TokenType.COMMA, .literal = "," },
+            ';' => token = self.new_token(TokenType.SEMICOLON, ";"),
+            ',' => token = self.new_token(TokenType.COMMA, ","),
 
             '"' => {
                 self.read_char();
                 const string = self.read_string();
-                token = Token{ .type = TokenType.STRING, .literal = string };
+                token = self.new_token(TokenType.STRING, string);
             },
 
             '=' => {
                 if (self.peek_char() == '=') {
                     self.read_char();
-                    token = Token{ .type = TokenType.EQ, .literal = "==" };
+                    token = self.new_token(TokenType.EQ, "==");
                 } else {
-                    token = Token{ .type = TokenType.ASSIGN, .literal = "=" };
+                    token = self.new_token(TokenType.ASSIGN, "=");
                 }
             },
-            '+' => token = Token{ .type = TokenType.PLUS, .literal = "+" },
-            '-' => token = Token{ .type = TokenType.MINUS, .literal = "-" },
-            '*' => token = Token{ .type = TokenType.ASTERISK, .literal = "*" },
-            '/' => token = Token{ .type = TokenType.SLASH, .literal = "/" },
+            '+' => token = self.new_token(TokenType.PLUS, "+"),
+            '-' => token = self.new_token(TokenType.MINUS, "-"),
+            '*' => token = self.new_token(TokenType.ASTERISK, "*"),
+            '/' => token = self.new_token(TokenType.SLASH, "/"),
 
-            ':' => token = Token{ .type = TokenType.COLON, .literal = ":" },
-            '(' => token = Token{ .type = TokenType.LPAREN, .literal = "(" },
-            ')' => token = Token{ .type = TokenType.RPAREN, .literal = ")" },
-            '[' => token = Token{ .type = TokenType.LBRACK, .literal = "[" },
-            ']' => token = Token{ .type = TokenType.RBRACK, .literal = "]" },
+            ':' => token = self.new_token(TokenType.COLON, ":"),
+            '(' => token = self.new_token(TokenType.LPAREN, "("),
+            ')' => token = self.new_token(TokenType.RPAREN, ")"),
+            '[' => token = self.new_token(TokenType.LBRACK, "["),
+            ']' => token = self.new_token(TokenType.RBRACK, "]"),
             '!' => {
                 if (self.peek_char() == '=') {
                     self.read_char();
-                    token = Token{ .type = TokenType.NOT_EQ, .literal = "!=" };
+                    token = self.new_token(TokenType.NOT_EQ, "!=");
                 } else {
-                    token = Token{ .type = TokenType.BANG, .literal = "!" };
+                    token = self.new_token(TokenType.BANG, "!");
                 }
             },
 
-            '<' => token = Token{ .type = TokenType.LT, .literal = "<" },
-            '>' => token = Token{ .type = TokenType.GT, .literal = ">" },
-            0 => token = Token{ .type = TokenType.EOF, .literal = "EOF" },
+            '<' => token = self.new_token(TokenType.LT, "<"),
+            '>' => token = self.new_token(TokenType.GT, ">"),
+            0 => token = self.new_token(TokenType.EOF, "EOF"),
             else => {
                 if (self.is_letter(self.current_char)) {
                     const ident = self.read_identifier();
                     const token_type = Token.lookup_ident(ident);
                     if (token_type != TokenType.IDENT) {
-                        token = Token{ .type = token_type, .literal = ident };
+                        token = self.new_token(token_type, ident);
                         return token;
                     }
-                    token = Token{ .type = TokenType.IDENT, .literal = ident };
+                    token = self.new_token(TokenType.IDENT, ident);
                     return token;
                 } else if (std.ascii.isDigit(self.current_char)) {
                     const digit = self.read_digit();
-                    token = Token{ .type = TokenType.INT, .literal = digit };
+                    token = self.new_token(TokenType.INT, digit);
                     return token;
                 } else {
-                    token = Token{ .type = TokenType.ILLEGAL, .literal = "ILLEGAL" };
+                    token = self.new_token(TokenType.ILLEGAL, "ILLEGAL");
                     return token;
                 }
             },
         }
 
+        // std.debug.print("token {s} @ {d}-{d}\n", .{ token.literal, token.start_pos, token.end_pos });
         self.read_char();
 
         return token;
@@ -156,29 +163,14 @@ pub const Lexer = struct {
         return self.input[start_pos..self.position];
     }
 
-    fn is_whitespace(self: *Lexer, c: u8) bool {
-        // Vertical Tab.
-        const vt = 0x0B;
-        // Form Feed.
-        const ff = 0x0C;
-        // Remove \n who need to be treated apart
-        const whitespace = [_]u8{ ' ', '\t', '\r', vt, ff };
-
-        for (whitespace) |char| {
-            if (c == char) {
-                return true;
-            } else if (c == '\n') {
-                self.line += 1;
-                self.pos = 0;
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     fn skip_whitespaces(self: *Lexer) void {
-        while (self.is_whitespace(self.current_char)) {
+        while (std.ascii.isWhitespace(self.current_char)) {
+            if (self.current_char == '\n') {
+                self.line += 1;
+                self.last_line_len = self.token_end; // + 1; // + \n
+                self.token_end = 0;
+                std.debug.print("last line len: {d}\n", .{self.last_line_len});
+            }
             self.read_char();
         }
     }
@@ -205,91 +197,92 @@ test "test the lexer" {
     ;
 
     const expected = [_]Token{
-        Token{ .type = TokenType.VAR, .literal = "var", .line = 1, .pos = 0 },
-        Token{ .type = TokenType.IDENT, .literal = "my_number" },
-        Token{ .type = TokenType.ASSIGN, .literal = "=" },
-        Token{ .type = TokenType.INT, .literal = "1" },
-        Token{ .type = TokenType.PLUS, .literal = "+" },
-        Token{ .type = TokenType.INT, .literal = "20" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.VAR, .literal = "var", .line = 1, .start_pos = 1, .end_pos = 3 },
+        Token{ .type = TokenType.IDENT, .literal = "my_number", .line = 1, .start_pos = 5, .end_pos = 13 },
+        Token{ .type = TokenType.ASSIGN, .literal = "=", .line = 1, .start_pos = 15, .end_pos = 15 },
+        Token{ .type = TokenType.INT, .literal = "1", .line = 1, .start_pos = 17, .end_pos = 17 },
+        Token{ .type = TokenType.PLUS, .literal = "+", .line = 1, .start_pos = 19, .end_pos = 19 },
+        Token{ .type = TokenType.INT, .literal = "20", .line = 1, .start_pos = 21, .end_pos = 23 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 1, .start_pos = 23, .end_pos = 23 },
 
-        Token{ .type = TokenType.FN, .literal = "fn" },
-        Token{ .type = TokenType.IDENT, .literal = "my_func" },
-        Token{ .type = TokenType.LPAREN, .literal = "(" },
-        Token{ .type = TokenType.IDENT, .literal = "number" },
-        Token{ .type = TokenType.RPAREN, .literal = ")" },
-        Token{ .type = TokenType.COLON, .literal = ":" },
-        Token{ .type = TokenType.RET, .literal = "ret" },
-        Token{ .type = TokenType.IDENT, .literal = "number" },
-        Token{ .type = TokenType.PLUS, .literal = "+" },
-        Token{ .type = TokenType.INT, .literal = "1" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
-        Token{ .type = TokenType.END, .literal = "end" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.FN, .literal = "fn", .line = 2, .start_pos = 1, .end_pos = 2 },
+        Token{ .type = TokenType.IDENT, .literal = "my_func", .line = 2, .start_pos = 4, .end_pos = 10 },
+        Token{ .type = TokenType.LPAREN, .literal = "(", .line = 2, .start_pos = 11, .end_pos = 12 },
+        Token{ .type = TokenType.IDENT, .literal = "number", .line = 2, .start_pos = 13, .end_pos = 18 },
+        Token{ .type = TokenType.RPAREN, .literal = ")", .line = 2, .start_pos = 19, .end_pos = 20 },
+        Token{ .type = TokenType.COLON, .literal = ":", .line = 2, .start_pos = 21, .end_pos = 22 },
 
-        Token{ .type = TokenType.VAR, .literal = "var" },
-        Token{ .type = TokenType.IDENT, .literal = "other" },
-        Token{ .type = TokenType.ASSIGN, .literal = "=" },
-        Token{ .type = TokenType.IDENT, .literal = "my_func" },
-        Token{ .type = TokenType.LPAREN, .literal = "(" },
-        Token{ .type = TokenType.INT, .literal = "4" },
-        Token{ .type = TokenType.RPAREN, .literal = ")" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.RET, .literal = "ret", .line = 2, .start_pos = 0, .end_pos = 23 },
+        Token{ .type = TokenType.IDENT, .literal = "number", .line = 2, .start_pos = 0, .end_pos = 23 },
+        Token{ .type = TokenType.PLUS, .literal = "+", .line = 2, .start_pos = 0, .end_pos = 23 },
+        Token{ .type = TokenType.INT, .literal = "1", .line = 2, .start_pos = 0, .end_pos = 23 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 2, .start_pos = 0, .end_pos = 23 },
+        Token{ .type = TokenType.END, .literal = "end", .line = 2, .start_pos = 0, .end_pos = 23 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 2, .start_pos = 0, .end_pos = 23 },
 
-        Token{ .type = TokenType.BANG, .literal = "!" },
-        Token{ .type = TokenType.MINUS, .literal = "-" },
-        Token{ .type = TokenType.SLASH, .literal = "/" },
-        Token{ .type = TokenType.ASTERISK, .literal = "*" },
-        Token{ .type = TokenType.INT, .literal = "5" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.VAR, .literal = "var", .line = 3, .start_pos = 0 },
+        Token{ .type = TokenType.IDENT, .literal = "other", .line = 3, .start_pos = 0 },
+        Token{ .type = TokenType.ASSIGN, .literal = "=", .line = 3, .start_pos = 0 },
+        Token{ .type = TokenType.IDENT, .literal = "my_func", .line = 3, .start_pos = 0 },
+        Token{ .type = TokenType.LPAREN, .literal = "(", .line = 3, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "4", .line = 3, .start_pos = 0 },
+        Token{ .type = TokenType.RPAREN, .literal = ")", .line = 3, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 3, .start_pos = 0 },
 
-        Token{ .type = TokenType.INT, .literal = "5" },
-        Token{ .type = TokenType.LT, .literal = "<" },
-        Token{ .type = TokenType.INT, .literal = "10" },
-        Token{ .type = TokenType.GT, .literal = ">" },
-        Token{ .type = TokenType.INT, .literal = "5" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.BANG, .literal = "!", .line = 4, .start_pos = 0 },
+        Token{ .type = TokenType.MINUS, .literal = "-", .line = 4, .start_pos = 0 },
+        Token{ .type = TokenType.SLASH, .literal = "/", .line = 4, .start_pos = 0 },
+        Token{ .type = TokenType.ASTERISK, .literal = "*", .line = 4, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "5", .line = 4, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 4, .start_pos = 0 },
 
-        Token{ .type = TokenType.IF, .literal = "if" },
-        Token{ .type = TokenType.INT, .literal = "5" },
-        Token{ .type = TokenType.LT, .literal = "<" },
-        Token{ .type = TokenType.INT, .literal = "10" },
-        Token{ .type = TokenType.COLON, .literal = ":" },
+        Token{ .type = TokenType.INT, .literal = "5", .line = 5, .start_pos = 0 },
+        Token{ .type = TokenType.LT, .literal = "<", .line = 5, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "10", .line = 5, .start_pos = 0 },
+        Token{ .type = TokenType.GT, .literal = ">", .line = 5, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "5", .line = 5, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 5, .start_pos = 0 },
 
-        Token{ .type = TokenType.RET, .literal = "ret" },
-        Token{ .type = TokenType.TRUE, .literal = "true" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.IF, .literal = "if", .line = 6, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "5", .line = 6, .start_pos = 0 },
+        Token{ .type = TokenType.LT, .literal = "<", .line = 6, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "10", .line = 6, .start_pos = 0 },
+        Token{ .type = TokenType.COLON, .literal = ":", .line = 6, .start_pos = 0 },
 
-        Token{ .type = TokenType.ELSE, .literal = "else" },
-        Token{ .type = TokenType.COLON, .literal = ":" },
-        Token{ .type = TokenType.RET, .literal = "ret" },
-        Token{ .type = TokenType.FALSE, .literal = "false" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
-        Token{ .type = TokenType.END, .literal = "end" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.RET, .literal = "ret", .line = 7, .start_pos = 0 },
+        Token{ .type = TokenType.TRUE, .literal = "true", .line = 7, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 7, .start_pos = 0 },
 
-        Token{ .type = TokenType.INT, .literal = "10" },
-        Token{ .type = TokenType.EQ, .literal = "==" },
-        Token{ .type = TokenType.INT, .literal = "10" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
-        Token{ .type = TokenType.INT, .literal = "10" },
-        Token{ .type = TokenType.NOT_EQ, .literal = "!=" },
-        Token{ .type = TokenType.INT, .literal = "9" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.ELSE, .literal = "else", .line = 8, .start_pos = 0 },
+        Token{ .type = TokenType.COLON, .literal = ":", .line = 8, .start_pos = 0 },
+        Token{ .type = TokenType.RET, .literal = "ret", .line = 8, .start_pos = 0 },
+        Token{ .type = TokenType.FALSE, .literal = "false", .line = 8, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 8, .start_pos = 0 },
+        Token{ .type = TokenType.END, .literal = "end", .line = 8, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 8, .start_pos = 0 },
 
-        Token{ .type = TokenType.STRING, .literal = "foo-bar?!@" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
-        Token{ .type = TokenType.STRING, .literal = "Hello, World!" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.INT, .literal = "10", .line = 9, .start_pos = 0 },
+        Token{ .type = TokenType.EQ, .literal = "==", .line = 9, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "10", .line = 9, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 9, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "10", .line = 9, .start_pos = 0 },
+        Token{ .type = TokenType.NOT_EQ, .literal = "!=", .line = 9, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "9", .line = 9, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 9, .start_pos = 0 },
 
-        Token{ .type = TokenType.LBRACK, .literal = "[" },
-        Token{ .type = TokenType.INT, .literal = "1" },
-        Token{ .type = TokenType.COMMA, .literal = "," },
-        Token{ .type = TokenType.INT, .literal = "2" },
-        Token{ .type = TokenType.RBRACK, .literal = "]" },
-        Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+        Token{ .type = TokenType.STRING, .literal = "foo-bar?!@", .line = 10, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 10, .start_pos = 0 },
+        Token{ .type = TokenType.STRING, .literal = "Hello, World!", .line = 10, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 10, .start_pos = 0 },
 
-        Token{ .type = TokenType.EOF, .literal = "EOF" },
+        Token{ .type = TokenType.LBRACK, .literal = "[", .line = 11, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "1", .line = 11, .start_pos = 0 },
+        Token{ .type = TokenType.COMMA, .literal = ",", .line = 11, .start_pos = 0 },
+        Token{ .type = TokenType.INT, .literal = "2", .line = 11, .start_pos = 0 },
+        Token{ .type = TokenType.RBRACK, .literal = "]", .line = 11, .start_pos = 0 },
+        Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 11, .start_pos = 0 },
+
+        Token{ .type = TokenType.EOF, .literal = "EOF", .line = 12, .start_pos = 0 },
     };
 
     var lexer = Lexer.init(input);
@@ -299,5 +292,9 @@ test "test the lexer" {
 
         const literal_eq = std.mem.eql(u8, expect.literal, token.literal);
         try std.testing.expect(literal_eq);
+
+        try std.testing.expectEqual(expect.line, token.line);
+        try std.testing.expectEqual(expect.start_pos, token.start_pos);
+        try std.testing.expectEqual(expect.end_pos, token.end_pos);
     }
 }

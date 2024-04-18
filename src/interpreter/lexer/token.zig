@@ -126,7 +126,8 @@ pub const Token = struct {
 
     filepath: []const u8 = "repl",
     line: u32 = 1,
-    pos: usize = undefined,
+    start_pos: usize = undefined,
+    end_pos: usize = undefined,
 
     pub fn lookup_ident(ident: []const u8) TokenType {
         const keyword = TokenType.get_keyword_from_str(ident);
