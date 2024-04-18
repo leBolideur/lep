@@ -39,6 +39,9 @@ pub const Evaluator = struct {
         var builtins_map = std.StringHashMap(*const Object).init(allocator.*);
         try builtins_map.put("len", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.len));
         try builtins_map.put("push", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.push));
+        try builtins_map.put("head", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.head));
+        try builtins_map.put("tail", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.tail));
+        try builtins_map.put("last", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.last));
 
         return Evaluator{
             .infix_op_map = infix_op_map,
