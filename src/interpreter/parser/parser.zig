@@ -479,7 +479,7 @@ pub const Parser = struct {
             return true;
         }
         stderr.print("Syntax error! Expected '{!s}' before '{!s}'\n", .{
-            expected_type.get_str_from_keyword(),
+            expected_type.get_token_string(),
             self.peek_token.get_str(),
         }) catch {};
         return ParserError.BadToken;

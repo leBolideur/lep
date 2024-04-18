@@ -1,13 +1,6 @@
 const std = @import("std");
 
-const Keyword = enum { FN, VAR, END, RET };
-const Delimiter = enum { COMMA, SEMICOLON, COLON, LPAREN, RPAREN, LBRACK, RBRACK };
-const Operator = enum { ASSIGN, PLUS };
-const Identifier = enum { IDENT };
-const Literal = enum { INT };
-const Misc = enum { ILLEGAL, EOF };
-
-const TokenError = error{UndefinedToken};
+const TokenError = @import("../utils/errors.zig").TokenError;
 
 pub const TokenType = enum {
     ILLEGAL,
@@ -53,7 +46,7 @@ pub const TokenType = enum {
     ELSE,
 
     // TODO: Rename
-    pub fn get_str_from_keyword(token_type: TokenType) ![]const u8 {
+    pub fn get_token_string(token_type: TokenType) ![]const u8 {
         const value = switch (token_type) {
             .FN => "fn",
             .VAR => "var",
@@ -68,8 +61,23 @@ pub const TokenType = enum {
             .RPAREN => ")",
             .LBRACK => "[",
             .RBRACK => "]",
-
-            else => return TokenError.UndefinedToken,
+            .ASSIGN => "=",
+            .PLUS => "+",
+            .MINUS => "-",
+            .BANG => "!",
+            .ASTERISK => "*",
+            .SLASH => "/",
+            .LT => "<",
+            .GT => ">",
+            .EQ => "==",
+            .NOT_EQ => "!=",
+            .ILLEGAL => "ILLEGAL",
+            .EOF => "EOF",
+            .IDENT => "IDENT",
+            .INT => "INT",
+            .STRING => "STRING",
+            .COLON => ":",
+            .COMMA => ",",
         };
 
         return value;
@@ -98,14 +106,15 @@ pub const TokenType = enum {
 
     pub fn is_keyword(token_type: TokenType) bool {
         return switch (token_type) {
-            TokenType.FN => true,
-            TokenType.VAR => true,
-            TokenType.END => true,
-            TokenType.RET => true,
-            TokenType.TRUE => true,
-            TokenType.FALSE => true,
-            TokenType.IF => true,
-            TokenType.ELSE => true,
+            TokenType.FN,
+            TokenType.VAR,
+            TokenType.END,
+            TokenType.RET,
+            TokenType.TRUE,
+            TokenType.FALSE,
+            TokenType.IF,
+            TokenType.ELSE,
+            => true,
             else => false,
         };
     }
@@ -115,8 +124,9 @@ pub const Token = struct {
     type: TokenType = undefined,
     literal: []const u8 = undefined,
 
-    // filepath: []const u8,
-    // line: u32,
+    filepath: []const u8 = "repl",
+    line: u32 = 1,
+    pos: usize = undefined,
 
     pub fn lookup_ident(ident: []const u8) TokenType {
         const keyword = TokenType.get_keyword_from_str(ident);
@@ -124,6 +134,6 @@ pub const Token = struct {
     }
 
     pub fn get_str(self: Token) ![]const u8 {
-        return TokenType.get_str_from_keyword(self.type) catch return self.literal;
+        return TokenType.get_token_string(self.type) catch return self.literal;
     }
 };

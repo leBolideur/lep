@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const token_import = @import("./token.zig");
+const token_import = @import("token.zig");
 const Token = token_import.Token;
 const TokenType = token_import.TokenType;
 
@@ -12,12 +12,13 @@ pub const Lexer = struct {
     read_position: usize = 0,
     current_char: u8 = undefined,
 
+    // Token position
+    line: u32 = 1,
+    pos: usize = 0,
+
     pub fn init(input: []const u8) Lexer {
         var lexer = Lexer{
             .input = input,
-            // .position = undefined,
-            // .read_position = undefined,
-            // .current_char = undefined,
         };
 
         lexer.read_char();
@@ -34,6 +35,8 @@ pub const Lexer = struct {
 
         self.position = self.read_position;
         self.read_position += 1;
+
+        self.pos = self.position;
     }
 
     fn peek_char(self: *Lexer) u8 {
@@ -44,13 +47,22 @@ pub const Lexer = struct {
         return self.input[self.read_position];
     }
 
+    fn new_token(self: Lexer, type_: TokenType, literal: []const u8) Token {
+        return Token{
+            .type = type_,
+            .literal = literal,
+            .line = self.line,
+            .pos = self.pos,
+        };
+    }
+
     pub fn next(self: *Lexer) Token {
         var token: Token = undefined;
 
         self.skip_whitespaces();
 
         switch (self.current_char) {
-            ';' => token = Token{ .type = TokenType.SEMICOLON, .literal = ";" },
+            ';' => token = self.new_token(TokenType.SEMICOLON, ";"), // Token{ .type = TokenType.SEMICOLON, .literal = ";" },
             ',' => token = Token{ .type = TokenType.COMMA, .literal = "," },
 
             '"' => {
@@ -144,8 +156,29 @@ pub const Lexer = struct {
         return self.input[start_pos..self.position];
     }
 
+    fn is_whitespace(self: *Lexer, c: u8) bool {
+        // Vertical Tab.
+        const vt = 0x0B;
+        // Form Feed.
+        const ff = 0x0C;
+        // Remove \n who need to be treated apart
+        const whitespace = [_]u8{ ' ', '\t', '\r', vt, ff };
+
+        for (whitespace) |char| {
+            if (c == char) {
+                return true;
+            } else if (c == '\n') {
+                self.line += 1;
+                self.pos = 0;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     fn skip_whitespaces(self: *Lexer) void {
-        while (std.ascii.isWhitespace(self.current_char)) {
+        while (self.is_whitespace(self.current_char)) {
             self.read_char();
         }
     }
@@ -172,7 +205,7 @@ test "test the lexer" {
     ;
 
     const expected = [_]Token{
-        Token{ .type = TokenType.VAR, .literal = "var" },
+        Token{ .type = TokenType.VAR, .literal = "var", .line = 1, .pos = 0 },
         Token{ .type = TokenType.IDENT, .literal = "my_number" },
         Token{ .type = TokenType.ASSIGN, .literal = "=" },
         Token{ .type = TokenType.INT, .literal = "1" },
