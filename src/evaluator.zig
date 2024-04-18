@@ -3,6 +3,7 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const obj_import = @import("object.zig");
 const Object = obj_import.Object;
+const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
 const eval_utils = @import("evaluator_utils.zig");
@@ -119,8 +120,26 @@ pub const Evaluator = struct {
                 const elements = try self.eval_multiple_expr(&array.elements, env);
                 return try eval_utils.new_array(self.allocator, elements);
             },
-            .index_expr => |_| {
-                unreachable;
+            .index_expr => |idx| {
+                const left = try self.eval_expression(idx.left, env);
+                if (eval_utils.is_error(left)) {
+                    return try eval_utils.new_error(
+                        self.allocator,
+                        "Error on array indexing",
+                        .{},
+                    );
+                }
+
+                const index = try self.eval_expression(idx.index, env);
+                if (eval_utils.is_error(index)) {
+                    return try eval_utils.new_error(
+                        self.allocator,
+                        "Error on array indexing",
+                        .{},
+                    );
+                }
+
+                return try self.eval_index_expression(left, index);
             },
             .prefix_expr => |expr| {
                 const right = try self.eval_expression(expr.right_expr, env);
@@ -215,6 +234,55 @@ pub const Evaluator = struct {
             .ret => |ret| ret.value,
             else => eval_body,
         };
+    }
+
+    fn eval_index_expression(self: Evaluator, left: *const Object, index: *const Object) EvalError!*const Object {
+        switch (left.*) {
+            .array => {
+                switch (index.*) {
+                    .integer => {
+                        return self.eval_array_index_expression(left, index);
+                    },
+                    else => {
+                        return try eval_utils.new_error(
+                            self.allocator,
+                            "Index must be an Integer, found: {s}",
+                            .{index.typename()},
+                        );
+                    },
+                }
+            },
+            else => {
+                return try eval_utils.new_error(
+                    self.allocator,
+                    "Indexing not support on {s} type",
+                    .{left.typename()},
+                );
+            },
+        }
+    }
+
+    fn eval_array_index_expression(self: Evaluator, left: *const Object, index: *const Object) EvalError!*const Object {
+        const array = left.array;
+        if (index.integer.value < 0) {
+            return try eval_utils.new_error(
+                self.allocator,
+                "Index {d} is invalid, must be positive.",
+                .{index.integer.value},
+            );
+        }
+        const idx = @as(usize, @intCast(index.integer.value));
+        const max = array.elements.items.len - 1;
+
+        if (idx < 0 or idx > max) {
+            return try eval_utils.new_error(
+                self.allocator,
+                "Index {d} out of range. Maximum is {d}.",
+                .{ idx, max },
+            );
+        }
+
+        return array.elements.items[idx];
     }
 
     fn eval_multiple_expr(

@@ -81,6 +81,39 @@ test "Test Array literal evaluation" {
     }
 }
 
+test "Test Array indexing evaluation" {
+    const Result = union(enum) {
+        int: i64,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{ "[1, 2 * 2, 3 + 3][0];", Result{ .int = 1 } },
+        .{ "[1, 2, 3 + 3][1];", Result{ .int = 2 } },
+        .{ "[1, 4, 999][2];", Result{ .int = 999 } },
+        .{ "var i = 0; [1][i];", Result{ .int = 1 } },
+        .{ "[1, 2, 3][1 + 1];", Result{ .int = 3 } },
+        .{ "var myArray = [1, 2, 3]; myArray[2];", Result{ .int = 3 } },
+        .{ "var myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];", Result{ .int = 6 } },
+        .{ "var myArray = [1, 2, 3]; var i = myArray[0]; myArray[i];", Result{ .int = 2 } },
+        .{ "[1, 2, 3][3];", Result{ .err = "Index 3 out of range. Maximum is 2." } },
+        .{ "[1, 2, 3][-1];", Result{ .err = "Index -1 is invalid, must be positive." } },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .int => |int| {
+                try std.testing.expectEqualStrings(evaluated.typename(), "Integer");
+                try test_integer_object(evaluated, int);
+            },
+            .err => |err| {
+                // try std.testing.expectEqualStrings(evaluated.typename(), "Null");
+                try test_error_object(evaluated, err);
+            },
+        }
+    }
+}
+
 test "Test Builtin functions" {
     const Result = union(enum) {
         res: i64,
@@ -505,8 +538,8 @@ fn test_boolean_object(object: *const Object.Object, expected: bool) !void {
 
 fn test_null_object(object: *const Object.Object) !void {
     switch (object.*) {
-        .null => |nu| {
-            try std.testing.expectEqual(nu.value, null);
+        .null => {
+            try std.testing.expectEqualStrings(object.*.typename(), "Null");
         },
         else => |e| {
             try stderr.print("\nObject is not a Null. Detail:\n\t>>> {s}\n", .{e.err.msg});
