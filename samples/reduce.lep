@@ -1,9 +1,9 @@
-var reduce = fn(arr, initial, f):
+fn reduce(arr, initial, f):
     fn iter(arr, result):
         if (len(arr) == 0):
             ret result;
         else:
-            iter(rest(arr), f(result, first(arr)));
+            iter(tail(arr), f(result, head(arr)));
         end
     end
 
