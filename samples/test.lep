@@ -1,0 +1,8 @@
+var loop = fn(times, i):
+    if i < times:
+        print("Hello ");
+        loop(times, i + 1);
+    end;
+end;
+
+loop(10, 0);

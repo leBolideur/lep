@@ -21,7 +21,7 @@ pub fn repl(alloc: *const std.mem.Allocator) !void {
     var env = try Environment.init(alloc);
 
     while (true) {
-        var input: [100]u8 = undefined;
+        var input: [1000]u8 = undefined;
 
         try stdout.print("\n>> ", .{});
         const ret = try stdin.read(&input);

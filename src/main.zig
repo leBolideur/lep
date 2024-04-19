@@ -2,14 +2,14 @@ const std = @import("std");
 
 const repl = @import("interpreter/repl.zig");
 
-const Lexer = @import("lexer.zig").Lexer;
-const TokenType = @import("token.zig").TokenType;
+const Lexer = @import("interpreter/lexer/lexer.zig").Lexer;
+const TokenType = @import("interpreter/lexer/token.zig").TokenType;
 
-const Parser = @import("parser.zig").Parser;
+const Parser = @import("interpreter/parser/parser.zig").Parser;
 
-const Evaluator = @import("evaluator.zig").Evaluator;
+const Evaluator = @import("interpreter/eval/evaluator.zig").Evaluator;
 
-const Environment = @import("environment.zig").Environment;
+const Environment = @import("interpreter/environment.zig").Environment;
 
 pub fn main() !void {
     const stderr = std.io.getStdErr().writer();

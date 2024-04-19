@@ -1,7 +1,7 @@
 var reduce = fn(arr, initial, f):
     var iter = fn(arr, result):
         if (len(arr) == 0):
-            result
+            ret result;
         else:
             iter(rest(arr), f(result, first(arr)));
         end
