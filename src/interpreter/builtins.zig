@@ -3,7 +3,7 @@ const std = @import("std");
 const obj_import = @import("object.zig");
 const Object = obj_import.Object;
 
-const eval_utils = @import("evaluator_utils.zig");
+const eval_utils = @import("utils/evaluator.zig");
 
 const BuiltinsError = error{ ArrayCreation, ArrayClone, ArrayAppend };
 

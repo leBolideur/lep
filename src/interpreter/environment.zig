@@ -2,7 +2,7 @@ const std = @import("std");
 
 const Object = @import("object.zig").Object;
 
-const ast = @import("ast.zig");
+const ast = @import("ast/ast.zig");
 
 const EnvError = error{ MemAlloc, Undeclared, SetError };
 

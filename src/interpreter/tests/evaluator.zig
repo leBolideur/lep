@@ -1,11 +1,11 @@
 const std = @import("std");
 
-const Lexer = @import("lexer.zig").Lexer;
-const ast = @import("ast.zig");
-const Parser = @import("parser.zig").Parser;
-const Object = @import("object.zig");
-const Evaluator = @import("evaluator.zig").Evaluator;
-const Environment = @import("environment.zig").Environment;
+const Lexer = @import("../lexer/lexer.zig").Lexer;
+const ast = @import("../ast/ast.zig");
+const Parser = @import("../parser/parser.zig").Parser;
+const Object = @import("../object.zig");
+const Evaluator = @import("../eval/evaluator.zig").Evaluator;
+const Environment = @import("../environment.zig").Environment;
 
 const stderr = std.io.getStdOut().writer();
 

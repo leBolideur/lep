@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const ast = @import("ast.zig");
+const ast = @import("ast/ast.zig");
 const Environment = @import("environment.zig").Environment;
 
 const builtins = @import("builtins.zig");

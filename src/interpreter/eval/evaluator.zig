@@ -1,17 +1,17 @@
 const std = @import("std");
 
-const ast = @import("ast.zig");
-const obj_import = @import("object.zig");
+const ast = @import("../ast/ast.zig");
+const obj_import = @import("../object.zig");
 const Object = obj_import.Object;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
-const eval_utils = @import("evaluator_utils.zig");
+const eval_utils = @import("../utils/evaluator.zig");
 const EvalError = eval_utils.EvalError;
 
-const Environment = @import("environment.zig").Environment;
+const Environment = @import("../environment.zig").Environment;
 
-const builtins = @import("builtins.zig");
+const builtins = @import("../builtins.zig");
 
 const stderr = std.io.getStdOut().writer();
 
@@ -130,8 +130,8 @@ pub const Evaluator = struct {
                 if (eval_utils.is_error(left)) {
                     return try eval_utils.new_error(
                         self.allocator,
-                        "Error on array indexing",
-                        .{},
+                        "Error on array indexing col: {d}",
+                        .{idx.token.col},
                     );
                 }
 
@@ -195,7 +195,6 @@ pub const Evaluator = struct {
         self: Evaluator,
         object: *const Object,
         args: std.ArrayList(*const Object),
-        // env: *Environment,
     ) EvalError!*const Object {
         var parameters: std.ArrayList(ast.Identifier) = undefined;
         var body: ast.BlockStatement = undefined;

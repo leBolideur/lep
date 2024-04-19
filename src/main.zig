@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const repl = @import("repl.zig");
+const repl = @import("interpreter/repl.zig");
 
 const Lexer = @import("lexer.zig").Lexer;
 const TokenType = @import("token.zig").TokenType;
