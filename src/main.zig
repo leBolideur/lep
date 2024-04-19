@@ -25,19 +25,25 @@ pub fn main() !void {
         return;
     }
 
+    _ = args.next();
     const filepath = args.next().?;
-
-    const file = std.fs.cwd().openFile(filepath, .{}) catch |err| {
+    const cwd = std.fs.cwd();
+    // std.debug.print("filepath: {s}\n", .{filepath});
+    const file = cwd.openFile(filepath, .{ .mode = .read_only }) catch |err| {
         try stderr.print("Error loading file: {!}\n", .{err});
         return;
     };
-    const reader = file.reader();
+
     const stat = try file.stat();
-    const content = try reader.readAllAlloc(alloc, stat.size);
+    var reader = file.reader();
+    var buffer = try alloc.alloc(u8, stat.size);
+    _ = try reader.readAll(buffer);
+    // std.debug.print("filesize: {d}\tbuffer size: {d}\tread size: {d}\n", .{ stat.size, buffer.len, read_size });
+    // std.debug.print("content: {s}\n", .{buffer});
 
     var env = try Environment.init(&alloc);
 
-    var lexer = Lexer.init(content);
+    var lexer = Lexer.init(buffer);
     var parser = try Parser.init(&lexer, &alloc);
     const program = try parser.parse();
 
