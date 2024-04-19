@@ -13,6 +13,7 @@ pub const BuiltinFunction = enum {
     head,
     last,
     tail,
+    print,
 
     pub fn call(self: BuiltinFunction, alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
         return switch (self) {
@@ -21,9 +22,48 @@ pub const BuiltinFunction = enum {
             .head => try head(alloc, args),
             .last => try last(alloc, args),
             .tail => try tail(alloc, args),
+            .print => try print(alloc, args),
         };
     }
 };
+
+pub fn print(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
+    if (args.items.len == 0) {
+        return try eval_utils.new_error(
+            alloc,
+            "wrong number of arguments. got=0",
+            .{},
+        );
+    }
+
+    const stdout = std.io.getStdOut().writer();
+    var buf = std.ArrayList(u8).init(alloc.*);
+    defer buf.deinit();
+
+    for (args.items) |object| {
+        switch (object.*) {
+            .string,
+            .array,
+            .integer,
+            .boolean,
+            => {
+                try object.*.inspect(&buf);
+                const str = buf.toOwnedSlice() catch "";
+                stdout.print("{s}", .{str}) catch {};
+            },
+            else => |other| {
+                return try eval_utils.new_error(
+                    alloc,
+                    "argument to `print` not supported, got {s}",
+                    .{other.typename()},
+                );
+            },
+        }
+    }
+
+    stdout.print("\n", .{}) catch {};
+    return eval_utils.new_null();
+}
 
 pub fn len(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
     if (args.items.len > 1) {

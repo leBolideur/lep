@@ -42,6 +42,7 @@ pub const Evaluator = struct {
         try builtins_map.put("head", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.head));
         try builtins_map.put("tail", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.tail));
         try builtins_map.put("last", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.last));
+        try builtins_map.put("print", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.print));
 
         return Evaluator{
             .infix_op_map = infix_op_map,
