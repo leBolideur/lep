@@ -1,11 +1,11 @@
 var reduce = fn(arr, initial, f):
-    var iter = fn(arr, result):
+    fn iter(arr, result):
         if (len(arr) == 0):
             ret result;
         else:
             iter(rest(arr), f(result, first(arr)));
         end
-    end;
+    end
 
      iter(arr, initial);
 end;

@@ -2,8 +2,6 @@ fn great(name):
     print("Hello, ", name, "!");
 end
 
-great("maxime");
-
 fn loop(times, i):
     if i < times:
         great("world");

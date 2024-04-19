@@ -106,18 +106,18 @@ pub const Parser = struct {
 
     fn parse_var_statement(self: *Parser) !ast.VarStatement {
         const var_st_token = self.current_token;
-        _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingToken;
+        self.expect_peek(TokenType.IDENT) catch return ParserError.MissingToken;
 
         const ident_name = self.current_token.literal;
         const ident = ast.Identifier{ .token = self.current_token, .value = ident_name };
 
-        _ = self.expect_peek(TokenType.ASSIGN) catch return ParserError.MissingToken;
+        self.expect_peek(TokenType.ASSIGN) catch return ParserError.MissingToken;
         self.next();
 
         var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
-        _ = try self.expect_peek(TokenType.SEMICOLON);
+        self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
 
         return ast.VarStatement{
             .token = var_st_token,
@@ -133,7 +133,7 @@ pub const Parser = struct {
         var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
-        _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
+        self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
 
         return ast.RetStatement{
             .token = ret_st_token,
@@ -148,10 +148,8 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
 
-        if (self.previous_token.type == TokenType.END or self.peek_token.type == TokenType.EOF) {
-            try self.unexpect_peek(TokenType.SEMICOLON);
-        } else {
-            _ = try self.expect_peek(TokenType.SEMICOLON);
+        if (self.peek_token.type == TokenType.SEMICOLON) {
+            self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
         }
 
         return ast.ExprStatement{
@@ -255,7 +253,7 @@ pub const Parser = struct {
         index_ptr.* = try self.parse_expression(Precedence.LOWEST);
         index_expr.index = index_ptr;
 
-        _ = try self.expect_peek(TokenType.RBRACK);
+        try self.expect_peek(TokenType.RBRACK);
 
         return index_expr;
     }
@@ -272,7 +270,7 @@ pub const Parser = struct {
 
         const expr = try self.parse_expression(Precedence.LOWEST);
 
-        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
+        self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
 
         return expr;
     }
@@ -290,12 +288,12 @@ pub const Parser = struct {
         condition_ptr.* = try self.parse_expression(Precedence.LOWEST);
         if_expresssion.condition = condition_ptr;
 
-        _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
+        self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
 
         if_expresssion.consequence = try self.parse_block_statement();
 
         if (self.current_token.type == TokenType.ELSE) {
-            _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
+            self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
             if_expresssion.alternative = try self.parse_block_statement();
         }
 
@@ -311,9 +309,9 @@ pub const Parser = struct {
         self.next();
 
         while (!self.current_is(TokenType.END) and
-            !self.current_is(TokenType.ELSE) and
-            !self.current_is(TokenType.EOF))
-        {
+            !self.current_is(TokenType.ELSE) //and
+        // !self.current_is(TokenType.EOF)
+        ) {
             const statement = try self.parse_statement();
             statements_list.append(statement) catch {};
 
@@ -321,9 +319,6 @@ pub const Parser = struct {
         }
 
         block.statements = statements_list;
-
-        if (self.peek_token.type != TokenType.EOF)
-            _ = try self.expect_current(TokenType.END);
 
         return block;
     }
@@ -402,8 +397,6 @@ pub const Parser = struct {
 
         lit_ptr.*.body = try self.parse_block_statement();
 
-        try self.unexpect_peek(TokenType.SEMICOLON);
-
         if (is_named) {
             return ast.Function{ .named = named_func };
         }
@@ -433,7 +426,7 @@ pub const Parser = struct {
             identifiers.append(identifier) catch {};
         }
 
-        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
+        self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
 
         return identifiers;
     }
@@ -471,17 +464,17 @@ pub const Parser = struct {
             err = ParserError.MissingRightBracket;
         }
 
-        _ = self.expect_peek(end) catch return err;
+        self.expect_peek(end) catch return err;
 
         return list;
     }
 
-    fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!bool {
+    fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!void {
         if (self.peek_token.type == expected_type) {
             self.next();
-            return true;
+            return;
         }
-        stderr.print("Syntax error! Expected '{!s}' before '{s}'. line: {d} @ {d}\n", .{
+        stderr.print("Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
             expected_type.get_token_string(),
             self.current_token.literal,
             self.current_token.line,
@@ -492,26 +485,6 @@ pub const Parser = struct {
 
     fn current_is(self: *Parser, token_type: TokenType) bool {
         return self.current_token.type == token_type;
-    }
-
-    fn unexpect_current(self: *Parser, expected_type: TokenType) ParserError!void {
-        if (self.current_token.type == expected_type) {
-            stderr.print("Syntax error! Too much {!s}. line: {d} @ {d}\n", .{
-                self.current_token.get_str(),
-                self.current_token.line,
-                self.current_token.col,
-            }) catch {};
-            return ParserError.BadToken;
-        }
-    }
-
-    fn expect_current(self: *Parser, expected_type: TokenType) ParserError!void {
-        if (self.current_token.type == expected_type) {
-            self.next();
-            return;
-        }
-
-        return ParserError.BadToken;
     }
 
     fn unexpect_peek(self: *Parser, expected_type: TokenType) ParserError!void {

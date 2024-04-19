@@ -1,6 +1,6 @@
 var fibonacci = fn(x) :
     if (x == 0) :
-        0;
+        ret 0;
     else :
         if (x == 1) :
             ret 1;

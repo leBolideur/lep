@@ -8,14 +8,12 @@ const EnvError = error{ MemAlloc, Undeclared, SetError };
 
 pub const Environment = struct {
     var_table: std.hash_map.StringHashMap(*const Object),
-    // fn_table: std.hash_map.StringHashMap(*const Object),
     outer: ?*const Environment,
     allocator: *const std.mem.Allocator,
 
     pub fn init(allocator: *const std.mem.Allocator) EnvError!Environment {
         return Environment{
             .var_table = std.hash_map.StringHashMap(*const Object).init(allocator.*),
-            // .fn_table = std.hash_map.StringHashMap(*const Object).init(allocator.*),
             .outer = null,
             .allocator = allocator,
         };
@@ -29,7 +27,6 @@ pub const Environment = struct {
         var ptr = self.allocator.create(Environment) catch return EnvError.MemAlloc;
         ptr.* = Environment{
             .var_table = std.hash_map.StringHashMap(*const Object).init(self.allocator.*),
-            // .fn_table = std.hash_map.StringHashMap(*const Object).init(self.allocator.*),
             .outer = self,
             .allocator = self.allocator,
         };
@@ -52,9 +49,7 @@ pub const Environment = struct {
     }
 
     pub fn add_var(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
-        // TO FIX: investigate, not normal
-        const dupe = self.allocator.dupe(u8, name) catch return EnvError.MemAlloc;
-        self.var_table.put(dupe, value) catch return EnvError.SetError;
+        self.var_table.put(name, value) catch return EnvError.SetError;
 
         // std.debug.print("\nTable content :\n", .{});
         // var iter = self.var_table.iterator();
