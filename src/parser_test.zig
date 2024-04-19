@@ -116,6 +116,90 @@ test "Test Integer expression statement" {
     }
 }
 
+test "Test String expression statement" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{ "\"hello\";", "hello" },
+        .{ "\"hello, world!\";", "hello, world!" },
+        .{ "\"foo-bar?!@\";", "foo-bar?!@" },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const expr_st = program.statements.items[0].expr_statement;
+
+        try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
+        try std.testing.expectEqualStrings(expr_st.token.literal, exp[1]);
+    }
+}
+
+test "Test Array expression statement" {
+    const expected = [_]struct { []const u8, usize }{
+        .{ "[1, 2];", 2 },
+        .{ "[0];", 1 },
+        .{ "[];", 0 },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const array = program.statements.items[0].expr_statement.expression.array;
+
+        try std.testing.expect(@TypeOf(array) == ast.ArrayLiteral);
+        try std.testing.expectEqual(array.elements.items.len, exp[1]);
+    }
+}
+
+test "Test Array Index expression" {
+    const expected = [_]struct { []const u8, []const u8, []const u8 }{
+        .{ "myArray[1 + 2];", "myArray", "(myArray[(1 + 2)]);" },
+        .{ "some_array[1 * 2];", "some_array", "(some_array[(1 * 2)]);" },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const index_expr = program.statements.items[0].expr_statement.expression.index_expr;
+
+        try std.testing.expect(@TypeOf(index_expr) == ast.IndexExpression);
+
+        const array_left = index_expr.left;
+        try test_identifier(array_left, exp[1]);
+
+        // var buf = std.ArrayList(u8).init(std.testing.allocator);
+        // defer buf.deinit();
+        // try index_expr.debug_string(&buf);
+        // const str = try buf.toOwnedSlice();
+        // try std.testing.expectEqualStrings(str, exp[2]);
+
+        // TODO: Complete...
+    }
+}
+
 test "Test If expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8 }{
         .{ "if x == y:  x; end;", "x", "==", "y", "x" },
@@ -206,7 +290,6 @@ test "Test function Literal parameters" {
                 @panic("Not a literal function\n");
             },
         };
-        // = expr_st.expression.func_literal;
 
         try std.testing.expect(@TypeOf(func_lit) == ast.FunctionLiteral);
         // try std.testing.expectEqualStrings(func_lit.name.value, exp[0]);
@@ -304,9 +387,7 @@ test "Test Boolean expression statement" {
         try std.testing.expect(program.statements.items.len == 1);
 
         const expr_st = program.statements.items[0].expr_statement;
-        const expr = expr_st.expression;
-
-        try test_boolean(expr, exp[2]);
+        try test_boolean(expr_st.expression, exp[2]);
     }
 }
 
@@ -537,6 +618,15 @@ test "Test operators precedence" {
         .{
             "add(a + b + c * d / f + g);",
             "add((((a + b) + ((c * d) / f)) + g))",
+        },
+        // array index expressions
+        .{
+            "a * [1, 2, 3, 4][b * c] * d;",
+            "((a * ([1, 2, 3, 4][(b * c)])) * d)",
+        },
+        .{
+            "add(a * b[2], b[1], 2 * [1, 2][1]);",
+            "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))",
         },
     };
 

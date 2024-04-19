@@ -35,6 +35,355 @@ test "Test Boolean literal evaluation" {
     }
 }
 
+test "Test String literal evaluation" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{ "\"hello\";", "hello" },
+        .{ "\"hello, world!\";", "hello, world!" },
+        .{ "\"foo-bar?!@\";", "foo-bar?!@" },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_string_object(evaluated, exp[1]);
+    }
+}
+
+test "Test String concatenation" {
+    const expected = [_]struct { []const u8, []const u8 }{
+        .{
+            \\"hello" + ", " + "world!";
+            ,
+            "hello, world!",
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try test_string_object(evaluated, exp[1]);
+    }
+}
+
+test "Test Array literal evaluation" {
+    const expected = [_]struct { []const u8, u8, [3]u8 }{
+        .{ "[1, 2 * 2, 3 + 3];", 3, [_]u8{ 1, 4, 6 } },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try std.testing.expectEqualStrings(evaluated.typename(), "Array");
+
+        const elements = evaluated.array.elements.items;
+        try std.testing.expectEqual(elements.len, exp[1]);
+
+        for (elements, 0..) |elem, i| {
+            try test_integer_object(elem, exp[2][i]);
+        }
+    }
+}
+
+test "Test Array indexing evaluation" {
+    const Result = union(enum) {
+        int: i64,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{ "[1, 2 * 2, 3 + 3][0];", Result{ .int = 1 } },
+        .{ "[1, 2, 3 + 3][1];", Result{ .int = 2 } },
+        .{ "[1, 4, 999][2];", Result{ .int = 999 } },
+        .{ "var i = 0; [1][i];", Result{ .int = 1 } },
+        .{ "[1, 2, 3][1 + 1];", Result{ .int = 3 } },
+        .{ "var myArray = [1, 2, 3]; myArray[2];", Result{ .int = 3 } },
+        .{ "var myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];", Result{ .int = 6 } },
+        .{ "var myArray = [1, 2, 3]; var i = myArray[0]; myArray[i];", Result{ .int = 2 } },
+        .{ "[1, 2, 3][3];", Result{ .err = "Index 3 out of range. Maximum is 2." } },
+        .{ "[1, 2, 3][-1];", Result{ .err = "Index -1 is invalid, must be positive." } },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .int => |int| {
+                try std.testing.expectEqualStrings(evaluated.typename(), "Integer");
+                try test_integer_object(evaluated, int);
+            },
+            .err => |err| {
+                // try std.testing.expectEqualStrings(evaluated.typename(), "Null");
+                try test_error_object(evaluated, err);
+            },
+        }
+    }
+}
+
+test "Test len Builtin function" {
+    const Result = union(enum) {
+        res: i64,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\len("hello");
+            ,
+            Result{ .res = 5 },
+        },
+        .{
+            \\len("hello, world!");
+            ,
+            Result{ .res = 13 },
+        },
+        .{
+            \\len("This house has people in it...");
+            ,
+            Result{ .res = 30 },
+        },
+        .{
+            "len(1);",
+            Result{ .err = "argument to `len` not supported, got Integer" },
+        },
+        .{
+            \\len("one", "two");
+            ,
+            Result{ .err = "wrong number of arguments. got=2, want=1" },
+        },
+        .{
+            \\len(["one", "two"]);
+            ,
+            Result{ .res = 2 },
+        },
+        .{
+            \\len(["one", "two", 5, 6]);
+            ,
+            Result{ .res = 4 },
+        },
+        .{
+            \\len([2*2, 4+3, 100/2]);
+            ,
+            Result{ .res = 3 },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .res => |int_res| {
+                try test_integer_object(evaluated, int_res);
+            },
+            .err => |msg| {
+                const returned_err_msg = evaluated.err.msg;
+                try std.testing.expectEqualStrings(msg, returned_err_msg);
+            },
+        }
+    }
+}
+
+test "Test head Builtin function" {
+    const Result = union(enum) {
+        int_res: i64,
+        str_res: []const u8,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\head(["hello"]);
+            ,
+            Result{ .str_res = "hello" },
+        },
+        .{
+            \\head([1, 4, 8]);
+            ,
+            Result{ .int_res = 1 },
+        },
+        .{
+            \\head([]);
+            ,
+            Result{ .err = "`head` is not applicable on empty array." },
+        },
+        .{
+            \\head("This house has people in it...");
+            ,
+            Result{ .err = "argument to `head` not supported, got String" },
+        },
+        .{
+            "head(1);",
+            Result{ .err = "argument to `head` not supported, got Integer" },
+        },
+        .{
+            \\head(["one", "two"], [1]);
+            ,
+            Result{ .err = "wrong number of arguments. got=2, want=1" },
+        },
+        .{
+            \\head([2*2, 4+3, 100/2]);
+            ,
+            Result{ .int_res = 4 },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .int_res => |int_res| {
+                try test_integer_object(evaluated, int_res);
+            },
+            .str_res => |str_res| {
+                try test_string_object(evaluated, str_res);
+            },
+            .err => |msg| {
+                const returned_err_msg = evaluated.err.msg;
+                try std.testing.expectEqualStrings(msg, returned_err_msg);
+            },
+        }
+    }
+}
+
+test "Test last Builtin function" {
+    const Result = union(enum) {
+        int_res: i64,
+        str_res: []const u8,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\last(["hello"]);
+            ,
+            Result{ .str_res = "hello" },
+        },
+        .{
+            \\last([1, 4, 8]);
+            ,
+            Result{ .int_res = 8 },
+        },
+        .{
+            \\last([]);
+            ,
+            Result{ .err = "`last` is not applicable on empty array." },
+        },
+        .{
+            \\last("This house has people in it...");
+            ,
+            Result{ .err = "argument to `last` not supported, got String" },
+        },
+        .{
+            "last(1);",
+            Result{ .err = "argument to `last` not supported, got Integer" },
+        },
+        .{
+            \\last(["one", "two"], [1]);
+            ,
+            Result{ .err = "wrong number of arguments. got=2, want=1" },
+        },
+        .{
+            \\last([2*2, 4+3, 100/2]);
+            ,
+            Result{ .int_res = 50 },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .int_res => |int_res| {
+                try test_integer_object(evaluated, int_res);
+            },
+            .str_res => |str_res| {
+                try test_string_object(evaluated, str_res);
+            },
+            .err => |msg| {
+                const returned_err_msg = evaluated.err.msg;
+                try std.testing.expectEqualStrings(msg, returned_err_msg);
+            },
+        }
+    }
+}
+
+test "Test tail Builtin function" {
+    const Result = union(enum) {
+        int_res: i64,
+        err: []const u8,
+    };
+    // TOFIX: A little bit cheating by test with len...
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\var tail = tail(["hello"]);
+            \\len(tail);
+            ,
+            Result{ .int_res = 0 },
+        },
+        .{
+            \\var tail = tail([1, 4, 8]);
+            \\len(tail);
+            ,
+            Result{ .int_res = 2 },
+        },
+        .{
+            \\tail([]);
+            ,
+            Result{ .err = "`tail` is not applicable on empty array." },
+        },
+        .{
+            \\tail("This house has people in it...");
+            ,
+            Result{ .err = "argument to `tail` not supported, got String" },
+        },
+        .{
+            "tail(1);",
+            Result{ .err = "argument to `tail` not supported, got Integer" },
+        },
+        .{
+            \\tail(["one", "two"], [1]);
+            ,
+            Result{ .err = "wrong number of arguments. got=2, want=1" },
+        },
+        .{
+            \\var tail = tail([2*2, 4+3, 100/2]);
+            \\len(tail);
+            ,
+            Result{ .int_res = 2 },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .int_res => |int_res| {
+                try test_integer_object(evaluated, int_res);
+            },
+            .err => |msg| {
+                const returned_err_msg = evaluated.err.msg;
+                try std.testing.expectEqualStrings(msg, returned_err_msg);
+            },
+        }
+    }
+}
+
+test "Test push Builtin functions" {
+    const Result = union(enum) {
+        res: i64,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\var array = [2*2, 4+3, 100/2];
+            \\var clone = push(array, 18);
+            \\len(clone);
+            ,
+            Result{ .res = 4 },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .res => |int_res| {
+                try test_integer_object(evaluated, int_res);
+            },
+            .err => |msg| {
+                const returned_err_msg = evaluated.err.msg;
+                try std.testing.expectEqualStrings(msg, returned_err_msg);
+            },
+        }
+    }
+}
+
 test "Test Prefix ! op with boolean" {
     const expected = [_]struct { []const u8, bool }{
         .{ "!true;", false },
@@ -153,6 +502,11 @@ test "Test errors" {
         .{
             "5 + true; 5;",
             "type mismatch: Integer + Boolean",
+        },
+        .{
+            \\"hello" - "world";
+            ,
+            "unknown operator: String - String",
         },
         .{
             "-true",
@@ -382,6 +736,33 @@ fn test_integer_object(object: *const Object.Object, expected: i64) !void {
     }
 }
 
+fn test_string_object(object: *const Object.Object, expected: []const u8) !void {
+    switch (object.*) {
+        .string => |string| {
+            try std.testing.expectEqualStrings(string.value, expected);
+        },
+        else => |e| {
+            try stderr.print("\nObject is not a String. Detail:\n\t>>> {s}\n", .{e.err.msg});
+            @panic("");
+        },
+    }
+}
+
+// fn test_array_object(object: *const Object.Object, expected: Object) !void {
+//     switch (object.*) {
+//         .array => |array| {
+//             try std.testing.expectEqual(array.elements.items.len, expected.elements.items.len);
+//             for (array.elements.itens, expected.elements.items) |item, exp| {
+//                 try std.testing.expectEqual(item, exp);
+//             }
+//         },
+//         else => |e| {
+//             try stderr.print("\nObject is not an Array. Detail:\n\t>>> {s}\n", .{e.err.msg});
+//             @panic("");
+//         },
+//     }
+// }
+
 fn test_boolean_object(object: *const Object.Object, expected: bool) !void {
     switch (object.*) {
         .boolean => |boo| {
@@ -396,8 +777,8 @@ fn test_boolean_object(object: *const Object.Object, expected: bool) !void {
 
 fn test_null_object(object: *const Object.Object) !void {
     switch (object.*) {
-        .null => |nu| {
-            try std.testing.expectEqual(nu.value, null);
+        .null => {
+            try std.testing.expectEqualStrings(object.*.typename(), "Null");
         },
         else => |e| {
             try stderr.print("\nObject is not a Null. Detail:\n\t>>> {s}\n", .{e.err.msg});

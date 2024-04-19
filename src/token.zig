@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const Keyword = enum { FN, VAR, END, RET };
-const Delimiter = enum { COMMA, SEMICOLON, COLON, LPAREN, RPAREN };
+const Delimiter = enum { COMMA, SEMICOLON, COLON, LPAREN, RPAREN, LBRACK, RBRACK };
 const Operator = enum { ASSIGN, PLUS };
 const Identifier = enum { IDENT };
 const Literal = enum { INT };
@@ -16,6 +16,8 @@ pub const TokenType = enum {
     // Identifiers + literals
     IDENT,
     INT,
+
+    STRING,
 
     // Operators
     ASSIGN,
@@ -37,6 +39,8 @@ pub const TokenType = enum {
     RPAREN,
     // LBRACE = "{",
     // RBRACE = "}",
+    LBRACK,
+    RBRACK,
 
     // Keywords
     FN,
@@ -60,6 +64,11 @@ pub const TokenType = enum {
             .IF => "if",
             .ELSE => "else",
             .SEMICOLON => ";",
+            .LPAREN => "(",
+            .RPAREN => ")",
+            .LBRACK => "[",
+            .RBRACK => "]",
+
             else => return TokenError.UndefinedToken,
         };
 

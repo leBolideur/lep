@@ -48,9 +48,6 @@ pub const Environment = struct {
             return self.outer.?.var_table.get(name);
         }
 
-        // if (ret == null) {
-        //     ret = self.fn_table.get(name);
-        // }
         return ret;
     }
 
@@ -60,24 +57,16 @@ pub const Environment = struct {
         self.var_table.put(dupe, value) catch return EnvError.SetError;
 
         // std.debug.print("\nTable content :\n", .{});
-        // var iter = self.var_table.valueIterator();
+        // var iter = self.var_table.iterator();
         // while (iter.next()) |item| {
         //     var buf = std.ArrayList(u8).init(self.allocator.*);
-        //     item.*.inspect(&buf) catch {};
+        //     item.value_ptr.*.inspect(&buf) catch {};
         //     const str = buf.toOwnedSlice() catch "";
-        //     std.debug.print("\t> {s}\n", .{str});
+        //     std.debug.print("\t>{s} = {s}\n", .{ item.key_ptr.*, str });
         // }
 
         return value;
     }
-
-    // pub fn add_fn(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
-    //     // TO FIX: investigate, not normal
-    //     const dupe = self.allocator.dupe(u8, name) catch return EnvError.MemAlloc;
-    //     self.fn_table.put(dupe, value) catch return EnvError.SetError;
-
-    //     return value;
-    // }
 };
 
 test "test add and get" {

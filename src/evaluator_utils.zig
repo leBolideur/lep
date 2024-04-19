@@ -3,6 +3,8 @@ const std = @import("std");
 const obj_import = @import("object.zig");
 const Object = obj_import.Object;
 const Integer = obj_import.Integer;
+const String = obj_import.String;
+const Array = obj_import.Array;
 const Null = obj_import.Null;
 const Boolean = obj_import.Boolean;
 const Return = obj_import.Return;
@@ -11,12 +13,15 @@ const Func = obj_import.Func;
 const NamedFunc = obj_import.NamedFunc;
 const LiteralFunc = obj_import.LiteralFunc;
 const ObjectType = obj_import.ObjectType;
+const BuiltinObject = obj_import.BuiltinObject;
 
 const Environment = @import("environment.zig").Environment;
 
+const BuiltinFunction = @import("builtins.zig").BuiltinFunction;
+
 const ast = @import("ast.zig");
 
-pub const EvalError = error{ BadNode, MemAlloc, EnvAddError, EnvGetError, EnvExtendError };
+pub const EvalError = error{ BadNode, MemAlloc, EnvAddError, EnvGetError, EnvExtendError, BuiltinCall };
 
 pub const TRUE = Object{
     .boolean = Boolean{
@@ -41,6 +46,33 @@ pub fn new_integer(allocator: *const std.mem.Allocator, value: i64) !*const Obje
 
     const result = Integer{ .type = ObjectType.Integer, .value = value };
     ptr.* = Object{ .integer = result };
+
+    return ptr;
+}
+
+pub fn new_string(allocator: *const std.mem.Allocator, value: []const u8) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = String{ .type = ObjectType.String, .value = value };
+    ptr.* = Object{ .string = result };
+
+    return ptr;
+}
+
+pub fn new_array(allocator: *const std.mem.Allocator, elements: std.ArrayList(*const Object)) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = Array{ .type = ObjectType.String, .elements = elements };
+    ptr.* = Object{ .array = result };
+
+    return ptr;
+}
+
+pub fn new_builtin(allocator: *const std.mem.Allocator, function: BuiltinFunction) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = BuiltinObject{ .type = ObjectType.Builtin, .function = function };
+    ptr.* = Object{ .builtin = result };
 
     return ptr;
 }
@@ -90,9 +122,6 @@ pub fn new_error(
     comptime fmt: []const u8,
     args: anytype,
 ) !*const Object {
-    // _ = fmt;
-    // _ = args;
-    // const msg = "";
     const msg = std.fmt.allocPrint(allocator.*, fmt, args) catch return EvalError.MemAlloc;
     var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
     const err = Error{ .type = ObjectType.Error, .msg = msg };

@@ -55,6 +55,9 @@ pub const Expression = union(enum) {
     identifier: Identifier,
     integer: IntegerLiteral,
     boolean: Boolean,
+    string: StringLiteral,
+    array: ArrayLiteral,
+    index_expr: IndexExpression,
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
     if_expression: IfExpression,
@@ -68,6 +71,9 @@ pub const Expression = union(enum) {
             .identifier => |id| id.debug_string(buf),
             .integer => |int| int.debug_string(buf),
             .boolean => |bo| bo.debug_string(buf),
+            .string => |str| str.debug_string(buf),
+            .array => |arr| arr.debug_string(buf),
+            .index_expr => |idx| idx.debug_string(buf),
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
             .if_expression => |ife| ife.debug_string(buf),
@@ -173,6 +179,62 @@ pub const IntegerLiteral = struct {
 
     pub fn debug_string(self: *const IntegerLiteral, buf: *std.ArrayList(u8)) DebugError!void {
         try std.fmt.format(buf.*.writer(), "{d}", .{self.value});
+    }
+};
+
+pub const StringLiteral = struct {
+    token: Token,
+    value: []const u8,
+
+    pub fn token_literal(self: StringLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const StringLiteral, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "{s}", .{self.value});
+    }
+};
+
+pub const ArrayLiteral = struct {
+    token: Token,
+    elements: std.ArrayList(Expression),
+
+    pub fn token_literal(self: ArrayLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const ArrayLiteral, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "[", .{});
+
+        const len = self.elements.items.len;
+        var i: usize = 0;
+        while (i < len) : (i += 1) {
+            try self.elements.items[i].debug_string(buf);
+            if (i != len - 1) {
+                try std.fmt.format(buf.*.writer(), ", ", .{});
+            }
+        }
+
+        try std.fmt.format(buf.*.writer(), "]", .{});
+    }
+};
+
+pub const IndexExpression = struct {
+    token: Token,
+    left: *const Expression,
+    index: *const Expression,
+
+    pub fn token_literal(self: IndexExpression) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const IndexExpression, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "(", .{});
+        self.left.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), "[", .{});
+        self.index.debug_string(buf) catch return DebugError.DebugString;
+        try std.fmt.format(buf.*.writer(), "]", .{});
+        try std.fmt.format(buf.*.writer(), ")", .{});
     }
 };
 

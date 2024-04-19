@@ -3,11 +3,15 @@ const std = @import("std");
 const ast = @import("ast.zig");
 const obj_import = @import("object.zig");
 const Object = obj_import.Object;
+const ObjectType = obj_import.ObjectType;
+const BuiltinObject = obj_import.BuiltinObject;
 
 const eval_utils = @import("evaluator_utils.zig");
 const EvalError = eval_utils.EvalError;
 
 const Environment = @import("environment.zig").Environment;
+
+const builtins = @import("builtins.zig");
 
 const stderr = std.io.getStdOut().writer();
 
@@ -15,6 +19,7 @@ const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ 
 
 pub const Evaluator = struct {
     infix_op_map: std.StringHashMap(INFIX_OP),
+    builtins_map: std.StringHashMap(*const Object),
 
     allocator: *const std.mem.Allocator,
 
@@ -31,8 +36,17 @@ pub const Evaluator = struct {
         try infix_op_map.put("==", INFIX_OP.EQ);
         try infix_op_map.put("!=", INFIX_OP.NOT_EQ);
 
+        var builtins_map = std.StringHashMap(*const Object).init(allocator.*);
+        try builtins_map.put("len", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.len));
+        try builtins_map.put("push", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.push));
+        try builtins_map.put("head", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.head));
+        try builtins_map.put("tail", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.tail));
+        try builtins_map.put("last", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.last));
+        try builtins_map.put("print", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.print));
+
         return Evaluator{
             .infix_op_map = infix_op_map,
+            .builtins_map = builtins_map,
             .allocator = allocator,
         };
     }
@@ -104,6 +118,34 @@ pub const Evaluator = struct {
             .boolean => |boo| {
                 return eval_utils.new_boolean(boo.value);
             },
+            .string => |string| {
+                return eval_utils.new_string(self.allocator, string.value);
+            },
+            .array => |array| {
+                const elements = try self.eval_multiple_expr(&array.elements, env);
+                return try eval_utils.new_array(self.allocator, elements);
+            },
+            .index_expr => |idx| {
+                const left = try self.eval_expression(idx.left, env);
+                if (eval_utils.is_error(left)) {
+                    return try eval_utils.new_error(
+                        self.allocator,
+                        "Error on array indexing",
+                        .{},
+                    );
+                }
+
+                const index = try self.eval_expression(idx.index, env);
+                if (eval_utils.is_error(index)) {
+                    return try eval_utils.new_error(
+                        self.allocator,
+                        "Error on array indexing",
+                        .{},
+                    );
+                }
+
+                return try self.eval_index_expression(left, index);
+            },
             .prefix_expr => |expr| {
                 const right = try self.eval_expression(expr.right_expr, env);
                 if (eval_utils.is_error(right)) return right;
@@ -169,6 +211,9 @@ pub const Evaluator = struct {
                 body = f.body;
                 env = f.env;
             },
+            .builtin => |b| {
+                return b.function.call(self.allocator, args) catch return EvalError.BuiltinCall;
+            },
             else => |other| {
                 return try eval_utils.new_error(
                     self.allocator,
@@ -194,6 +239,55 @@ pub const Evaluator = struct {
             .ret => |ret| ret.value,
             else => eval_body,
         };
+    }
+
+    fn eval_index_expression(self: Evaluator, left: *const Object, index: *const Object) EvalError!*const Object {
+        switch (left.*) {
+            .array => {
+                switch (index.*) {
+                    .integer => {
+                        return self.eval_array_index_expression(left, index);
+                    },
+                    else => {
+                        return try eval_utils.new_error(
+                            self.allocator,
+                            "Index must be an Integer, found: {s}",
+                            .{index.typename()},
+                        );
+                    },
+                }
+            },
+            else => {
+                return try eval_utils.new_error(
+                    self.allocator,
+                    "Indexing not support on {s} type",
+                    .{left.typename()},
+                );
+            },
+        }
+    }
+
+    fn eval_array_index_expression(self: Evaluator, left: *const Object, index: *const Object) EvalError!*const Object {
+        const array = left.array;
+        if (index.integer.value < 0) {
+            return try eval_utils.new_error(
+                self.allocator,
+                "Index {d} is invalid, must be positive.",
+                .{index.integer.value},
+            );
+        }
+        const idx = @as(usize, @intCast(index.integer.value));
+        const max = array.elements.items.len - 1;
+
+        if (idx < 0 or idx > max) {
+            return try eval_utils.new_error(
+                self.allocator,
+                "Index {d} out of range. Maximum is {d}.",
+                .{ idx, max },
+            );
+        }
+
+        return array.elements.items[idx];
     }
 
     fn eval_multiple_expr(
@@ -243,14 +337,20 @@ pub const Evaluator = struct {
 
     fn eval_identifier(self: Evaluator, ident: ast.Identifier, env: *Environment) EvalError!*const Object {
         const val = env.get_var(ident.value) catch return EvalError.EnvGetError;
-        const ret = val orelse {
-            return try eval_utils.new_error(
-                self.allocator,
-                "identifier not found: {s}",
-                .{ident.value},
-            );
-        };
-        return ret;
+        if (val == null) {
+            const builtin = self.builtins_map.get(ident.value);
+            if (builtin != null) {
+                return builtin.?;
+            }
+        } else {
+            return val.?;
+        }
+
+        return try eval_utils.new_error(
+            self.allocator,
+            "identifier not found: {s}",
+            .{ident.value},
+        );
     }
 
     fn eval_statement(self: Evaluator, statement: ast.Statement, env: *Environment) EvalError!*const Object {
@@ -292,6 +392,18 @@ pub const Evaluator = struct {
             .integer => {
                 switch (right.*) {
                     .integer => return self.eval_integer_infix(op, left, right),
+                    else => {
+                        return try eval_utils.new_error(
+                            self.allocator,
+                            "type mismatch: {s} {s} {s}",
+                            .{ left.typename(), op, right.typename() },
+                        );
+                    },
+                }
+            },
+            .string => {
+                switch (right.*) {
+                    .string => return self.eval_string_infix(op, left, right),
                     else => {
                         return try eval_utils.new_error(
                             self.allocator,
@@ -365,6 +477,47 @@ pub const Evaluator = struct {
             },
             INFIX_OP.NOT_EQ => {
                 return eval_utils.new_boolean(left != right);
+            },
+        }
+    }
+
+    fn eval_string_infix(
+        self: Evaluator,
+        op_: []const u8,
+        left_: *const Object,
+        right_: *const Object,
+    ) EvalError!*const Object {
+        const left = left_.string.value;
+        const right = right_.string.value;
+
+        const op = self.infix_op_map.get(op_) orelse {
+            return try eval_utils.new_error(
+                self.allocator,
+                "unknown operator: {s} {s} {s}",
+                .{ left_.typename(), op_, right_.typename() },
+            );
+        };
+
+        switch (op) {
+            INFIX_OP.SUM => {
+                const left_len = left.len;
+                const right_len = right.len;
+                const total = left_len + right_len;
+
+                var buf = self.allocator.alloc(u8, total) catch return EvalError.MemAlloc;
+                std.mem.copy(u8, buf[0..left_len], left);
+                std.mem.copy(u8, buf[left_len..total], right);
+
+                // Be careful with 'buf' in case of allocator type change
+                const object = try eval_utils.new_string(self.allocator, buf);
+                return object;
+            },
+            else => {
+                return try eval_utils.new_error(
+                    self.allocator,
+                    "unknown operator: {s} {s} {s}",
+                    .{ left_.typename(), op_, right_.typename() },
+                );
             },
         }
     }
