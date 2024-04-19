@@ -129,8 +129,8 @@ pub const Evaluator = struct {
                 if (eval_utils.is_error(left)) {
                     return try eval_utils.new_error(
                         self.allocator,
-                        "Error on array indexing",
-                        .{},
+                        "Error on array indexing col: {d}",
+                        .{idx.token.col},
                     );
                 }
 
