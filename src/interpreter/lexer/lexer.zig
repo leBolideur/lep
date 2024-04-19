@@ -47,11 +47,13 @@ pub const Lexer = struct {
     }
 
     fn new_token(self: Lexer, type_: TokenType, literal: []const u8) Token {
+        const col = if (type_ == TokenType.EOF) 0 else self.col - literal.len;
+        std.debug.print("col: {d}\tliteral {s} len: {d}\n", .{ col, literal, literal.len });
         return Token{
             .type = type_,
             .literal = literal,
             .line = self.line + 1,
-            .col = self.col - literal.len,
+            .col = col,
         };
     }
 
@@ -294,7 +296,7 @@ test "test the lexer" {
         Token{ .type = TokenType.RBRACK, .literal = "]", .line = 16, .col = 5 },
         Token{ .type = TokenType.SEMICOLON, .literal = ";", .line = 16, .col = 6 },
 
-        Token{ .type = TokenType.EOF, .literal = "EOF", .line = 16, .col = 5 },
+        Token{ .type = TokenType.EOF, .literal = "EOF", .line = 16, .col = 0 },
     };
 
     var lexer = Lexer.init(input);
