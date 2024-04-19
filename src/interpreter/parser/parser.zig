@@ -45,6 +45,7 @@ const stderr = std.io.getStdErr().writer();
 
 pub const Parser = struct {
     lexer: *Lexer,
+    previous_token: Token,
     current_token: Token,
     peek_token: Token,
 
@@ -67,6 +68,7 @@ pub const Parser = struct {
 
         return Parser{
             .lexer = lexer,
+            .previous_token = undefined,
             .current_token = lexer.next(),
             .peek_token = lexer.next(),
 
@@ -77,6 +79,7 @@ pub const Parser = struct {
     }
 
     pub fn next(self: *Parser) void {
+        self.previous_token = self.current_token;
         self.current_token = self.peek_token;
         self.peek_token = self.lexer.next();
     }
@@ -145,8 +148,10 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
 
-        if (self.peek_token.type == TokenType.END or self.peek_token.type == TokenType.SEMICOLON) {
-            self.next();
+        if (self.previous_token.type == TokenType.END or self.peek_token.type == TokenType.EOF) {
+            try self.unexpect_peek(TokenType.SEMICOLON);
+        } else {
+            _ = try self.expect_peek(TokenType.SEMICOLON);
         }
 
         return ast.ExprStatement{
@@ -210,7 +215,11 @@ pub const Parser = struct {
 
     fn parse_integer_literal(self: *Parser) ParserError!ast.IntegerLiteral {
         const to_int = std.fmt.parseInt(i64, self.current_token.literal, 10) catch {
-            stderr.print("parse string {s} to int failed!\n", .{self.current_token.literal}) catch {};
+            stderr.print("parse string {s} to int failed. line: {d} @ {d}\n", .{
+                self.current_token.literal,
+                self.current_token.line,
+                self.current_token.col,
+            }) catch {};
             return ParserError.ParseInteger;
         };
 
@@ -301,9 +310,9 @@ pub const Parser = struct {
         };
         self.next();
 
-        while (!self.expect_current(TokenType.END) and
-            !self.expect_current(TokenType.ELSE) and
-            !self.expect_current(TokenType.EOF))
+        while (!self.current_is(TokenType.END) and
+            !self.current_is(TokenType.ELSE) and
+            !self.current_is(TokenType.EOF))
         {
             const statement = try self.parse_statement();
             statements_list.append(statement) catch {};
@@ -312,6 +321,9 @@ pub const Parser = struct {
         }
 
         block.statements = statements_list;
+
+        if (self.peek_token.type != TokenType.EOF)
+            _ = try self.expect_current(TokenType.END);
 
         return block;
     }
@@ -377,7 +389,7 @@ pub const Parser = struct {
         var is_named = false;
 
         if (self.peek_token.type == TokenType.IDENT) {
-            _ = self.expect_peek(TokenType.IDENT) catch return ParserError.MissingFuncIdent;
+            self.next();
 
             named_func.name = try self.parse_identifier();
             is_named = true;
@@ -390,19 +402,11 @@ pub const Parser = struct {
 
         lit_ptr.*.body = try self.parse_block_statement();
 
-        if (is_named) {
-            if (self.expect_current(TokenType.END)) {
-                try self.unexpect_peek(TokenType.SEMICOLON);
-                self.next();
-            } else {
-                return ParserError.MissingEnd;
-            }
+        try self.unexpect_peek(TokenType.SEMICOLON);
 
+        if (is_named) {
             return ast.Function{ .named = named_func };
         }
-
-        if (self.expect_current(TokenType.SEMICOLON))
-            self.next();
 
         return ast.Function{
             .literal = lit_ptr.*,
@@ -477,31 +481,46 @@ pub const Parser = struct {
             self.next();
             return true;
         }
-        stderr.print("Syntax error! Expected '{!s}' before '{!s}'\n", .{
+        stderr.print("Syntax error! Expected '{!s}' before '{s}'. line: {d} @ {d}\n", .{
             expected_type.get_token_string(),
-            self.peek_token.get_str(),
+            self.current_token.literal,
+            self.current_token.line,
+            self.current_token.col,
         }) catch {};
         return ParserError.BadToken;
     }
 
-    fn expect_current(self: *Parser, token_type: TokenType) bool {
+    fn current_is(self: *Parser, token_type: TokenType) bool {
         return self.current_token.type == token_type;
     }
 
     fn unexpect_current(self: *Parser, expected_type: TokenType) ParserError!void {
         if (self.current_token.type == expected_type) {
-            stderr.print("Syntax error! Too much {!s}\n", .{
+            stderr.print("Syntax error! Too much {!s}. line: {d} @ {d}\n", .{
                 self.current_token.get_str(),
+                self.current_token.line,
+                self.current_token.col,
             }) catch {};
             return ParserError.BadToken;
         }
     }
 
+    fn expect_current(self: *Parser, expected_type: TokenType) ParserError!void {
+        if (self.current_token.type == expected_type) {
+            self.next();
+            return;
+        }
+
+        return ParserError.BadToken;
+    }
+
     fn unexpect_peek(self: *Parser, expected_type: TokenType) ParserError!void {
         if (self.peek_token.type == expected_type) {
-            stderr.print("Syntax error! Too much {!s} after {!s}\n", .{
+            stderr.print("Syntax error! Too much '{!s}' after '{!s}'. line: {d} @ {d}\n", .{
                 self.peek_token.get_str(),
                 self.current_token.get_str(),
+                self.current_token.line,
+                self.current_token.col + self.current_token.literal.len,
             }) catch {};
             return ParserError.BadToken;
         }

@@ -9,3 +9,5 @@ var fibonacci = fn(x) :
         end
     end
 end;
+
+fibonacci(10);
