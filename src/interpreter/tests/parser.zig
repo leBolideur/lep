@@ -200,6 +200,54 @@ test "Test Array Index expression" {
     }
 }
 
+test "Test Hashes expression statement" {
+    const Value = union(enum) {
+        str: []const u8,
+        int: i64,
+    };
+    const Result = [_]struct {
+        []const u8,
+        Value,
+    }{
+        .{ "name", Value{ .str = "John" } },
+        .{ "age", Value{ .int = 99 } },
+    };
+
+    const expected = comptime [_]struct { []const u8, u8 }{
+        .{
+            \\{"name": "John", "age": 99};
+            ,
+            2,
+        },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const hash = program.statements.items[0].expr_statement.expression.hash;
+
+        try std.testing.expect(@TypeOf(hash) == ast.HashLiteral);
+
+        var iter = hash.elements.iterator();
+        var i = 0;
+        while (iter.next()) |item| : (i += 1) {
+            const key = item.key_ptr.*;
+            const value = item.value_ptr.*;
+
+            try std.testing.expectEqual(key, exp[2][i]);
+            try std.testing.expectEqual(value, exp[3][i]);
+        }
+    }
+}
+
 test "Test If expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8 }{
         .{ "if x == y:  x; end;", "x", "==", "y", "x" },
