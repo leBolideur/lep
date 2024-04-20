@@ -171,6 +171,54 @@ test "Test Array indexing evaluation" {
     }
 }
 
+test "Test Hash indexing evaluation" {
+    const Result = union(enum) {
+        int: i64,
+        err: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, Result }{
+        .{
+            \\{"foo": 5}["foo"]
+            ,
+            Result{ .int = 5 },
+        },
+        .{
+            \\{"foo": 5}["bar"];
+            ,
+            Result{ .err = "Key 'bar' doesn't exists." },
+        },
+        .{
+            \\{"foo": 5}[5];
+            ,
+            Result{ .err = "Index on string hashmap must be an String, found: Integer" },
+        },
+        .{
+            \\var key = "foo"; {"foo": 5*6}[key];
+            ,
+            Result{ .int = 30 },
+        },
+        .{
+            \\{}["foo"];
+            ,
+            Result{ .err = "Key 'foo' doesn't exists on empty string hashmap." },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        switch (exp[1]) {
+            .int => |int| {
+                try std.testing.expectEqualStrings(evaluated.typename(), "Integer");
+                try test_integer_object(evaluated, int);
+            },
+            .err => |err| {
+                // try std.testing.expectEqualStrings(evaluated.typename(), "Null");
+                try test_error_object(evaluated, err);
+            },
+        }
+    }
+}
+
 test "Test len Builtin function" {
     const Result = union(enum) {
         res: i64,

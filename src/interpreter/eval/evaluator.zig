@@ -241,7 +241,11 @@ pub const Evaluator = struct {
         };
     }
 
-    fn eval_index_expression(self: Evaluator, left: *const Object, index: *const Object) EvalError!*const Object {
+    fn eval_index_expression(
+        self: Evaluator,
+        left: *const Object,
+        index: *const Object,
+    ) EvalError!*const Object {
         switch (left.*) {
             .array => {
                 switch (index.*) {
@@ -257,6 +261,20 @@ pub const Evaluator = struct {
                     },
                 }
             },
+            .hash => {
+                switch (index.*) {
+                    .string => {
+                        return self.eval_hash_index_expression(left, index);
+                    },
+                    else => {
+                        return try eval_utils.new_error(
+                            self.allocator,
+                            "Index on string hashmap must be an String, found: {s}",
+                            .{index.typename()},
+                        );
+                    },
+                }
+            },
             else => {
                 return try eval_utils.new_error(
                     self.allocator,
@@ -267,7 +285,11 @@ pub const Evaluator = struct {
         }
     }
 
-    fn eval_array_index_expression(self: Evaluator, left: *const Object, index: *const Object) EvalError!*const Object {
+    fn eval_array_index_expression(
+        self: Evaluator,
+        left: *const Object,
+        index: *const Object,
+    ) EvalError!*const Object {
         const array = left.array;
         if (index.integer.value < 0) {
             return try eval_utils.new_error(
@@ -288,6 +310,33 @@ pub const Evaluator = struct {
         }
 
         return array.elements.items[idx];
+    }
+
+    fn eval_hash_index_expression(
+        self: Evaluator,
+        left: *const Object,
+        index: *const Object,
+    ) EvalError!*const Object {
+        const hash = left.hash;
+        const idx = index.string.value;
+        if (hash.pairs.count() == 0) {
+            return try eval_utils.new_error(
+                self.allocator,
+                "Key '{s}' doesn't exists on empty string hashmap.",
+                .{idx},
+            );
+        }
+
+        const value = hash.pairs.get(idx);
+        if (value == null) {
+            return try eval_utils.new_error(
+                self.allocator,
+                "Key '{s}' doesn't exists.",
+                .{idx},
+            );
+        }
+
+        return value.?;
     }
 
     fn eval_multiple_expr(
