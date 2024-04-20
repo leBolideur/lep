@@ -252,8 +252,10 @@ pub const Parser = struct {
         while (self.peek_token.type != TokenType.RBRACE) {
             self.next();
             const key = try self.parse_string_literal();
+
             try self.expect_peek(TokenType.COLON);
 
+            self.next();
             const value = try self.parse_expression(Precedence.LOWEST);
 
             hash.pairs.put(key.value, value) catch return ParserError.HashPutError;

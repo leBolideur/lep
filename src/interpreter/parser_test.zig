@@ -137,7 +137,7 @@ test "Test String expression statement" {
         const expr_st = program.statements.items[0].expr_statement;
 
         try std.testing.expect(@TypeOf(expr_st) == ast.ExprStatement);
-        try std.testing.expectEqualStrings(expr_st.token.literal, exp[1]);
+        try test_string_literal(expr_st.expression, exp[1]);
     }
 }
 
@@ -200,7 +200,6 @@ test "Test Array Index expression" {
     }
 }
 
-// TODO: to... do!
 test "Test Hashes with Integers" {
     const expected = [_]struct { []const u8, u8, i64, i64 }{
         .{
@@ -237,6 +236,45 @@ test "Test Hashes with Integers" {
 
         const expr2 = iter.next().?.value_ptr;
         try test_integer_literal(expr2, exp[3]);
+    }
+}
+
+test "Test Hashes with String" {
+    const expected = [_]struct { []const u8, u8, []const u8, []const u8 }{
+        .{
+            \\{"name": "John", "workAt": "fsociety"};
+            ,
+            2,
+            "John",
+            "fsociety",
+        },
+    };
+
+    for (expected) |exp| {
+        var lexer = Lexer.init(exp[0]);
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+
+        var parser = try Parser.init(&lexer, &arena.allocator());
+
+        const node = try parser.parse();
+        const program = node.program;
+        try std.testing.expect(program.statements.items.len == 1);
+
+        const hash = program.statements.items[0].expr_statement.expression.hash;
+
+        try std.testing.expect(@TypeOf(hash) == ast.HashLiteral);
+
+        var iter = hash.pairs.iterator();
+        var count = hash.pairs.count();
+
+        try std.testing.expectEqual(count, exp[1]);
+
+        const expr1 = iter.next().?.value_ptr;
+        try test_string_literal(expr1, exp[2]);
+
+        const expr2 = iter.next().?.value_ptr;
+        try test_string_literal(expr2, exp[3]);
     }
 }
 
@@ -694,6 +732,17 @@ fn test_integer_literal(expression: *const ast.Expression, value: i64) !void {
             try std.testing.expect(@TypeOf(int_lit) == ast.IntegerLiteral);
             try std.testing.expectEqual(int_lit.token.type, TokenType.INT);
             try std.testing.expectEqual(int_lit.value, value);
+        },
+        else => unreachable,
+    }
+}
+
+fn test_string_literal(expression: *const ast.Expression, value: []const u8) !void {
+    switch (expression.*) {
+        .string => |str| {
+            try std.testing.expect(@TypeOf(str) == ast.StringLiteral);
+            try std.testing.expectEqual(str.token.type, TokenType.STRING);
+            try std.testing.expectEqualStrings(str.value, value);
         },
         else => unreachable,
     }

@@ -90,6 +90,8 @@ pub const Lexer = struct {
             ')' => token = self.new_token(TokenType.RPAREN, ")"),
             '[' => token = self.new_token(TokenType.LBRACK, "["),
             ']' => token = self.new_token(TokenType.RBRACK, "]"),
+            '{' => token = self.new_token(TokenType.LBRACE, "{"),
+            '}' => token = self.new_token(TokenType.RBRACE, "}"),
             '!' => {
                 if (self.peek_char() == '=') {
                     self.read_char();
