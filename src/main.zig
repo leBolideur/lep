@@ -54,6 +54,3 @@ pub fn main() !void {
         else => try stdout.print("{s}\n", .{try buf.toOwnedSlice()}),
     }
 }
-
-// fn great(name): print("Hello, ", name, "!"); end
-// fn loop(times, i): if i < times: great("max le chef"); loop(times, i + 1); end end

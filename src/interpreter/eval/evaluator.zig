@@ -175,16 +175,13 @@ pub const Evaluator = struct {
                     .literal => {},
                 }
 
-                // std.debug.print("eval_expr -- params >> {d}\n", .{func.parameters.items.len});
                 return fun;
             },
             .call_expression => |call| {
                 const func = try self.eval_expression(call.function, env);
                 if (eval_utils.is_error(func)) return func;
 
-                // std.debug.print("evaluator -- before args >> {d}\n", .{call.arguments.items.len});
                 const args = try self.eval_multiple_expr(&call.arguments, env);
-                // std.debug.print("evaluator -- args after >> {d}\n", .{args.items.len});
 
                 return self.apply_function(func, args);
             },
