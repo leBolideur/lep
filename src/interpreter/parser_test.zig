@@ -200,24 +200,15 @@ test "Test Array Index expression" {
     }
 }
 
-test "Test Hashes expression statement" {
-    const Value = union(enum) {
-        str: []const u8,
-        int: i64,
-    };
-    const Result = [_]struct {
-        []const u8,
-        Value,
-    }{
-        .{ "name", Value{ .str = "John" } },
-        .{ "age", Value{ .int = 99 } },
-    };
-
-    const expected = comptime [_]struct { []const u8, u8 }{
+// TODO: to... do!
+test "Test Hashes with Integers" {
+    const expected = [_]struct { []const u8, u8, i64, i64 }{
         .{
-            \\{"name": "John", "age": 99};
+            \\{"zip": 876, "age": 99};
             ,
             2,
+            876,
+            99,
         },
     };
 
@@ -236,15 +227,16 @@ test "Test Hashes expression statement" {
 
         try std.testing.expect(@TypeOf(hash) == ast.HashLiteral);
 
-        var iter = hash.elements.iterator();
-        var i = 0;
-        while (iter.next()) |item| : (i += 1) {
-            const key = item.key_ptr.*;
-            const value = item.value_ptr.*;
+        var iter = hash.pairs.iterator();
+        var count = hash.pairs.count();
 
-            try std.testing.expectEqual(key, exp[2][i]);
-            try std.testing.expectEqual(value, exp[3][i]);
-        }
+        try std.testing.expectEqual(count, exp[1]);
+
+        const expr1 = iter.next().?.value_ptr;
+        try test_integer_literal(expr1, exp[2]);
+
+        const expr2 = iter.next().?.value_ptr;
+        try test_integer_literal(expr2, exp[3]);
     }
 }
 

@@ -24,6 +24,7 @@ const ParserError = ParseFnsError || error{
     ParseIdentifier,
     MissingLeftParen,
     MissingFuncIdent,
+    HashPutError,
 };
 
 const Precedence = enum(u8) {
@@ -164,6 +165,7 @@ pub const Parser = struct {
             .INT => ast.Expression{ .integer = try self.parse_integer_literal() },
             .STRING => ast.Expression{ .string = try self.parse_string_literal() },
             .LBRACK => ast.Expression{ .array = try self.parse_array_literal() },
+            .LBRACE => ast.Expression{ .hash = try self.parse_hash_literal() },
             .MINUS, .BANG => ast.Expression{ .prefix_expr = try self.parse_prefix_expression() },
             .TRUE, .FALSE => ast.Expression{ .boolean = try self.parse_boolean() },
             .LPAREN => try self.parse_grouped_expression(),
@@ -239,6 +241,30 @@ pub const Parser = struct {
             .token = self.current_token,
             .elements = try self.parse_expressions_list(TokenType.RBRACK),
         };
+    }
+
+    fn parse_hash_literal(self: *Parser) ParserError!ast.HashLiteral {
+        var hash = ast.HashLiteral{
+            .token = self.current_token,
+            .pairs = std.StringHashMap(ast.Expression).init(self.allocator.*),
+        };
+
+        while (self.peek_token.type != TokenType.RBRACE) {
+            self.next();
+            const key = try self.parse_string_literal();
+            try self.expect_peek(TokenType.COLON);
+
+            const value = try self.parse_expression(Precedence.LOWEST);
+
+            hash.pairs.put(key.value, value) catch return ParserError.HashPutError;
+
+            if (self.peek_token.type != TokenType.RBRACE)
+                try self.expect_peek(TokenType.COMMA);
+        }
+
+        try self.expect_peek(TokenType.RBRACE);
+
+        return hash;
     }
 
     fn parse_index_expression(self: *Parser, left: *const ast.Expression) ParserError!ast.IndexExpression {

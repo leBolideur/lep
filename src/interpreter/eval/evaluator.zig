@@ -125,6 +125,9 @@ pub const Evaluator = struct {
                 const elements = try self.eval_multiple_expr(&array.elements, env);
                 return try eval_utils.new_array(self.allocator, elements);
             },
+            .hash => |hash| {
+                _ = hash;
+            },
             .index_expr => |idx| {
                 const left = try self.eval_expression(idx.left, env);
                 if (eval_utils.is_error(left)) {

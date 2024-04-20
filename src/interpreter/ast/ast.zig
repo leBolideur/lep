@@ -57,6 +57,7 @@ pub const Expression = union(enum) {
     boolean: Boolean,
     string: StringLiteral,
     array: ArrayLiteral,
+    hash: HashLiteral,
     index_expr: IndexExpression,
     prefix_expr: PrefixExpr,
     infix_expr: InfixExpr,
@@ -71,6 +72,7 @@ pub const Expression = union(enum) {
             .boolean => |bo| bo.debug_string(buf),
             .string => |str| str.debug_string(buf),
             .array => |arr| arr.debug_string(buf),
+            .hash => |hash| hash.debug_string(buf),
             .index_expr => |idx| idx.debug_string(buf),
             .prefix_expr => |prf| prf.debug_string(buf),
             .infix_expr => |inf| inf.debug_string(buf),
@@ -212,6 +214,32 @@ pub const ArrayLiteral = struct {
         }
 
         try std.fmt.format(buf.*.writer(), "]", .{});
+    }
+};
+
+pub const HashLiteral = struct {
+    token: Token,
+    pairs: std.StringHashMap(Expression),
+
+    pub fn token_literal(self: HashLiteral) []const u8 {
+        return self.token.literal;
+    }
+
+    pub fn debug_string(self: *const HashLiteral, buf: *std.ArrayList(u8)) DebugError!void {
+        try std.fmt.format(buf.*.writer(), "{{", .{});
+
+        const len = self.pairs.count();
+        var iter = self.pairs.iterator();
+        var i: u64 = 0;
+        while (iter.next()) |item| : (i += 1) {
+            const value = item.value_ptr.*;
+            try value.debug_string(buf);
+            if (i != len - 1) {
+                try std.fmt.format(buf.*.writer(), ", ", .{});
+            }
+        }
+
+        try std.fmt.format(buf.*.writer(), "}}", .{});
     }
 };
 
