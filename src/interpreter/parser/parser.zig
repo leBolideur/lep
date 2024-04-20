@@ -309,9 +309,8 @@ pub const Parser = struct {
         self.next();
 
         while (!self.current_is(TokenType.END) and
-            !self.current_is(TokenType.ELSE) //and
-        // !self.current_is(TokenType.EOF)
-        ) {
+            !self.current_is(TokenType.ELSE))
+        {
             const statement = try self.parse_statement();
             statements_list.append(statement) catch {};
 

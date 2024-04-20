@@ -1,17 +1,17 @@
 const std = @import("std");
 
 const ast = @import("../ast/ast.zig");
-const obj_import = @import("../object.zig");
+const obj_import = @import("../intern/object.zig");
 const Object = obj_import.Object;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
-const eval_utils = @import("../utils/evaluator.zig");
+const eval_utils = @import("../utils/eval_utils.zig");
 const EvalError = eval_utils.EvalError;
 
-const Environment = @import("../environment.zig").Environment;
+const Environment = @import("../intern/environment.zig").Environment;
 
-const builtins = @import("../builtins.zig");
+const builtins = @import("../intern/builtins.zig");
 
 const stderr = std.io.getStdOut().writer();
 
@@ -175,16 +175,13 @@ pub const Evaluator = struct {
                     .literal => {},
                 }
 
-                // std.debug.print("eval_expr -- params >> {d}\n", .{func.parameters.items.len});
                 return fun;
             },
             .call_expression => |call| {
                 const func = try self.eval_expression(call.function, env);
                 if (eval_utils.is_error(func)) return func;
 
-                // std.debug.print("evaluator -- before args >> {d}\n", .{call.arguments.items.len});
                 const args = try self.eval_multiple_expr(&call.arguments, env);
-                // std.debug.print("evaluator -- args after >> {d}\n", .{args.items.len});
 
                 return self.apply_function(func, args);
             },
