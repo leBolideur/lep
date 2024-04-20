@@ -125,8 +125,9 @@ pub const Evaluator = struct {
                 const elements = try self.eval_multiple_expr(&array.elements, env);
                 return try eval_utils.new_array(self.allocator, elements);
             },
-            .hash => |hash| {
-                _ = hash;
+            .hash => |hash_| {
+                return try self.eval_hash(hash_, env);
+                // return try eval_utils.new_hash(self.allocator, hash);
             },
             .index_expr => |idx| {
                 const left = try self.eval_expression(idx.left, env);
@@ -303,6 +304,25 @@ pub const Evaluator = struct {
         }
 
         return args_evaluated;
+    }
+
+    fn eval_hash(
+        self: Evaluator,
+        hash: ast.HashLiteral,
+        env: *Environment,
+    ) EvalError!*const Object {
+        var ast_iter = hash.pairs.iterator();
+        var hashmap = std.StringHashMap(*const Object).init(self.allocator.*);
+
+        while (ast_iter.next()) |pair| {
+            const key = pair.key_ptr.*;
+            const value_obj = try self.eval_expression(pair.value_ptr, env);
+            if (eval_utils.is_error(value_obj)) return value_obj;
+
+            hashmap.put(key, value_obj) catch {};
+        }
+
+        return eval_utils.new_hash(self.allocator, hashmap);
     }
 
     fn eval_if_expression(

@@ -81,6 +81,63 @@ test "Test Array literal evaluation" {
     }
 }
 
+test "Test Hash evaluation" {
+    const Result = union(enum) {
+        int: i64,
+        bool: bool,
+        string: []const u8,
+    };
+    const expected = comptime [_]struct { []const u8, [2][]const u8, [2]Result }{
+        .{
+            \\{"name": "John", "workAt": "fsociety"};
+            ,
+            [2][]const u8{ "name", "workAt" },
+            [2]Result{ Result{ .string = "John" }, Result{ .string = "fsociety" } },
+        },
+        .{
+            \\{"age": 100 - 1, "zip_code": 78 * 10 + 6};
+            ,
+            [2][]const u8{ "age", "zip_code" },
+            [2]Result{ Result{ .int = 99 }, Result{ .int = 786 } },
+        },
+        .{
+            \\{"real": !!true, "false": !true};
+            ,
+            [2][]const u8{ "real", "false" },
+            [2]Result{ Result{ .bool = true }, Result{ .bool = false } },
+        },
+    };
+
+    for (expected) |exp| {
+        const evaluated = try test_eval(exp[0]);
+        try std.testing.expectEqualStrings(evaluated.typename(), "Hash");
+
+        var pairs = evaluated.hash.pairs.iterator();
+        var i: usize = 0;
+
+        while (pairs.next()) |pair| : (i += 1) {
+            const key = pair.key_ptr.*;
+            const value = pair.value_ptr.*;
+
+            const exp_key = exp[1][i];
+            try std.testing.expectEqualStrings(exp_key, key);
+
+            const exp_value = exp[2][i];
+            switch (exp_value) {
+                .int => |int| {
+                    try test_integer_object(value, int);
+                },
+                .string => |str| {
+                    try test_string_object(value, str);
+                },
+                .bool => |bool_| {
+                    try test_boolean_object(value, bool_);
+                },
+            }
+        }
+    }
+}
+
 test "Test Array indexing evaluation" {
     const Result = union(enum) {
         int: i64,

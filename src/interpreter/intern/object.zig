@@ -10,6 +10,7 @@ pub const ObjectType = union(enum) {
     Boolean,
     String,
     Array,
+    Hash,
     Null,
     Return,
     Error,
@@ -25,6 +26,7 @@ pub const Object = union(enum) {
     boolean: Boolean,
     string: String,
     array: Array,
+    hash: Hash,
     null: Null,
     ret: Return,
     err: Error,
@@ -38,6 +40,7 @@ pub const Object = union(enum) {
             .boolean => |boolean| boolean.inspect(buf),
             .string => |string| string.inspect(buf),
             .array => |array| array.inspect(buf),
+            .hash => |hash| hash.inspect(buf),
             .null => |null_| null_.inspect(buf),
             .ret => |ret| ret.inspect(buf),
             .err => |err| err.inspect(buf),
@@ -53,6 +56,7 @@ pub const Object = union(enum) {
             .boolean => "Boolean",
             .string => "String",
             .array => "Array",
+            .hash => "Hash",
             .null => "Null",
             .ret => "Ret",
             .err => "Error",
@@ -157,6 +161,32 @@ pub const Array = struct {
             }
         }
         std.fmt.format(buf.*.writer(), " ];", .{}) catch return ObjectError.InspectFormatError;
+    }
+};
+
+pub const Hash = struct {
+    type: ObjectType,
+    pairs: std.StringHashMap(*const Object),
+
+    pub fn inspect(self: Hash, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "{{", .{}) catch return ObjectError.InspectFormatError;
+
+        const len = self.pairs.count();
+        var iter = self.pairs.iterator();
+        var i: u64 = 0;
+        while (iter.next()) |item| : (i += 1) {
+            const key = item.key_ptr.*;
+            const value = item.value_ptr.*;
+
+            std.fmt.format(buf.*.writer(), "{s}: ", .{key}) catch return ObjectError.InspectFormatError;
+            try value.inspect(buf);
+
+            if (i != len - 1) {
+                std.fmt.format(buf.*.writer(), ", ", .{}) catch return ObjectError.InspectFormatError;
+            }
+        }
+
+        std.fmt.format(buf.*.writer(), "}}", .{}) catch return ObjectError.InspectFormatError;
     }
 };
 

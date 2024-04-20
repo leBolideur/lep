@@ -232,7 +232,10 @@ pub const HashLiteral = struct {
         var iter = self.pairs.iterator();
         var i: u64 = 0;
         while (iter.next()) |item| : (i += 1) {
+            const key = item.key_ptr.*;
             const value = item.value_ptr.*;
+
+            try std.fmt.format(buf.*.writer(), "{s}: ", .{key});
             try value.debug_string(buf);
             if (i != len - 1) {
                 try std.fmt.format(buf.*.writer(), ", ", .{});

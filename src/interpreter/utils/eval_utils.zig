@@ -5,6 +5,7 @@ const Object = obj_import.Object;
 const Integer = obj_import.Integer;
 const String = obj_import.String;
 const Array = obj_import.Array;
+const Hash = obj_import.Hash;
 const Null = obj_import.Null;
 const Boolean = obj_import.Boolean;
 const Return = obj_import.Return;
@@ -59,11 +60,26 @@ pub fn new_string(allocator: *const std.mem.Allocator, value: []const u8) !*cons
     return ptr;
 }
 
-pub fn new_array(allocator: *const std.mem.Allocator, elements: std.ArrayList(*const Object)) !*const Object {
+pub fn new_array(
+    allocator: *const std.mem.Allocator,
+    elements: std.ArrayList(*const Object),
+) !*const Object {
     var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
     const result = Array{ .type = ObjectType.String, .elements = elements };
     ptr.* = Object{ .array = result };
+
+    return ptr;
+}
+
+pub fn new_hash(
+    allocator: *const std.mem.Allocator,
+    pairs: std.StringHashMap(*const Object),
+) !*const Object {
+    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+
+    const result = Hash{ .type = ObjectType.String, .pairs = pairs };
+    ptr.* = Object{ .hash = result };
 
     return ptr;
 }
