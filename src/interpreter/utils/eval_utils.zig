@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const obj_import = @import("../object.zig");
+const obj_import = @import("../intern/object.zig");
 const Object = obj_import.Object;
 const Integer = obj_import.Integer;
 const String = obj_import.String;
@@ -15,9 +15,9 @@ const LiteralFunc = obj_import.LiteralFunc;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
-const Environment = @import("../environment.zig").Environment;
+const Environment = @import("../intern/environment.zig").Environment;
 
-const BuiltinFunction = @import("../builtins.zig").BuiltinFunction;
+const BuiltinFunction = @import("../intern/builtins.zig").BuiltinFunction;
 
 const ast = @import("../ast/ast.zig");
 

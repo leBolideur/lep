@@ -9,7 +9,7 @@ const Parser = @import("interpreter/parser/parser.zig").Parser;
 
 const Evaluator = @import("interpreter/eval/evaluator.zig").Evaluator;
 
-const Environment = @import("interpreter/environment.zig").Environment;
+const Environment = @import("interpreter/intern/environment.zig").Environment;
 
 pub fn main() !void {
     const stderr = std.io.getStdErr().writer();

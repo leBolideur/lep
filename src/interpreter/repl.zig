@@ -7,7 +7,7 @@ const Parser = @import("parser/parser.zig").Parser;
 
 const Evaluator = @import("eval/evaluator.zig").Evaluator;
 
-const Environment = @import("environment.zig").Environment;
+const Environment = @import("inter/environment.zig").Environment;
 
 pub fn repl(alloc: *const std.mem.Allocator) !void {
     const stdin = std.io.getStdIn().reader();

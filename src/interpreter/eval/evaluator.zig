@@ -1,17 +1,17 @@
 const std = @import("std");
 
 const ast = @import("../ast/ast.zig");
-const obj_import = @import("../object.zig");
+const obj_import = @import("../intern/object.zig");
 const Object = obj_import.Object;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
-const eval_utils = @import("../utils/evaluator.zig");
+const eval_utils = @import("../utils/eval_utils.zig");
 const EvalError = eval_utils.EvalError;
 
-const Environment = @import("../environment.zig").Environment;
+const Environment = @import("../intern/environment.zig").Environment;
 
-const builtins = @import("../builtins.zig");
+const builtins = @import("../intern/builtins.zig");
 
 const stderr = std.io.getStdOut().writer();
 
