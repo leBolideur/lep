@@ -52,7 +52,15 @@ const Error = struct {
 
 const StatementOrError = union(enum) {
     statement: ast.Statement,
+    var_st: ast.VarStatement,
+    ret_st: ast.RetStatement,
     err: Error,
+
+    pub fn new_error(allocator: *const std.mem.Allocator, comptime fmt: []const u8, args: anytype) !StatementOrError {
+        const msg = std.fmt.allocPrint(allocator.*, fmt, args) catch return ParserError.MemAlloc;
+
+        return StatementOrError{ .err = Error{ .msg = msg } };
+    }
 };
 
 const ExprStatementOrError = union(enum) {
@@ -110,7 +118,17 @@ pub const Parser = struct {
                 .err => |err| {
                     return ast.Node{ .err = err.msg };
                 },
-                .statement => |st| {
+                .statement => {
+                    try statements.append(statement.statement);
+                    self.next();
+                },
+                .var_st => |var_st| {
+                    const st = ast.Statement{ .var_statement = var_st };
+                    try statements.append(st);
+                    self.next();
+                },
+                .ret_st => |ret_st| {
+                    const st = ast.Statement{ .ret_statement = ret_st };
                     try statements.append(st);
                     self.next();
                 },
@@ -123,12 +141,34 @@ pub const Parser = struct {
     fn parse_statement(self: *Parser) !StatementOrError {
         return switch (self.current_token.type) {
             TokenType.VAR => {
-                const st = ast.Statement{ .var_statement = try self.parse_var_statement() };
-                return StatementOrError{ .statement = st };
+                const var_statement = try self.parse_var_statement();
+                switch (var_statement) {
+                    .err => |err| {
+                        return StatementOrError{ .err = err };
+                    },
+                    .var_st => |var_st| {
+                        const st = ast.Statement{ .var_statement = var_st };
+                        return StatementOrError{ .statement = st };
+                    },
+                    else => unreachable,
+                }
+                // return st; //StatementOrError{ .statement = st };
             },
             TokenType.RET => {
-                const st = ast.Statement{ .ret_statement = try self.parse_ret_statement() };
-                return StatementOrError{ .statement = st };
+                const ret_statement = try self.parse_ret_statement();
+                switch (ret_statement) {
+                    .err => |err| {
+                        return StatementOrError{ .err = err };
+                    },
+                    .ret_st => |ret_st| {
+                        const st = ast.Statement{ .ret_statement = ret_st };
+                        return StatementOrError{ .statement = st };
+                    },
+                    else => unreachable,
+                }
+
+                // const st = ast.Statement{ .ret_statement = try self.parse_ret_statement() };
+                // return StatementOrError{ .statement = st };
             },
             else => {
                 const expr_statement = try self.parse_expr_statement();
@@ -145,41 +185,77 @@ pub const Parser = struct {
         };
     }
 
-    fn parse_var_statement(self: *Parser) !ast.VarStatement {
+    fn parse_var_statement(self: *Parser) !StatementOrError {
         const var_st_token = self.current_token;
-        self.expect_peek(TokenType.IDENT) catch return ParserError.MissingToken;
+        var ok = try self.expect_peek(TokenType.IDENT);
+        if (!ok) {
+            return StatementOrError.new_error(self.allocator, "Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
+                TokenType.IDENT.get_token_string(),
+                self.current_token.literal,
+                self.current_token.line,
+                self.current_token.col,
+            }) catch return ParserError.MemAlloc;
+        }
 
         const ident_name = self.current_token.literal;
         const ident = ast.Identifier{ .token = self.current_token, .value = ident_name };
 
-        self.expect_peek(TokenType.ASSIGN) catch return ParserError.MissingToken;
+        ok = try self.expect_peek(TokenType.ASSIGN);
+        if (!ok) {
+            return StatementOrError.new_error(self.allocator, "Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
+                TokenType.ASSIGN.get_token_string(),
+                self.current_token.literal,
+                self.current_token.line,
+                self.current_token.col,
+            }) catch return ParserError.MemAlloc;
+        }
         self.next();
 
         var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
-        self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
+        ok = try self.expect_peek(TokenType.SEMICOLON);
+        if (!ok) {
+            return StatementOrError.new_error(self.allocator, "Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
+                TokenType.SEMICOLON.get_token_string(),
+                self.current_token.literal,
+                self.current_token.line,
+                self.current_token.col,
+            }) catch return ParserError.MemAlloc;
+        }
 
-        return ast.VarStatement{
+        const var_st = ast.VarStatement{
             .token = var_st_token,
             .name = ident,
             .expression = expr_ptr,
         };
+
+        return StatementOrError{ .var_st = var_st };
     }
 
-    fn parse_ret_statement(self: *Parser) !ast.RetStatement {
+    fn parse_ret_statement(self: *Parser) !StatementOrError {
         const ret_st_token = self.current_token;
         self.next();
 
         var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
-        self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
+        var ok = try self.expect_peek(TokenType.SEMICOLON);
+        if (!ok) {
+            return StatementOrError.new_error(self.allocator, "Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
+                TokenType.SEMICOLON.get_token_string(),
+                self.current_token.literal,
+                self.current_token.line,
+                self.current_token.col,
+            }) catch return ParserError.MemAlloc;
+        }
 
-        return ast.RetStatement{
+        const ret_st = ast.RetStatement{
             .token = ret_st_token,
             .expression = expr_ptr,
         };
+
+        return StatementOrError{ .ret_st = ret_st };
     }
 
     fn parse_expr_statement(self: *Parser) !ExprStatementOrError {
@@ -188,7 +264,7 @@ pub const Parser = struct {
             if (err == ParserError.NoPrefixFn) {
                 const msg = std.fmt.allocPrint(
                     self.allocator.*,
-                    "Paser error line {d}: unknown statement.\n",
+                    "Parser error line {d}: unknown statement.\n",
                     .{
                         // self.previous_token.literal,
                         self.current_token.line,
@@ -206,7 +282,7 @@ pub const Parser = struct {
         expr_ptr.* = expression;
 
         if (self.peek_token.type == TokenType.SEMICOLON) {
-            self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
+            _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
         }
 
         const expr_st = ast.ExprStatement{
@@ -311,7 +387,7 @@ pub const Parser = struct {
             self.next();
             const key = try self.parse_string_literal();
 
-            try self.expect_peek(TokenType.COLON);
+            _ = try self.expect_peek(TokenType.COLON);
 
             self.next();
             const value = try self.parse_expression(Precedence.LOWEST);
@@ -319,10 +395,10 @@ pub const Parser = struct {
             hash.pairs.put(key.value, value) catch return ParserError.HashPutError;
 
             if (self.peek_token.type != TokenType.RBRACE)
-                try self.expect_peek(TokenType.COMMA);
+                _ = try self.expect_peek(TokenType.COMMA);
         }
 
-        try self.expect_peek(TokenType.RBRACE);
+        _ = try self.expect_peek(TokenType.RBRACE);
 
         return hash;
     }
@@ -339,7 +415,7 @@ pub const Parser = struct {
         index_ptr.* = try self.parse_expression(Precedence.LOWEST);
         index_expr.index = index_ptr;
 
-        try self.expect_peek(TokenType.RBRACK);
+        _ = try self.expect_peek(TokenType.RBRACK);
 
         return index_expr;
     }
@@ -356,7 +432,7 @@ pub const Parser = struct {
 
         const expr = try self.parse_expression(Precedence.LOWEST);
 
-        self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
+        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
 
         return expr;
     }
@@ -374,12 +450,12 @@ pub const Parser = struct {
         condition_ptr.* = try self.parse_expression(Precedence.LOWEST);
         if_expresssion.condition = condition_ptr;
 
-        self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
+        _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
 
         if_expresssion.consequence = try self.parse_block_statement();
 
         if (self.current_token.type == TokenType.ELSE) {
-            self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
+            _ = self.expect_peek(TokenType.COLON) catch return ParserError.MissingColon;
             if_expresssion.alternative = try self.parse_block_statement();
         }
 
@@ -407,6 +483,16 @@ pub const Parser = struct {
                 .statement => |st| {
                     statements_list.append(st) catch {};
 
+                    self.next();
+                },
+                .var_st => |var_st| {
+                    const st = ast.Statement{ .var_statement = var_st };
+                    statements_list.append(st) catch {};
+                    self.next();
+                },
+                .ret_st => |ret_st| {
+                    const st = ast.Statement{ .ret_statement = ret_st };
+                    statements_list.append(st) catch {};
                     self.next();
                 },
             }
@@ -520,7 +606,7 @@ pub const Parser = struct {
             identifiers.append(identifier) catch {};
         }
 
-        self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
+        _ = self.expect_peek(TokenType.RPAREN) catch return ParserError.MissingRightParen;
 
         return identifiers;
     }
@@ -558,23 +644,25 @@ pub const Parser = struct {
             err = ParserError.MissingRightBracket;
         }
 
-        self.expect_peek(end) catch return err;
+        _ = self.expect_peek(end) catch return err;
 
         return list;
     }
 
-    fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!void {
+    fn expect_peek(self: *Parser, expected_type: TokenType) ParserError!bool {
         if (self.peek_token.type == expected_type) {
             self.next();
-            return;
+            return true;
         }
-        stderr.print("Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
-            expected_type.get_token_string(),
-            self.current_token.literal,
-            self.current_token.line,
-            self.current_token.col,
-        }) catch {};
-        return ParserError.BadToken;
+        return false;
+
+        // stderr.print("Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
+        //     expected_type.get_token_string(),
+        //     self.current_token.literal,
+        //     self.current_token.line,
+        //     self.current_token.col,
+        // }) catch {};
+        // return ParserError.BadToken;
     }
 
     fn current_is(self: *Parser, token_type: TokenType) bool {
