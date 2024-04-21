@@ -152,7 +152,6 @@ pub const Parser = struct {
                     },
                     else => unreachable,
                 }
-                // return st; //StatementOrError{ .statement = st };
             },
             TokenType.RET => {
                 const ret_statement = try self.parse_ret_statement();
@@ -166,9 +165,6 @@ pub const Parser = struct {
                     },
                     else => unreachable,
                 }
-
-                // const st = ast.Statement{ .ret_statement = try self.parse_ret_statement() };
-                // return StatementOrError{ .statement = st };
             },
             else => {
                 const expr_statement = try self.parse_expr_statement();
@@ -265,11 +261,7 @@ pub const Parser = struct {
                 const msg = std.fmt.allocPrint(
                     self.allocator.*,
                     "Parser error line {d}: unknown statement.\n",
-                    .{
-                        // self.previous_token.literal,
-                        self.current_token.line,
-                        // self.current_token.col,
-                    },
+                    .{self.current_token.line},
                 ) catch return ParserError.MemAlloc;
 
                 return ExprStatementOrError{ .err = Error{ .msg = msg } };
@@ -306,11 +298,11 @@ pub const Parser = struct {
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
             .FN => ast.Expression{ .func = try self.parse_function_literal() },
             else => {
-                // stderr.print("No prefix parse function for token '{s}'. line: {d} @ {d}\n", .{
-                //     self.current_token.literal,
-                //     self.current_token.line,
-                //     self.current_token.col,
-                // }) catch {};
+                stderr.print("No prefix parse function for token '{s}'. line: {d} @ {d}\n", .{
+                    self.current_token.literal,
+                    self.current_token.line,
+                    self.current_token.col,
+                }) catch {};
                 return ParseFnsError.NoPrefixFn;
             },
         };

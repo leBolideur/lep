@@ -6,10 +6,6 @@ const TokenType = token.TokenType;
 
 const DebugError = anyerror || error{DebugString};
 
-// pub const ErrorNode = struct {
-//     err_msg: []const u8,
-// };
-
 pub const Node = union(enum) {
     program: Program,
     statement: Statement,
