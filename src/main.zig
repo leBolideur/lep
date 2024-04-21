@@ -42,6 +42,13 @@ pub fn main() !void {
     var lexer = Lexer.init(buffer);
     var parser = try Parser.init(&lexer, &alloc);
     const program = try parser.parse();
+    switch (program) {
+        .err => |err| {
+            stderr.print("{s}\n", .{err}) catch {};
+            return;
+        },
+        else => {},
+    }
 
     const evaluator = try Evaluator.init(&alloc);
     const object = try evaluator.eval(program, &env);

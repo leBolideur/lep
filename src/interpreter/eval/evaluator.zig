@@ -60,6 +60,7 @@ pub const Evaluator = struct {
             .program => |p| return try self.eval_program(p, env),
             .statement => |s| return try self.eval_statement(s, env),
             .expression => |e| return try self.eval_expression(&e, env),
+            else => unreachable,
         }
     }
 

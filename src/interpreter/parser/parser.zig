@@ -25,6 +25,8 @@ const ParserError = ParseFnsError || error{
     MissingLeftParen,
     MissingFuncIdent,
     HashPutError,
+    ParserExit,
+    UnknownError,
 };
 
 const Precedence = enum(u8) {
@@ -43,6 +45,20 @@ const Precedence = enum(u8) {
 };
 
 const stderr = std.io.getStdErr().writer();
+
+const Error = struct {
+    msg: []const u8,
+};
+
+const StatementOrError = union(enum) {
+    statement: ast.Statement,
+    err: Error,
+};
+
+const ExprStatementOrError = union(enum) {
+    expr_st: ast.ExprStatement,
+    err: Error,
+};
 
 pub const Parser = struct {
     lexer: *Lexer,
@@ -89,19 +105,43 @@ pub const Parser = struct {
         var statements = std.ArrayList(ast.Statement).init(self.allocator.*);
 
         while (self.current_token.type != TokenType.EOF) {
-            const st = try self.parse_statement();
-            try statements.append(st);
-            self.next();
+            const statement = try self.parse_statement();
+            switch (statement) {
+                .err => |err| {
+                    return ast.Node{ .err = err.msg };
+                },
+                .statement => |st| {
+                    try statements.append(st);
+                    self.next();
+                },
+            }
         }
 
         return ast.Node{ .program = ast.Program{ .statements = statements } };
     }
 
-    fn parse_statement(self: *Parser) !ast.Statement {
+    fn parse_statement(self: *Parser) !StatementOrError {
         return switch (self.current_token.type) {
-            TokenType.VAR => ast.Statement{ .var_statement = try self.parse_var_statement() },
-            TokenType.RET => ast.Statement{ .ret_statement = try self.parse_ret_statement() },
-            else => ast.Statement{ .expr_statement = try self.parse_expr_statement() },
+            TokenType.VAR => {
+                const st = ast.Statement{ .var_statement = try self.parse_var_statement() };
+                return StatementOrError{ .statement = st };
+            },
+            TokenType.RET => {
+                const st = ast.Statement{ .ret_statement = try self.parse_ret_statement() };
+                return StatementOrError{ .statement = st };
+            },
+            else => {
+                const expr_statement = try self.parse_expr_statement();
+                switch (expr_statement) {
+                    .err => |err| {
+                        return StatementOrError{ .err = err };
+                    },
+                    .expr_st => |expr_st| {
+                        const st = ast.Statement{ .expr_statement = expr_st };
+                        return StatementOrError{ .statement = st };
+                    },
+                }
+            },
         };
     }
 
@@ -142,9 +182,25 @@ pub const Parser = struct {
         };
     }
 
-    fn parse_expr_statement(self: *Parser) !ast.ExprStatement {
+    fn parse_expr_statement(self: *Parser) !ExprStatementOrError {
         const expr_st_token = self.current_token;
-        const expression = try self.parse_expression(Precedence.LOWEST);
+        const expression = self.parse_expression(Precedence.LOWEST) catch |err| {
+            if (err == ParserError.NoPrefixFn) {
+                const msg = std.fmt.allocPrint(
+                    self.allocator.*,
+                    "Paser error line {d}: unknown statement.\n",
+                    .{
+                        // self.previous_token.literal,
+                        self.current_token.line,
+                        // self.current_token.col,
+                    },
+                ) catch return ParserError.MemAlloc;
+
+                return ExprStatementOrError{ .err = Error{ .msg = msg } };
+            }
+
+            return ParserError.UnknownError;
+        };
 
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
@@ -153,10 +209,12 @@ pub const Parser = struct {
             self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
         }
 
-        return ast.ExprStatement{
+        const expr_st = ast.ExprStatement{
             .token = expr_st_token,
             .expression = expr_ptr,
         };
+
+        return ExprStatementOrError{ .expr_st = expr_st };
     }
 
     fn parse_expression(self: *Parser, precedence: Precedence) ParserError!ast.Expression {
@@ -172,11 +230,11 @@ pub const Parser = struct {
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
             .FN => ast.Expression{ .func = try self.parse_function_literal() },
             else => {
-                stderr.print("No prefix parse function for token '{s}'. line: {d} @ {d}\n", .{
-                    self.current_token.literal,
-                    self.current_token.line,
-                    self.current_token.col,
-                }) catch {};
+                // stderr.print("No prefix parse function for token '{s}'. line: {d} @ {d}\n", .{
+                //     self.current_token.literal,
+                //     self.current_token.line,
+                //     self.current_token.col,
+                // }) catch {};
                 return ParseFnsError.NoPrefixFn;
             },
         };
@@ -340,9 +398,18 @@ pub const Parser = struct {
             !self.current_is(TokenType.ELSE))
         {
             const statement = try self.parse_statement();
-            statements_list.append(statement) catch {};
+            switch (statement) {
+                .err => |err| {
+                    // return StatementOrError{ .err = err };
+                    _ = err;
+                    return ParserError.UnknownError;
+                },
+                .statement => |st| {
+                    statements_list.append(st) catch {};
 
-            self.next();
+                    self.next();
+                },
+            }
         }
 
         block.statements = statements_list;

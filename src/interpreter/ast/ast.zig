@@ -6,16 +6,22 @@ const TokenType = token.TokenType;
 
 const DebugError = anyerror || error{DebugString};
 
+// pub const ErrorNode = struct {
+//     err_msg: []const u8,
+// };
+
 pub const Node = union(enum) {
     program: Program,
     statement: Statement,
     expression: Expression,
+    err: []const u8,
 
     pub fn debug_string(self: Node, buf: *std.ArrayList(u8)) DebugError![]const u8 {
         switch (self) {
             .program => |prog| try prog.debug_string(buf),
             .statement => |st| try st.debug_string(buf),
             .expression => |expr| try expr.debug_string(buf),
+            .err => {},
         }
 
         return buf.toOwnedSlice();
