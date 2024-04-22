@@ -99,12 +99,8 @@ pub fn make(
         const width = def.operand_widths[i];
         switch (width) {
             2 => {
-                // std.debug.print("\ninstr_ptr: {d} -- operand: {d}\n", .{ instr_ptr, operand });
                 instr_ptr[offset] = @as(u8, @intCast((operand & 0xFF00) >> 8));
-                // std.debug.print("1/ operand: {d} -> {d}\n", .{ operand, instr_ptr[offset] });
                 instr_ptr[offset + 1] = @as(u8, @intCast(operand & 0x00FF));
-                // std.debug.print("2/ operand: {d} -> {d}\n", .{ operand, instr_ptr[offset + 1] });
-                // std.debug.print("instr_ptr: {d}", .{instr_ptr});
             },
             else => unreachable,
         }

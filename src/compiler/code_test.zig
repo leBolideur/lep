@@ -23,17 +23,10 @@ test "Test code.Make" {
 
     for (expected) |exp| {
         const instr = try Code.make(&alloc, exp[0], exp[1]);
-        if (instr.len != exp[2].len) {
-            std.debug.print(
-                "\ninstruction has wrong length. want={d}, got={d}\n",
-                .{ exp[2].len, instr.len },
-            );
-        }
+        try std.testing.expectEqual(instr.len, exp[2].len);
 
         for (exp[2], 0..) |byte, i| {
-            if (byte != instr[i]) {
-                std.debug.print("\nwrong byte at pos {d}. want={d}, got={d}\n", .{ i, byte, instr[i] });
-            }
+            try std.testing.expectEqual(byte, instr[i]);
         }
     }
 }
