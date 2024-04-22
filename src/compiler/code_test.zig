@@ -11,14 +11,18 @@ test "Test code.Make" {
     const expected = [_]struct { Code.Opcode, []const usize, []const u8 }{
         .{
             Code.Opcode.OpConstant,
-            &[_]usize{65534}, //65534
+            &[_]usize{65534},
             &[_]u8{ @as(u8, @intCast(@intFromEnum(Code.Opcode.OpConstant))), 255, 254 },
+        },
+        .{
+            Code.Opcode.OpConstant,
+            &[_]usize{128},
+            &[_]u8{ @as(u8, @intCast(@intFromEnum(Code.Opcode.OpConstant))), 0, 128 },
         },
     };
 
     for (expected) |exp| {
         const instr = try Code.make(&alloc, exp[0], exp[1]);
-        std.debug.print("instr: {d}\tinstr len: {d}\n", .{ instr, instr.len });
         if (instr.len != exp[2].len) {
             std.debug.print(
                 "\ninstruction has wrong length. want={d}, got={d}\n",
@@ -27,7 +31,6 @@ test "Test code.Make" {
         }
 
         for (exp[2], 0..) |byte, i| {
-            // std.debug.print("byte > exp: 0x{x}, instr: 0x{x} at pos {d}\n", .{ byte, instr[i], i });
             if (byte != instr[i]) {
                 std.debug.print("\nwrong byte at pos {d}. want={d}, got={d}\n", .{ i, byte, instr[i] });
             }
@@ -35,7 +38,7 @@ test "Test code.Make" {
     }
 }
 
-test "Test MiniDisassembler" {
+test "Test Instruction.string" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     var alloc = arena.allocator();
@@ -44,6 +47,7 @@ test "Test MiniDisassembler" {
         \\0000 OpConstant 1
         \\0003 OpConstant 2
         \\0006 OpConstant 65535
+        \\
     ;
 
     const instructions = [3][]const u8{
@@ -61,7 +65,7 @@ test "Test MiniDisassembler" {
     const flattened = Code.Instructions{ .instructions = try flattened_.toOwnedSlice() };
 
     var definitions = try Code.Definitions.init(&alloc);
-    const str = try flattened.string(&alloc, &definitions);
+    const str = try flattened.to_string(&alloc, &definitions);
 
     try std.testing.expectEqualStrings(expected, str);
 }
@@ -87,11 +91,12 @@ test "Test read operands" {
         const def = try definitions.lookup(exp[0]);
         try std.testing.expect(def != null);
 
-        const operands = try Code.read_operands(&alloc, def.?, instruction[1..]);
-        try std.testing.expectEqual(exp[2], operands.len);
+        var bytes_read: u8 = 0;
+        const operands = try Code.read_operands(&alloc, def.?, instruction[1..], &bytes_read); // Skip opcode
+        try std.testing.expectEqual(exp[2], bytes_read);
 
-        for (exp[1], operands) |exp_op, operand| {
-            try std.testing.expectEqual(exp_op, operand);
+        for (operands, 0..) |exp_op, i| {
+            try std.testing.expectEqual(exp[1][i], exp_op);
         }
     }
 }

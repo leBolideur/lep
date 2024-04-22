@@ -16,8 +16,8 @@ test "Test the compiler with Integers" {
         .{
             "1 + 2;",
             [_][]const u8{
-                code.make(&alloc, code.Opcode.OpConstant, &[_]u8{1}) catch "",
-                code.make(&alloc, code.Opcode.OpConstant, &[_]u8{2}) catch "",
+                code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}) catch "",
+                code.make(&alloc, code.Opcode.OpConstant, &[_]usize{2}) catch "",
             },
             [_]i64{ 1, 2 },
         },
