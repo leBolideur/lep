@@ -44,7 +44,12 @@ pub const Instructions = struct {
 
 pub const Opcode = enum(u8) {
     OpConstant = 1,
+
     OpAdd,
+    OpSub,
+    OpMul,
+    OpDiv,
+
     OpPop,
 };
 
@@ -71,6 +76,30 @@ pub const Definitions = struct {
             Opcode.OpAdd,
             OpDefinition{
                 .name = "OpAdd",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpSub,
+            OpDefinition{
+                .name = "OpSub",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpMul,
+            OpDefinition{
+                .name = "OpMul",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpDiv,
+            OpDefinition{
+                .name = "OpDiv",
                 .operand_widths = &[_]u8{0},
                 .operand_count = 0,
             },

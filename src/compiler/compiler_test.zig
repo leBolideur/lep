@@ -29,6 +29,36 @@ test "Test the compiler with Integers arithmetic" {
             [_]i64{ 1, 2 },
         },
         .{
+            "1 - 2;",
+            [_][]const u8{
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
+                try code.make(&alloc, code.Opcode.OpSub, &[_]usize{}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+            },
+            [_]i64{ 1, 2 },
+        },
+        .{
+            "2 * 3;",
+            [_][]const u8{
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
+                try code.make(&alloc, code.Opcode.OpMul, &[_]usize{}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+            },
+            [_]i64{ 2, 3 },
+        },
+        .{
+            "6 / 2;",
+            [_][]const u8{
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
+                try code.make(&alloc, code.Opcode.OpDiv, &[_]usize{}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+            },
+            [_]i64{ 6, 2 },
+        },
+        .{
             "1; 2;",
             [_][]const u8{
                 try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),

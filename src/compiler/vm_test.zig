@@ -19,10 +19,20 @@ test "Test the VM with Integers arithmetic" {
     var alloc = arena.allocator();
 
     // expr, result, remaining element on stacks
-    const test_cases = [_]struct { []const u8, usize, usize }{
+    const test_cases = [_]struct { []const u8, isize, usize }{
         .{ "1;", 1, 0 },
         .{ "2;", 2, 0 },
         .{ "6 + 6;", 12, 0 },
+        .{ "5 - 6;", -1, 0 },
+        .{ "6 * 6;", 36, 0 },
+        .{ "6 / 6;", 1, 0 },
+        .{ "50 / 2 * 2 + 10 - 5", 55, 0 },
+        .{ "5 * (2 + 10)", 60, 0 },
+        .{ "5 + 5 + 5 + 5 - 10", 10, 0 },
+        .{ "2 * 2 * 2 * 2 * 2", 32, 0 },
+        .{ "5 * 2 + 10", 20, 0 },
+        .{ "5 + 2 * 10", 25, 0 },
+        .{ "5 * (2 + 10)", 60, 0 },
     };
 
     try run_test(&alloc, test_cases);
@@ -53,12 +63,12 @@ fn parse(input: []const u8, alloc: *const std.mem.Allocator) !ast.Node {
     return root_node;
 }
 
-fn test_integer_object(expected: usize, actual: ?*const Object) !void {
+fn test_integer_object(expected: isize, actual: ?*const Object) !void {
     try std.testing.expect(actual != null);
 
     switch (actual.?.*) {
         .integer => |int| {
-            try std.testing.expectEqual(expected, @as(usize, @intCast(int.value)));
+            try std.testing.expectEqual(expected, @as(isize, @intCast(int.value)));
         },
         else => |other| {
             std.debug.print("Object is not an Integer, got: {any}\n", .{other});

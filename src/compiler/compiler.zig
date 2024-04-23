@@ -8,7 +8,7 @@ const code = @import("code.zig");
 
 const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
-const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ };
+const INFIX_OP = enum { SUM, SUB, MUL, DIV, LT, GT, LTE, GTE, EQ, NOT_EQ };
 
 const CompilerError = error{ OutOfMemory, ObjectCreation, MakeInstr };
 
@@ -29,8 +29,8 @@ pub const Compiler = struct {
         var infix_op_map = std.StringHashMap(INFIX_OP).init(alloc.*);
         try infix_op_map.put("+", INFIX_OP.SUM);
         try infix_op_map.put("-", INFIX_OP.SUB);
-        try infix_op_map.put("*", INFIX_OP.PRODUCT);
-        try infix_op_map.put("/", INFIX_OP.DIVIDE);
+        try infix_op_map.put("*", INFIX_OP.MUL);
+        try infix_op_map.put("/", INFIX_OP.DIV);
         try infix_op_map.put("<", INFIX_OP.LT);
         try infix_op_map.put(">", INFIX_OP.GT);
         try infix_op_map.put("<=", INFIX_OP.LTE);
@@ -89,6 +89,15 @@ pub const Compiler = struct {
                 switch (op.?) {
                     INFIX_OP.SUM => {
                         _ = try self.emit(code.Opcode.OpAdd, &[_]usize{});
+                    },
+                    INFIX_OP.SUB => {
+                        _ = try self.emit(code.Opcode.OpSub, &[_]usize{});
+                    },
+                    INFIX_OP.MUL => {
+                        _ = try self.emit(code.Opcode.OpMul, &[_]usize{});
+                    },
+                    INFIX_OP.DIV => {
+                        _ = try self.emit(code.Opcode.OpDiv, &[_]usize{});
                     },
                     else => unreachable,
                 }

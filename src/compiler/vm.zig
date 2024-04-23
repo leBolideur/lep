@@ -12,7 +12,8 @@ const Bytecode = comp_imp.Bytecode;
 
 const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
-const VMError = error{ OutOfMemory, ObjectCreation };
+const stderr = std.io.getStdErr().writer();
+const VMError = error{ OutOfMemory, ObjectCreation, WrongType, DivideByZero };
 
 pub const VM = struct {
     instructions: std.ArrayList(u8),
@@ -53,18 +54,56 @@ pub const VM = struct {
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
                 },
-                .OpAdd => {
-                    const right = self.pop().?.integer.value; // lifo! right pop before
-                    const left = self.pop().?.integer.value;
-
-                    const result = eval_utils.new_integer(self.alloc, left + right) catch return VMError.ObjectCreation;
-                    try self.push(result);
+                .OpAdd, .OpSub, .OpMul, .OpDiv => {
+                    try self.execure_binary_operation(opcode);
                 },
                 .OpPop => {
                     _ = self.pop();
                 },
             }
         }
+    }
+
+    fn execure_binary_operation(self: *VM, opcode: code.Opcode) VMError!void {
+        const right_ = self.pop().?; // lifo! right pop before
+        const left_ = self.pop().?;
+
+        switch (right_.*) {
+            .integer => {
+                switch (left_.*) {
+                    .integer => {},
+                    else => |other| {
+                        stderr.print("Wrong type! Arithmetic operation operands must have the same type, got={?}", .{other}) catch {};
+                        return VMError.WrongType;
+                    },
+                }
+            },
+            else => |other| {
+                stderr.print("Wrong type! Arithmetic operations is only available with Integer, got={?}", .{other}) catch {};
+                return VMError.WrongType;
+            },
+        }
+
+        const right = right_.integer.value;
+        const left = left_.integer.value;
+
+        var result: isize = undefined;
+        switch (opcode) {
+            .OpAdd => result = left + right,
+            .OpSub => result = left - right,
+            .OpMul => result = left * right,
+            .OpDiv => {
+                if (right == 0) {
+                    stderr.print("Impossible division by zero.", .{}) catch {};
+                    return VMError.DivideByZero;
+                }
+                result = @divFloor(left, right);
+            },
+            else => unreachable,
+        }
+
+        const object = eval_utils.new_integer(self.alloc, result) catch return VMError.ObjectCreation;
+        try self.push(object);
     }
 
     fn push(self: *VM, constant: *const Object) VMError!void {
