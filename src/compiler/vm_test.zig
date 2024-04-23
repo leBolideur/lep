@@ -9,6 +9,8 @@ const comp_imp = @import("compiler.zig");
 const Compiler = comp_imp.Compiler;
 // const Bytecode = comp_imp.Bytecode;
 
+const VM = @import("vm.zig").VM;
+
 test "Test the VM with Integers arithmetic" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -30,9 +32,13 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
         try compiler.compile(root_node);
 
         const bytecode = compiler.bytecode();
-        _ = bytecode;
+        // _ = bytecode;
 
-        // var vm = try VM.new(bytecode);
+        var vm = VM.new(alloc, bytecode);
+        try vm.run();
+        const last = vm.stack_top();
+
+        try test_integer_object(exp[1], last);
     }
 }
 
@@ -44,17 +50,15 @@ fn parse(input: []const u8, alloc: *const std.mem.Allocator) !ast.Node {
     return root_node;
 }
 
-fn test_integer_constants(expected: [2]i64, actual: std.ArrayList(*const Object)) !void {
-    try std.testing.expectEqual(expected.len, actual.items.len);
+fn test_integer_object(expected: usize, actual: ?*const Object) !void {
+    try std.testing.expect(actual != null);
 
-    for (expected, actual.items) |exp, obj| {
-        switch (obj.*) {
-            .integer => |int| {
-                try std.testing.expectEqual(exp, int.value);
-            },
-            else => |other| {
-                std.debug.print("Object is not an Integer, got: {any}\n", .{other});
-            },
-        }
+    switch (actual.?.*) {
+        .integer => |int| {
+            try std.testing.expectEqual(expected, @as(usize, @intCast(int.value)));
+        },
+        else => |other| {
+            std.debug.print("Object is not an Integer, got: {any}\n", .{other});
+        },
     }
 }

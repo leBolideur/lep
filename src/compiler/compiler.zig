@@ -73,6 +73,7 @@ pub const Compiler = struct {
         // Cast to []usize
         const operands = &[_]usize{identifier};
         const pos = try self.emit(code.Opcode.OpConstant, operands);
+
         _ = pos;
     }
 
@@ -92,6 +93,8 @@ pub const Compiler = struct {
 
     fn emit(self: *Compiler, opcode: code.Opcode, operands: []const usize) !usize {
         const instruction = try code.make(self.alloc, opcode, operands);
+        std.debug.print("emit: {any}\n", .{instruction});
+
         const pos = try self.add_instruction(instruction);
 
         return pos;

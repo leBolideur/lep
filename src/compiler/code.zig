@@ -124,9 +124,9 @@ pub fn read_operands(
     for (def.operand_widths) |width| {
         switch (width) {
             2 => {
-                var left: usize = @intCast(instruction[offset]);
-                var result: usize = (left << 8) | instruction[offset + 1];
-                try operands.append(result);
+                // var left: usize = @intCast(instruction[offset]);
+                // var result: usize = (left << 8) | instruction[offset + 1];
+                try operands.append(read_u16(instruction));
             },
             else => unreachable,
         }
@@ -136,4 +136,11 @@ pub fn read_operands(
 
     bytes_read.* = offset;
     return operands.toOwnedSlice();
+}
+
+pub fn read_u16(raw: []const u8) u16 {
+    var left: usize = @intCast(raw[0]);
+    var result: usize = (left << 8) | raw[1];
+
+    return @as(u16, @intCast(result));
 }
