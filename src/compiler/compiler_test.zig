@@ -17,13 +17,24 @@ test "Test the compiler with Integers arithmetic" {
     var alloc = arena.allocator();
 
     // expr, instructions, constants
-    const test_cases = [_]struct { []const u8, [3][]const u8, [2]i64 }{
+    const test_cases = [_]struct { []const u8, [4][]const u8, [2]i64 }{
         .{
             "1 + 2;",
             [_][]const u8{
                 try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
                 try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
                 try code.make(&alloc, code.Opcode.OpAdd, &[_]usize{}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+            },
+            [_]i64{ 1, 2 },
+        },
+        .{
+            "1; 2;",
+            [_][]const u8{
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
             },
             [_]i64{ 1, 2 },
         },
@@ -49,12 +60,13 @@ fn parse(input: []const u8, alloc: *const std.mem.Allocator) !ast.Node {
     var parser = try Parser.init(&lexer, alloc);
 
     const root_node = try parser.parse();
+    // FIXME: Should return a pointer?
     return root_node;
 }
 
 fn test_instructions(
     alloc: *const std.mem.Allocator,
-    expected: [3][]const u8,
+    expected: [4][]const u8,
     actual: code.Instructions,
 ) !void {
     var flattened_ = std.ArrayList(u8).init(alloc.*);

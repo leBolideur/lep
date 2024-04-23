@@ -65,20 +65,21 @@ pub const Compiler = struct {
     fn parse_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .expr_statement => |expr_st| {
-                try self.parse_expression(expr_st.expression);
+                try self.parse_expr_statement(expr_st.expression);
+                _ = try self.emit(code.Opcode.OpPop, &[_]usize{});
             },
             else => unreachable,
         }
     }
 
-    fn parse_expression(self: *Compiler, expr: *const ast.Expression) CompilerError!void {
+    fn parse_expr_statement(self: *Compiler, expr: *const ast.Expression) CompilerError!void {
         switch (expr.*) {
             .integer => |int| {
                 try self.parse_integer(int);
             },
             .infix_expr => |infix| {
-                const left = try self.parse_expression(infix.left_expr);
-                const right = try self.parse_expression(infix.right_expr);
+                const left = try self.parse_expr_statement(infix.left_expr);
+                const right = try self.parse_expr_statement(infix.right_expr);
                 const op_ = infix.operator;
                 _ = left;
                 _ = right;

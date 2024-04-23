@@ -19,6 +19,7 @@ pub const VM = struct {
     constants: std.ArrayList(*const Object),
 
     stack: std.ArrayList(*const Object),
+    last_popped: ?*const Object,
     sp: usize, // always point to the next free slot
 
     alloc: *const std.mem.Allocator,
@@ -29,6 +30,7 @@ pub const VM = struct {
             .constants = bytecode.constants,
 
             .stack = std.ArrayList(*const Object).init(alloc.*),
+            .last_popped = null,
             .sp = 0,
 
             .alloc = alloc,
@@ -58,6 +60,9 @@ pub const VM = struct {
                     const result = eval_utils.new_integer(self.alloc, left + right) catch return VMError.ObjectCreation;
                     try self.push(result);
                 },
+                .OpPop => {
+                    _ = self.pop();
+                },
             }
         }
     }
@@ -75,6 +80,11 @@ pub const VM = struct {
     pub fn pop(self: *VM) ?*const Object {
         const pop_ = self.stack.popOrNull();
         self.sp -= 1;
+        self.last_popped = pop_;
         return pop_;
+    }
+
+    pub fn last_popped_element(self: VM) ?*const Object {
+        return self.last_popped;
     }
 };

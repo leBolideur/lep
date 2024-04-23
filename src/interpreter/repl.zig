@@ -38,7 +38,7 @@ pub fn repl(alloc: *const std.mem.Allocator) !void {
         try compiler.compile(program);
         var vm = VM.new(alloc, compiler.bytecode());
         try vm.run();
-        const object = vm.stack_top();
+        const object = vm.last_popped_element();
 
         var buf = std.ArrayList(u8).init(alloc.*);
         try object.?.inspect(&buf);

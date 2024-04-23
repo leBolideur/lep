@@ -24,6 +24,11 @@ test "Test code.Make" {
             &[_]usize{},
             &[_]u8{@as(u8, @intCast(@intFromEnum(Code.Opcode.OpAdd)))},
         },
+        .{
+            Code.Opcode.OpPop,
+            &[_]usize{},
+            &[_]u8{@as(u8, @intCast(@intFromEnum(Code.Opcode.OpPop)))},
+        },
     };
 
     for (expected) |exp| {
@@ -45,13 +50,15 @@ test "Test Instruction.string" {
         \\0000 OpAdd
         \\0001 OpConstant 2
         \\0004 OpConstant 65535
+        \\0007 OpPop
         \\
     ;
 
-    const instructions = [3][]const u8{
+    const instructions = [_][]const u8{
         try Code.make(&alloc, Code.Opcode.OpAdd, &[0]usize{}),
         try Code.make(&alloc, Code.Opcode.OpConstant, &[1]usize{2}),
         try Code.make(&alloc, Code.Opcode.OpConstant, &[1]usize{65535}),
+        try Code.make(&alloc, Code.Opcode.OpPop, &[0]usize{}),
     };
 
     var flattened_ = std.ArrayList(u8).init(alloc);

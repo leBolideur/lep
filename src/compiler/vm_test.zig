@@ -18,10 +18,11 @@ test "Test the VM with Integers arithmetic" {
     defer arena.deinit();
     var alloc = arena.allocator();
 
-    const test_cases = [_]struct { []const u8, usize }{
-        .{ "1;", 1 },
-        .{ "2;", 2 },
-        .{ "6 + 6;", 12 },
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, usize, usize }{
+        .{ "1;", 1, 0 },
+        .{ "2;", 2, 0 },
+        .{ "6 + 6;", 12, 0 },
     };
 
     try run_test(&alloc, test_cases);
@@ -37,8 +38,9 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
 
         var vm = VM.new(alloc, bytecode);
         try vm.run();
-        const last = vm.stack_top();
+        const last = vm.last_popped_element();
 
+        try std.testing.expectEqual(exp[2], vm.stack.items.len);
         try test_integer_object(exp[1], last);
     }
 }

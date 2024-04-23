@@ -43,8 +43,9 @@ pub const Instructions = struct {
 };
 
 pub const Opcode = enum(u8) {
-    OpConstant = 6,
+    OpConstant = 1,
     OpAdd,
+    OpPop,
 };
 
 const OpDefinition = struct {
@@ -70,6 +71,14 @@ pub const Definitions = struct {
             Opcode.OpAdd,
             OpDefinition{
                 .name = "OpAdd",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpPop,
+            OpDefinition{
+                .name = "OpPop",
                 .operand_widths = &[_]u8{0},
                 .operand_count = 0,
             },
