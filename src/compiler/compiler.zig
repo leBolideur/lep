@@ -8,7 +8,7 @@ const code = @import("code.zig");
 
 const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
-const Bytecode = struct {
+pub const Bytecode = struct {
     instructions: code.Instructions,
     constants: std.ArrayList(*const Object),
 };
