@@ -95,11 +95,17 @@ pub const Compiler = struct {
     }
 
     fn parse_integer(self: *Compiler, int: ast.IntegerLiteral) !void {
+        // std.debug.print("\nparse integer -- new int: {d}\t", .{int.value});
         const object = try eval_utils.new_integer(self.alloc, int.value);
         const identifier = try self.add_constant(object);
+        // std.debug.print("constant id: {d}\tvalue: {d}\n", .{
+        //     identifier,
+        //     object.*.integer.value,
+        // });
 
         // Cast to []usize
         const operands = &[_]usize{identifier};
+        // std.debug.print("parse integer -- operand: {any}\n", .{operands.*});
         const pos = try self.emit(code.Opcode.OpConstant, operands);
 
         _ = pos;
@@ -121,9 +127,10 @@ pub const Compiler = struct {
 
     fn emit(self: *Compiler, opcode: code.Opcode, operands: []const usize) !usize {
         const instruction = try code.make(self.alloc, opcode, operands);
-        std.debug.print("emit: {any}\n", .{instruction});
+        // std.debug.print("emit -- {any}\n", .{instruction});
 
         const pos = try self.add_instruction(instruction);
+        // std.debug.print("pos -- {d}\n", .{pos});
 
         return pos;
     }
@@ -131,9 +138,11 @@ pub const Compiler = struct {
     fn add_instruction(self: *Compiler, instruction: []const u8) !usize {
         // Starting position of the instruction
         const pos_new_instr = self.instructions.instructions.items.len;
+        // std.debug.print("add_instruction -- len before: {d}\t", .{pos_new_instr});
         for (instruction) |b| {
             try self.instructions.instructions.append(b);
         }
+        // std.debug.print("len after: {d}\n", .{self.instructions.instructions.items.len});
 
         return pos_new_instr;
     }

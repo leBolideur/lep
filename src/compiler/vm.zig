@@ -35,10 +35,12 @@ pub const VM = struct {
 
     pub fn run(self: *VM) !void {
         var ip: usize = 0;
-        while (ip < self.instructions.items.len) {
-            const instr_ = try self.instructions.toOwnedSlice();
-            const instr = instr_[ip];
-            const opcode = @as(code.Opcode, @enumFromInt(instr));
+
+        const instr_ = try self.instructions.toOwnedSlice();
+        while (ip < instr_.len) : (ip += 1) {
+            const opcode_ = instr_[ip];
+            const opcode = @as(code.Opcode, @enumFromInt(opcode_));
+
             switch (opcode) {
                 .OpConstant => {
                     const index = code.read_u16(instr_[(ip + 1)..]);
@@ -57,7 +59,6 @@ pub const VM = struct {
                     const result = try eval_utils.new_integer(self.alloc, left + right);
                     try self.push(result);
                 },
-                // else => unreachable,
             }
         }
     }

@@ -7,8 +7,8 @@ pub const Instructions = struct {
 
     pub fn to_string(
         self: *Instructions,
-        alloc: *std.mem.Allocator,
-        definitions: *Definitions,
+        alloc: *const std.mem.Allocator,
+        definitions: *const Definitions,
     ) CodeError![]const u8 {
         const instructions = try self.instructions.toOwnedSlice();
         var offset: u8 = 0;
@@ -43,7 +43,7 @@ pub const Instructions = struct {
 };
 
 pub const Opcode = enum(u8) {
-    OpConstant = 1,
+    OpConstant = 6,
     OpAdd,
 };
 
