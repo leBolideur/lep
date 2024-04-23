@@ -36,7 +36,7 @@ pub fn repl(alloc: *const std.mem.Allocator) !void {
 
         var compiler = try Compiler.init(alloc);
         try compiler.compile(program);
-        var vm = VM.new(alloc, compiler.bytecode());
+        var vm = VM.new(alloc, compiler.get_bytecode());
         try vm.run();
         const object = vm.last_popped_element();
 

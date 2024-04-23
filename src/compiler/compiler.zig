@@ -4,7 +4,9 @@ const ast = @import("../interpreter/ast/ast.zig");
 const object_import = @import("../interpreter/intern/object.zig");
 const Object = object_import.Object;
 
-const code = @import("code.zig");
+const bytecode_ = @import("bytecode.zig");
+
+const Opcode = @import("opcode.zig").Opcode;
 
 const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
@@ -13,12 +15,12 @@ const INFIX_OP = enum { SUM, SUB, MUL, DIV, LT, GT, LTE, GTE, EQ, NOT_EQ };
 const CompilerError = error{ OutOfMemory, ObjectCreation, MakeInstr };
 
 pub const Bytecode = struct {
-    instructions: code.Instructions,
+    instructions: bytecode_.Instructions,
     constants: std.ArrayList(*const Object),
 };
 
 pub const Compiler = struct {
-    instructions: code.Instructions,
+    instructions: bytecode_.Instructions,
     constants: std.ArrayList(*const Object),
 
     infix_op_map: std.StringHashMap(INFIX_OP),
@@ -42,7 +44,7 @@ pub const Compiler = struct {
         var instructions = std.ArrayList(u8).init(alloc.*);
 
         return Compiler{
-            .instructions = code.Instructions{ .instructions = instructions },
+            .instructions = bytecode_.Instructions{ .instructions = instructions },
             .constants = constants,
 
             .infix_op_map = infix_op_map,
@@ -66,7 +68,7 @@ pub const Compiler = struct {
         switch (st) {
             .expr_statement => |expr_st| {
                 try self.parse_expr_statement(expr_st.expression);
-                _ = try self.emit(code.Opcode.OpPop, &[_]usize{});
+                _ = try self.emit(Opcode.OpPop, &[_]usize{});
             },
             else => unreachable,
         }
@@ -79,9 +81,9 @@ pub const Compiler = struct {
             },
             .boolean => |boo| {
                 if (boo.value) {
-                    _ = try self.emit(code.Opcode.OpTrue, &[_]usize{});
+                    _ = try self.emit(Opcode.OpTrue, &[_]usize{});
                 } else {
-                    _ = try self.emit(code.Opcode.OpFalse, &[_]usize{});
+                    _ = try self.emit(Opcode.OpFalse, &[_]usize{});
                 }
             },
             .infix_expr => |infix| {
@@ -95,16 +97,16 @@ pub const Compiler = struct {
 
                 switch (op.?) {
                     INFIX_OP.SUM => {
-                        _ = try self.emit(code.Opcode.OpAdd, &[_]usize{});
+                        _ = try self.emit(Opcode.OpAdd, &[_]usize{});
                     },
                     INFIX_OP.SUB => {
-                        _ = try self.emit(code.Opcode.OpSub, &[_]usize{});
+                        _ = try self.emit(Opcode.OpSub, &[_]usize{});
                     },
                     INFIX_OP.MUL => {
-                        _ = try self.emit(code.Opcode.OpMul, &[_]usize{});
+                        _ = try self.emit(Opcode.OpMul, &[_]usize{});
                     },
                     INFIX_OP.DIV => {
-                        _ = try self.emit(code.Opcode.OpDiv, &[_]usize{});
+                        _ = try self.emit(Opcode.OpDiv, &[_]usize{});
                     },
                     else => unreachable,
                 }
@@ -119,12 +121,12 @@ pub const Compiler = struct {
 
         // Cast to []usize
         const operands = &[_]usize{identifier};
-        const pos = try self.emit(code.Opcode.OpConstant, operands);
+        const pos = try self.emit(Opcode.OpConstant, operands);
 
         _ = pos;
     }
 
-    pub fn bytecode(self: Compiler) Bytecode {
+    pub fn get_bytecode(self: Compiler) Bytecode {
         return Bytecode{
             .instructions = self.instructions,
             .constants = self.constants,
@@ -138,8 +140,8 @@ pub const Compiler = struct {
         return self.constants.items.len - 1;
     }
 
-    fn emit(self: *Compiler, opcode: code.Opcode, operands: []const usize) CompilerError!usize {
-        const instruction = code.make(self.alloc, opcode, operands) catch return CompilerError.MakeInstr;
+    fn emit(self: *Compiler, opcode: Opcode, operands: []const usize) CompilerError!usize {
+        const instruction = bytecode_.make(self.alloc, opcode, operands) catch return CompilerError.MakeInstr;
         const pos = try self.add_instruction(instruction);
 
         return pos;

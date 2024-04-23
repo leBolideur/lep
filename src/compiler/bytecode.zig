@@ -1,6 +1,11 @@
 const std = @import("std");
 
-const CodeError = error{ OpNoDefinition, ArrayListError, OutOfMemory };
+const opcode_import = @import("opcode.zig");
+const Opcode = opcode_import.Opcode;
+const Definitions = opcode_import.Definitions;
+const OpDefinition = opcode_import.OpDefinition;
+
+const BytecodeError = error{ OpNoDefinition, ArrayListError, OutOfMemory };
 
 pub const Instructions = struct {
     instructions: std.ArrayList(u8),
@@ -9,7 +14,7 @@ pub const Instructions = struct {
         self: *Instructions,
         alloc: *const std.mem.Allocator,
         definitions: *const Definitions,
-    ) CodeError![]const u8 {
+    ) BytecodeError![]const u8 {
         const instructions = try self.instructions.toOwnedSlice();
         var offset: u8 = 0;
         var string = std.ArrayList(u8).init(alloc.*);
@@ -18,7 +23,7 @@ pub const Instructions = struct {
             const instr = instructions[offset];
 
             const op_def = try definitions.*.lookup(@enumFromInt(instr));
-            const def: OpDefinition = op_def orelse return CodeError.OpNoDefinition;
+            const def: OpDefinition = op_def orelse return BytecodeError.OpNoDefinition;
 
             var bytes_read: u8 = 0;
             const operands = instructions[(offset + 1)..]; // +1 to skip opcode
@@ -42,117 +47,14 @@ pub const Instructions = struct {
     }
 };
 
-pub const Opcode = enum(u8) {
-    OpConstant = 1,
-    OpTrue,
-    OpFalse,
-
-    OpAdd,
-    OpSub,
-    OpMul,
-    OpDiv,
-
-    OpPop,
-};
-
-const OpDefinition = struct {
-    name: []const u8,
-    operand_widths: []const u8,
-    operand_count: u8,
-};
-
-pub const Definitions = struct {
-    map: std.AutoHashMap(Opcode, OpDefinition),
-
-    pub fn init(alloc: *const std.mem.Allocator) !Definitions {
-        var map = std.AutoHashMap(Opcode, OpDefinition).init(alloc.*);
-        try map.put(
-            Opcode.OpConstant,
-            OpDefinition{
-                .name = "OpConstant",
-                .operand_widths = &[_]u8{2},
-                .operand_count = 1,
-            },
-        );
-        try map.put(
-            Opcode.OpTrue,
-            OpDefinition{
-                .name = "OpTrue",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 0,
-            },
-        );
-        try map.put(
-            Opcode.OpFalse,
-            OpDefinition{
-                .name = "OpFalse",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 1,
-            },
-        );
-        try map.put(
-            Opcode.OpAdd,
-            OpDefinition{
-                .name = "OpAdd",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 0,
-            },
-        );
-        try map.put(
-            Opcode.OpSub,
-            OpDefinition{
-                .name = "OpSub",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 0,
-            },
-        );
-        try map.put(
-            Opcode.OpMul,
-            OpDefinition{
-                .name = "OpMul",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 0,
-            },
-        );
-        try map.put(
-            Opcode.OpDiv,
-            OpDefinition{
-                .name = "OpDiv",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 0,
-            },
-        );
-        try map.put(
-            Opcode.OpPop,
-            OpDefinition{
-                .name = "OpPop",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 0,
-            },
-        );
-
-        return Definitions{
-            .map = map,
-        };
-    }
-
-    pub fn lookup(self: Definitions, opcode: Opcode) !?OpDefinition {
-        const def = self.map.get(opcode);
-        return def orelse {
-            std.debug.print("Unknown opcode {?}\n", .{opcode});
-            return null;
-        };
-    }
-};
-
 pub fn make(
     alloc: *const std.mem.Allocator,
     opcode: Opcode,
     operands: []const usize,
-) CodeError![]const u8 {
+) BytecodeError![]const u8 {
     const definitions = try Definitions.init(alloc);
     const def_ = definitions.map.get(opcode);
-    const def = def_ orelse return CodeError.OpNoDefinition;
+    const def = def_ orelse return BytecodeError.OpNoDefinition;
 
     var instr_len: u8 = 0;
     for (def.operand_widths) |width| {
@@ -184,7 +86,7 @@ pub fn read_operands(
     def: OpDefinition,
     instruction: []const u8,
     bytes_read: *u8,
-) CodeError![]const usize {
+) BytecodeError![]const usize {
     var offset: u8 = 0;
     var operands = std.ArrayList(usize).init(alloc.*);
 

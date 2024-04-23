@@ -5,11 +5,10 @@ const Parser = @import("../interpreter/parser/parser.zig").Parser;
 const Object = @import("../interpreter/intern/object.zig").Object;
 const ast = @import("../interpreter/ast/ast.zig");
 
-const code = @import("code.zig");
+const opcode = @import("opcode.zig");
 
 const comp_imp = @import("compiler.zig");
 const Compiler = comp_imp.Compiler;
-// const Bytecode = comp_imp.Bytecode;
 
 const VM = @import("vm.zig").VM;
 
@@ -60,7 +59,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         var compiler = try Compiler.init(alloc);
         try compiler.compile(root_node);
 
-        var bytecode = compiler.bytecode();
+        var bytecode = compiler.get_bytecode();
 
         var vm = VM.new(alloc, bytecode);
         try vm.run();

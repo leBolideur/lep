@@ -5,11 +5,11 @@ const Parser = @import("../interpreter/parser/parser.zig").Parser;
 const Object = @import("../interpreter/intern/object.zig").Object;
 const ast = @import("../interpreter/ast/ast.zig");
 
-const code = @import("code.zig");
+const Opcode = @import("opcode.zig").Opcode;
+const bytecode_ = @import("bytecode.zig");
 
 const comp_imp = @import("compiler.zig");
 const Compiler = comp_imp.Compiler;
-// const Bytecode = comp_imp.Bytecode;
 
 test "Test the compiler with Integers arithmetic" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -21,50 +21,50 @@ test "Test the compiler with Integers arithmetic" {
         .{
             "1 + 2;",
             [_][]const u8{
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
-                try code.make(&alloc, code.Opcode.OpAdd, &[_]usize{}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             [_]i64{ 1, 2 },
         },
         .{
             "1 - 2;",
             [_][]const u8{
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
-                try code.make(&alloc, code.Opcode.OpSub, &[_]usize{}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpSub, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             [_]i64{ 1, 2 },
         },
         .{
             "2 * 3;",
             [_][]const u8{
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
-                try code.make(&alloc, code.Opcode.OpMul, &[_]usize{}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpMul, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             [_]i64{ 2, 3 },
         },
         .{
             "6 / 2;",
             [_][]const u8{
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
-                try code.make(&alloc, code.Opcode.OpDiv, &[_]usize{}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpDiv, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             [_]i64{ 6, 2 },
         },
         .{
             "1; 2;",
             [_][]const u8{
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
-                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             [_]i64{ 1, 2 },
         },
@@ -83,15 +83,15 @@ test "Test the compiler with Boolean expressions" {
         .{
             "true;",
             [_][]const u8{
-                try code.make(&alloc, code.Opcode.OpTrue, &[_]usize{}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpTrue, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
         },
         .{
             "false;",
             [_][]const u8{
-                try code.make(&alloc, code.Opcode.OpFalse, &[_]usize{}),
-                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpFalse, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
         },
     };
@@ -105,7 +105,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         var compiler = try Compiler.init(alloc);
         try compiler.compile(root_node);
 
-        const bytecode = compiler.bytecode();
+        const bytecode = compiler.get_bytecode();
         try test_instructions(alloc, exp[1], bytecode.instructions);
         if (type_ == i64) {
             try test_integer_constants(exp[2], bytecode.constants);
@@ -125,7 +125,7 @@ fn parse(input: []const u8, alloc: *const std.mem.Allocator) !ast.Node {
 fn test_instructions(
     alloc: *const std.mem.Allocator,
     expected: anytype,
-    actual: code.Instructions,
+    actual: bytecode_.Instructions,
 ) !void {
     var flattened_ = std.ArrayList(u8).init(alloc.*);
     for (expected) |exp| {

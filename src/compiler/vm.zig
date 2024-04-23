@@ -5,10 +5,12 @@ const Parser = @import("../interpreter/parser/parser.zig").Parser;
 const Object = @import("../interpreter/intern/object.zig").Object;
 
 const ast = @import("../interpreter/ast/ast.zig");
-const code = @import("code.zig");
+const bytecode_ = @import("bytecode.zig");
 
 const comp_imp = @import("compiler.zig");
 const Bytecode = comp_imp.Bytecode;
+
+const Opcode = @import("opcode.zig").Opcode;
 
 const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
@@ -47,11 +49,11 @@ pub const VM = struct {
         const instr_ = try self.instructions.toOwnedSlice();
         while (ip < instr_.len) : (ip += 1) {
             const opcode_ = instr_[ip];
-            const opcode = @as(code.Opcode, @enumFromInt(opcode_));
+            const opcode = @as(Opcode, @enumFromInt(opcode_));
 
             switch (opcode) {
                 .OpConstant => {
-                    const index = code.read_u16(instr_[(ip + 1)..]);
+                    const index = bytecode_.read_u16(instr_[(ip + 1)..]);
                     ip += 2;
 
                     const constant_obj = self.constants.items[index];
@@ -69,7 +71,7 @@ pub const VM = struct {
         }
     }
 
-    fn execure_binary_operation(self: *VM, opcode: code.Opcode) VMError!void {
+    fn execure_binary_operation(self: *VM, opcode: Opcode) VMError!void {
         const right_ = self.pop().?; // lifo! right pop before
         const left_ = self.pop().?;
 
