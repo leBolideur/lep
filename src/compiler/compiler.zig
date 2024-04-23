@@ -77,6 +77,13 @@ pub const Compiler = struct {
             .integer => |int| {
                 try self.parse_integer(int);
             },
+            .boolean => |boo| {
+                if (boo.value) {
+                    _ = try self.emit(code.Opcode.OpTrue, &[_]usize{});
+                } else {
+                    _ = try self.emit(code.Opcode.OpFalse, &[_]usize{});
+                }
+            },
             .infix_expr => |infix| {
                 const left = try self.parse_expr_statement(infix.left_expr);
                 const right = try self.parse_expr_statement(infix.right_expr);

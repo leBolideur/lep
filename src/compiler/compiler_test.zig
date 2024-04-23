@@ -70,10 +70,36 @@ test "Test the compiler with Integers arithmetic" {
         },
     };
 
-    try run_test(&alloc, test_cases);
+    try run_test(&alloc, test_cases, i64);
 }
 
-fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
+test "Test the compiler with Boolean expressions" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions
+    const test_cases = [_]struct { []const u8, [2][]const u8 }{
+        .{
+            "true;",
+            [_][]const u8{
+                try code.make(&alloc, code.Opcode.OpTrue, &[_]usize{}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+            },
+        },
+        .{
+            "false;",
+            [_][]const u8{
+                try code.make(&alloc, code.Opcode.OpFalse, &[_]usize{}),
+                try code.make(&alloc, code.Opcode.OpPop, &[_]usize{}),
+            },
+        },
+    };
+
+    try run_test(&alloc, test_cases, bool);
+}
+
+fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
         var compiler = try Compiler.init(alloc);
@@ -81,7 +107,9 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
 
         const bytecode = compiler.bytecode();
         try test_instructions(alloc, exp[1], bytecode.instructions);
-        try test_integer_constants(exp[2], bytecode.constants);
+        if (type_ == i64) {
+            try test_integer_constants(exp[2], bytecode.constants);
+        }
     }
 }
 
@@ -96,7 +124,7 @@ fn parse(input: []const u8, alloc: *const std.mem.Allocator) !ast.Node {
 
 fn test_instructions(
     alloc: *const std.mem.Allocator,
-    expected: [4][]const u8,
+    expected: anytype,
     actual: code.Instructions,
 ) !void {
     var flattened_ = std.ArrayList(u8).init(alloc.*);
@@ -115,7 +143,7 @@ fn test_instructions(
     }
 }
 
-fn test_integer_constants(expected: [2]i64, actual: std.ArrayList(*const Object)) !void {
+fn test_integer_constants(expected: anytype, actual: std.ArrayList(*const Object)) !void {
     try std.testing.expectEqual(expected.len, actual.items.len);
 
     for (expected, actual.items) |exp, obj| {

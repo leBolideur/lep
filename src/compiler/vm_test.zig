@@ -13,6 +13,8 @@ const Compiler = comp_imp.Compiler;
 
 const VM = @import("vm.zig").VM;
 
+const ExpectedValue = union(enum) { integer: isize, boolean: bool };
+
 test "Test the VM with Integers arithmetic" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -35,10 +37,24 @@ test "Test the VM with Integers arithmetic" {
         .{ "5 * (2 + 10)", 60, 0 },
     };
 
-    try run_test(&alloc, test_cases);
+    try run_test(&alloc, test_cases, isize);
 }
 
-fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
+test "Test the VM with Booleans expressions" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, bool, usize }{
+        .{ "true;", true, 0 },
+        .{ "false;", false, 0 },
+    };
+
+    try run_test(&alloc, test_cases, bool);
+}
+
+fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
         var compiler = try Compiler.init(alloc);
@@ -51,7 +67,14 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
         const last = vm.last_popped_element();
 
         try std.testing.expectEqual(exp[2], vm.stack.items.len);
-        try test_integer_object(exp[1], last);
+
+        if (type_ == isize) {
+            const expected = ExpectedValue{ .integer = exp[1] };
+            try test_expected_object(expected, last);
+        } else if (type_ == bool) {
+            const expected = ExpectedValue{ .boolean = exp[1] };
+            try test_expected_object(expected, last);
+        }
     }
 }
 
@@ -63,12 +86,15 @@ fn parse(input: []const u8, alloc: *const std.mem.Allocator) !ast.Node {
     return root_node;
 }
 
-fn test_integer_object(expected: isize, actual: ?*const Object) !void {
+fn test_expected_object(expected: ExpectedValue, actual: ?*const Object) !void {
     try std.testing.expect(actual != null);
 
     switch (actual.?.*) {
         .integer => |int| {
-            try std.testing.expectEqual(expected, @as(isize, @intCast(int.value)));
+            try std.testing.expectEqual(expected.integer, @as(isize, @intCast(int.value)));
+        },
+        .boolean => |boo| {
+            try std.testing.expectEqual(expected.boolean, boo.value);
         },
         else => |other| {
             std.debug.print("Object is not an Integer, got: {any}\n", .{other});

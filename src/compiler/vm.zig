@@ -15,6 +15,9 @@ const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 const stderr = std.io.getStdErr().writer();
 const VMError = error{ OutOfMemory, ObjectCreation, WrongType, DivideByZero };
 
+const true_object = eval_utils.new_boolean(true);
+const false_object = eval_utils.new_boolean(false);
+
 pub const VM = struct {
     instructions: std.ArrayList(u8),
     constants: std.ArrayList(*const Object),
@@ -54,6 +57,8 @@ pub const VM = struct {
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
                 },
+                .OpTrue => try self.push(true_object),
+                .OpFalse => try self.push(false_object),
                 .OpAdd, .OpSub, .OpMul, .OpDiv => {
                     try self.execure_binary_operation(opcode);
                 },
