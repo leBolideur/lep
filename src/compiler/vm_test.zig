@@ -19,7 +19,7 @@ test "Test the VM with Integers arithmetic" {
     const test_cases = [_]struct { []const u8, usize }{
         .{ "1;", 1 },
         .{ "2;", 2 },
-        .{ "1 + 2;", 2 }, //FIXME
+        .{ "1 + 2;", 3 },
     };
 
     try run_test(&alloc, test_cases);
@@ -28,7 +28,7 @@ test "Test the VM with Integers arithmetic" {
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
-        var compiler = Compiler.init(alloc);
+        var compiler = try Compiler.init(alloc);
         try compiler.compile(root_node);
 
         const bytecode = compiler.bytecode();

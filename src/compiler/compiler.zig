@@ -8,6 +8,8 @@ const code = @import("code.zig");
 
 const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
+const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ };
+
 pub const Bytecode = struct {
     instructions: code.Instructions,
     constants: std.ArrayList(*const Object),
@@ -17,15 +19,31 @@ pub const Compiler = struct {
     instructions: code.Instructions,
     constants: std.ArrayList(*const Object),
 
+    infix_op_map: std.StringHashMap(INFIX_OP),
+
     alloc: *const std.mem.Allocator,
 
-    pub fn init(alloc: *const std.mem.Allocator) Compiler {
+    pub fn init(alloc: *const std.mem.Allocator) !Compiler {
+        var infix_op_map = std.StringHashMap(INFIX_OP).init(alloc.*);
+        try infix_op_map.put("+", INFIX_OP.SUM);
+        try infix_op_map.put("-", INFIX_OP.SUB);
+        try infix_op_map.put("*", INFIX_OP.PRODUCT);
+        try infix_op_map.put("/", INFIX_OP.DIVIDE);
+        try infix_op_map.put("<", INFIX_OP.LT);
+        try infix_op_map.put(">", INFIX_OP.GT);
+        try infix_op_map.put("<=", INFIX_OP.LTE);
+        try infix_op_map.put(">=", INFIX_OP.GTE);
+        try infix_op_map.put("==", INFIX_OP.EQ);
+        try infix_op_map.put("!=", INFIX_OP.NOT_EQ);
+
         var constants = std.ArrayList(*const Object).init(alloc.*);
         var instructions = std.ArrayList(u8).init(alloc.*);
 
         return Compiler{
             .instructions = code.Instructions{ .instructions = instructions },
             .constants = constants,
+
+            .infix_op_map = infix_op_map,
 
             .alloc = alloc,
         };
@@ -59,8 +77,18 @@ pub const Compiler = struct {
             .infix_expr => |infix| {
                 const left = try self.parse_expression(infix.left_expr);
                 const right = try self.parse_expression(infix.right_expr);
+                const op_ = infix.operator;
                 _ = left;
                 _ = right;
+
+                const op = self.infix_op_map.get(op_);
+
+                switch (op.?) {
+                    INFIX_OP.SUM => {
+                        _ = try self.emit(code.Opcode.OpAdd, &[_]usize{});
+                    },
+                    else => unreachable,
+                }
             },
             else => unreachable,
         }

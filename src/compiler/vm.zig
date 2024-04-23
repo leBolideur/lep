@@ -10,6 +10,8 @@ const code = @import("code.zig");
 const comp_imp = @import("compiler.zig");
 const Bytecode = comp_imp.Bytecode;
 
+const eval_utils = @import("../interpreter/utils/eval_utils.zig");
+
 pub const VM = struct {
     instructions: std.ArrayList(u8),
     constants: std.ArrayList(*const Object),
@@ -45,7 +47,17 @@ pub const VM = struct {
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
                 },
-                else => unreachable,
+                .OpAdd => {
+                    const right_ = self.pop(); // lifo! right pop before
+                    const left_ = self.pop();
+
+                    const right = right_.?.integer.value;
+                    const left = left_.?.integer.value;
+
+                    const result = try eval_utils.new_integer(self.alloc, left + right);
+                    try self.push(result);
+                },
+                // else => unreachable,
             }
         }
     }
@@ -58,5 +70,11 @@ pub const VM = struct {
     pub fn stack_top(self: VM) ?*const Object {
         const last = self.stack.getLastOrNull();
         return last;
+    }
+
+    pub fn pop(self: *VM) ?*const Object {
+        const pop_ = self.stack.popOrNull();
+        self.sp -= 1;
+        return pop_;
     }
 };

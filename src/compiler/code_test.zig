@@ -19,6 +19,11 @@ test "Test code.Make" {
             &[_]usize{128},
             &[_]u8{ @as(u8, @intCast(@intFromEnum(Code.Opcode.OpConstant))), 0, 128 },
         },
+        .{
+            Code.Opcode.OpAdd,
+            &[_]usize{},
+            &[_]u8{@as(u8, @intCast(@intFromEnum(Code.Opcode.OpAdd)))},
+        },
     };
 
     for (expected) |exp| {
@@ -37,14 +42,14 @@ test "Test Instruction.string" {
     var alloc = arena.allocator();
 
     const expected =
-        \\0000 OpConstant 1
-        \\0003 OpConstant 2
-        \\0006 OpConstant 65535
+        \\0000 OpAdd
+        \\0001 OpConstant 2
+        \\0004 OpConstant 65535
         \\
     ;
 
     const instructions = [3][]const u8{
-        try Code.make(&alloc, Code.Opcode.OpConstant, &[1]usize{1}),
+        try Code.make(&alloc, Code.Opcode.OpAdd, &[0]usize{}),
         try Code.make(&alloc, Code.Opcode.OpConstant, &[1]usize{2}),
         try Code.make(&alloc, Code.Opcode.OpConstant, &[1]usize{65535}),
     };
@@ -55,7 +60,7 @@ test "Test Instruction.string" {
             try flattened_.append(b);
         }
     }
-    const flattened = Code.Instructions{ .instructions = &flattened_ };
+    var flattened = Code.Instructions{ .instructions = flattened_ };
 
     var definitions = try Code.Definitions.init(&alloc);
     const str = try flattened.to_string(&alloc, &definitions);

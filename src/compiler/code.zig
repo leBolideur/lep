@@ -6,7 +6,7 @@ pub const Instructions = struct {
     instructions: std.ArrayList(u8),
 
     pub fn to_string(
-        self: Instructions,
+        self: *Instructions,
         alloc: *std.mem.Allocator,
         definitions: *Definitions,
     ) CodeError![]const u8 {
@@ -25,6 +25,9 @@ pub const Instructions = struct {
             const operands_read = try read_operands(alloc, def, operands, &bytes_read);
 
             try std.fmt.format(string.writer(), "{d:0>4} {s}", .{ offset, def.name });
+            if (bytes_read == 0) {
+                try std.fmt.format(string.writer(), "\n", .{});
+            }
             for (operands_read, 1..) |op, i| {
                 try std.fmt.format(string.writer(), " {d}", .{op});
                 if (i != operands_read.len - 1) {
@@ -41,7 +44,7 @@ pub const Instructions = struct {
 
 pub const Opcode = enum(u8) {
     OpConstant = 1,
-    OpPush,
+    OpAdd,
 };
 
 const OpDefinition = struct {
@@ -61,6 +64,14 @@ pub const Definitions = struct {
                 .name = "OpConstant",
                 .operand_widths = &[_]u8{2},
                 .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpAdd,
+            OpDefinition{
+                .name = "OpAdd",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
             },
         );
 
@@ -128,6 +139,7 @@ pub fn read_operands(
                 // var result: usize = (left << 8) | instruction[offset + 1];
                 try operands.append(read_u16(instruction));
             },
+            0 => {},
             else => unreachable,
         }
 

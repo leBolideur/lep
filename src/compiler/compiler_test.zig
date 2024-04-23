@@ -16,12 +16,14 @@ test "Test the compiler with Integers arithmetic" {
     defer arena.deinit();
     var alloc = arena.allocator();
 
-    const test_cases = [_]struct { []const u8, [2][]const u8, [2]i64 }{
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, [3][]const u8, [2]i64 }{
         .{
             "1 + 2;",
             [_][]const u8{
                 try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
                 try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
+                try code.make(&alloc, code.Opcode.OpAdd, &[_]usize{}),
             },
             [_]i64{ 1, 2 },
         },
@@ -33,7 +35,7 @@ test "Test the compiler with Integers arithmetic" {
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
-        var compiler = Compiler.init(alloc);
+        var compiler = try Compiler.init(alloc);
         try compiler.compile(root_node);
 
         const bytecode = compiler.bytecode();
@@ -52,7 +54,7 @@ fn parse(input: []const u8, alloc: *const std.mem.Allocator) !ast.Node {
 
 fn test_instructions(
     alloc: *const std.mem.Allocator,
-    expected: [2][]const u8,
+    expected: [3][]const u8,
     actual: code.Instructions,
 ) !void {
     var flattened_ = std.ArrayList(u8).init(alloc.*);
