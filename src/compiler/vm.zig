@@ -12,6 +12,8 @@ const Bytecode = comp_imp.Bytecode;
 
 const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
+const VMError = error{ OutOfMemory, ObjectCreation };
+
 pub const VM = struct {
     instructions: std.ArrayList(u8),
     constants: std.ArrayList(*const Object),
@@ -33,7 +35,7 @@ pub const VM = struct {
         };
     }
 
-    pub fn run(self: *VM) !void {
+    pub fn run(self: *VM) VMError!void {
         var ip: usize = 0;
 
         const instr_ = try self.instructions.toOwnedSlice();
@@ -50,20 +52,17 @@ pub const VM = struct {
                     try self.push(constant_obj);
                 },
                 .OpAdd => {
-                    const right_ = self.pop(); // lifo! right pop before
-                    const left_ = self.pop();
+                    const right = self.pop().?.integer.value; // lifo! right pop before
+                    const left = self.pop().?.integer.value;
 
-                    const right = right_.?.integer.value;
-                    const left = left_.?.integer.value;
-
-                    const result = try eval_utils.new_integer(self.alloc, left + right);
+                    const result = eval_utils.new_integer(self.alloc, left + right) catch return VMError.ObjectCreation;
                     try self.push(result);
                 },
             }
         }
     }
 
-    fn push(self: *VM, constant: *const Object) !void {
+    fn push(self: *VM, constant: *const Object) VMError!void {
         try self.stack.append(constant);
         self.sp += 1;
     }

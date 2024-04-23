@@ -10,6 +10,8 @@ const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
 const INFIX_OP = enum { SUM, SUB, PRODUCT, DIVIDE, LT, GT, LTE, GTE, EQ, NOT_EQ };
 
+const CompilerError = error{ OutOfMemory, ObjectCreation, MakeInstr };
+
 pub const Bytecode = struct {
     instructions: code.Instructions,
     constants: std.ArrayList(*const Object),
@@ -23,7 +25,7 @@ pub const Compiler = struct {
 
     alloc: *const std.mem.Allocator,
 
-    pub fn init(alloc: *const std.mem.Allocator) !Compiler {
+    pub fn init(alloc: *const std.mem.Allocator) CompilerError!Compiler {
         var infix_op_map = std.StringHashMap(INFIX_OP).init(alloc.*);
         try infix_op_map.put("+", INFIX_OP.SUM);
         try infix_op_map.put("-", INFIX_OP.SUB);
@@ -49,7 +51,7 @@ pub const Compiler = struct {
         };
     }
 
-    pub fn compile(self: *Compiler, node: ast.Node) !void {
+    pub fn compile(self: *Compiler, node: ast.Node) CompilerError!void {
         switch (node) {
             .program => |program| {
                 for (program.statements.items) |st| {
@@ -60,7 +62,7 @@ pub const Compiler = struct {
         }
     }
 
-    fn parse_statement(self: *Compiler, st: ast.Statement) !void {
+    fn parse_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .expr_statement => |expr_st| {
                 try self.parse_expression(expr_st.expression);
@@ -69,7 +71,7 @@ pub const Compiler = struct {
         }
     }
 
-    fn parse_expression(self: *Compiler, expr: *const ast.Expression) !void {
+    fn parse_expression(self: *Compiler, expr: *const ast.Expression) CompilerError!void {
         switch (expr.*) {
             .integer => |int| {
                 try self.parse_integer(int);
@@ -94,18 +96,12 @@ pub const Compiler = struct {
         }
     }
 
-    fn parse_integer(self: *Compiler, int: ast.IntegerLiteral) !void {
-        // std.debug.print("\nparse integer -- new int: {d}\t", .{int.value});
-        const object = try eval_utils.new_integer(self.alloc, int.value);
+    fn parse_integer(self: *Compiler, int: ast.IntegerLiteral) CompilerError!void {
+        const object = eval_utils.new_integer(self.alloc, int.value) catch return CompilerError.ObjectCreation;
         const identifier = try self.add_constant(object);
-        // std.debug.print("constant id: {d}\tvalue: {d}\n", .{
-        //     identifier,
-        //     object.*.integer.value,
-        // });
 
         // Cast to []usize
         const operands = &[_]usize{identifier};
-        // std.debug.print("parse integer -- operand: {any}\n", .{operands.*});
         const pos = try self.emit(code.Opcode.OpConstant, operands);
 
         _ = pos;
@@ -118,31 +114,26 @@ pub const Compiler = struct {
         };
     }
 
-    fn add_constant(self: *Compiler, object: *const Object) !usize {
+    fn add_constant(self: *Compiler, object: *const Object) CompilerError!usize {
         try self.constants.append(object);
 
         // return the index, the constant identifier
         return self.constants.items.len - 1;
     }
 
-    fn emit(self: *Compiler, opcode: code.Opcode, operands: []const usize) !usize {
-        const instruction = try code.make(self.alloc, opcode, operands);
-        // std.debug.print("emit -- {any}\n", .{instruction});
-
+    fn emit(self: *Compiler, opcode: code.Opcode, operands: []const usize) CompilerError!usize {
+        const instruction = code.make(self.alloc, opcode, operands) catch return CompilerError.MakeInstr;
         const pos = try self.add_instruction(instruction);
-        // std.debug.print("pos -- {d}\n", .{pos});
 
         return pos;
     }
 
-    fn add_instruction(self: *Compiler, instruction: []const u8) !usize {
+    fn add_instruction(self: *Compiler, instruction: []const u8) CompilerError!usize {
         // Starting position of the instruction
         const pos_new_instr = self.instructions.instructions.items.len;
-        // std.debug.print("add_instruction -- len before: {d}\t", .{pos_new_instr});
         for (instruction) |b| {
             try self.instructions.instructions.append(b);
         }
-        // std.debug.print("len after: {d}\n", .{self.instructions.instructions.items.len});
 
         return pos_new_instr;
     }

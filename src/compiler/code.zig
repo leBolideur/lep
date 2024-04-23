@@ -135,8 +135,6 @@ pub fn read_operands(
     for (def.operand_widths) |width| {
         switch (width) {
             2 => {
-                // var left: usize = @intCast(instruction[offset]);
-                // var result: usize = (left << 8) | instruction[offset + 1];
                 try operands.append(read_u16(instruction));
             },
             0 => {},
