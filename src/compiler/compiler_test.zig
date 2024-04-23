@@ -16,8 +16,8 @@ test "Test the compiler with Integers" {
         .{
             "1 + 2;",
             [_][]const u8{
-                code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}) catch "",
-                code.make(&alloc, code.Opcode.OpConstant, &[_]usize{2}) catch "",
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{0}),
+                try code.make(&alloc, code.Opcode.OpConstant, &[_]usize{1}),
             },
             [_]i64{ 1, 2 },
         },
@@ -51,9 +51,6 @@ fn test_instructions(
     }
 
     const flattened = try flattened_.toOwnedSlice();
-
-    // std.debug.print("flattened: {any}\n", .{flattened});
-    // std.debug.print("actual: {any}\n", .{actual.instructions});
 
     try std.testing.expectEqual(flattened.len, actual.instructions.items.len);
 
