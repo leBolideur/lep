@@ -3,24 +3,25 @@ const std = @import("std");
 const CodeError = error{ OpNoDefinition, ArrayListError, OutOfMemory };
 
 pub const Instructions = struct {
-    instructions: []const u8,
+    instructions: std.ArrayList(u8),
 
     pub fn to_string(
         self: Instructions,
         alloc: *std.mem.Allocator,
         definitions: *Definitions,
     ) CodeError![]const u8 {
+        const instructions = try self.instructions.toOwnedSlice();
         var offset: u8 = 0;
         var string = std.ArrayList(u8).init(alloc.*);
 
-        while (offset < self.instructions.len) {
-            const instr = self.instructions[offset];
+        while (offset < instructions.len) {
+            const instr = instructions[offset];
 
             const op_def = try definitions.*.lookup(@enumFromInt(instr));
             const def: OpDefinition = op_def orelse return CodeError.OpNoDefinition;
 
             var bytes_read: u8 = 0;
-            const operands = self.instructions[(offset + 1)..]; // +1 to skip opcode
+            const operands = instructions[(offset + 1)..]; // +1 to skip opcode
             const operands_read = try read_operands(alloc, def, operands, &bytes_read);
 
             try std.fmt.format(string.writer(), "{d:0>4} {s}", .{ offset, def.name });

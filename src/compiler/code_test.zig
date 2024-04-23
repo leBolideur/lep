@@ -55,7 +55,7 @@ test "Test Instruction.string" {
             try flattened_.append(b);
         }
     }
-    const flattened = Code.Instructions{ .instructions = try flattened_.toOwnedSlice() };
+    const flattened = Code.Instructions{ .instructions = &flattened_ };
 
     var definitions = try Code.Definitions.init(&alloc);
     const str = try flattened.to_string(&alloc, &definitions);

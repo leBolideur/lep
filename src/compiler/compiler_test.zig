@@ -29,7 +29,7 @@ test "Test the compiler with Integers" {
 
         const root_node = try parser.parse();
 
-        const compiler = Compiler.init(&alloc);
+        var compiler = Compiler.init(&alloc);
         try compiler.compile(root_node);
 
         const bytecode = compiler.bytecode();
@@ -52,26 +52,26 @@ fn test_instructions(
 
     const flattened = try flattened_.toOwnedSlice();
 
-    std.debug.print("flattened: {any}\n", .{flattened});
-    std.debug.print("actual: {any}\n", .{actual.instructions});
+    // std.debug.print("flattened: {any}\n", .{flattened});
+    // std.debug.print("actual: {any}\n", .{actual.instructions});
 
-    try std.testing.expectEqual(flattened.len, actual.instructions.len);
+    try std.testing.expectEqual(flattened.len, actual.instructions.items.len);
 
-    for (flattened, actual.instructions) |exp, act| {
+    for (flattened, actual.instructions.items) |exp, act| {
         try std.testing.expectEqual(exp, act);
     }
 }
 
-fn test_integer_constants(expected: [2]i64, actual: std.ArrayList(Object)) !void {
+fn test_integer_constants(expected: [2]i64, actual: std.ArrayList(*const Object)) !void {
     try std.testing.expectEqual(expected.len, actual.items.len);
 
     for (expected, actual.items) |exp, obj| {
-        switch (obj) {
+        switch (obj.*) {
             .integer => |int| {
                 try std.testing.expectEqual(exp, int.value);
             },
-            else => {
-                std.debug.print("Object is not an Integer, got: {any}\n", .{obj.value});
+            else => |other| {
+                std.debug.print("Object is not an Integer, got: {any}\n", .{other});
             },
         }
     }
