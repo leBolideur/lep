@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const Object = @import("object.zig").Object;
+const Object = @import("object").Object;
 
-const ast = @import("../ast/ast.zig");
+const ast = @import("ast");
 
 const EnvError = error{ MemAlloc, Undeclared, SetError };
 
@@ -65,8 +65,8 @@ pub const Environment = struct {
 };
 
 test "test add and get" {
-    const Integer = @import("object.zig").Integer;
-    const ObjectType = @import("object.zig").ObjectType;
+    const Integer = @import("object").Integer;
+    const ObjectType = @import("object").ObjectType;
 
     const expected = [_]struct { []const u8, i64 }{
         .{ "a", 6 },

@@ -1,14 +1,14 @@
 const std = @import("std");
 
-const ast = @import("../interpreter/ast/ast.zig");
-const object_import = @import("../interpreter/intern/object.zig");
+const ast = @import("ast");
+const object_import = @import("object");
 const Object = object_import.Object;
 
-const bytecode_ = @import("bytecode.zig");
+const bytecode_ = @import("bytecode");
 
-const Opcode = @import("opcode.zig").Opcode;
+const Opcode = @import("opcode").Opcode;
 
-const eval_utils = @import("../interpreter/utils/eval_utils.zig");
+const eval_utils = @import("eval_utils");
 
 const INFIX_OP = enum { SUM, SUB, MUL, DIV, LT, GT, LTE, GTE, EQ, NOT_EQ };
 

@@ -1,18 +1,18 @@
 const std = @import("std");
 
-const Lexer = @import("../interpreter/lexer/lexer.zig").Lexer;
-const Parser = @import("../interpreter/parser/parser.zig").Parser;
-const Object = @import("../interpreter/intern/object.zig").Object;
+const Lexer = @import("lexer").Lexer;
+const Parser = @import("parser").Parser;
+const Object = @import("object").Object;
 
-const ast = @import("../interpreter/ast/ast.zig");
-const bytecode_ = @import("bytecode.zig");
+const ast = @import("ast");
+const bytecode_ = @import("bytecode");
 
-const comp_imp = @import("compiler.zig");
+const comp_imp = @import("compiler");
 const Bytecode = comp_imp.Bytecode;
 
-const Opcode = @import("opcode.zig").Opcode;
+const Opcode = @import("opcode").Opcode;
 
-const eval_utils = @import("../interpreter/utils/eval_utils.zig");
+const eval_utils = @import("eval_utils");
 
 const stderr = std.io.getStdErr().writer();
 const VMError = error{ OutOfMemory, ObjectCreation, WrongType, DivideByZero };

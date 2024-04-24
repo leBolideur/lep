@@ -1,10 +1,10 @@
 const std = @import("std");
 
-const Parser = @import("parser/parser.zig").Parser;
-const ast = @import("ast/ast.zig");
+const Parser = @import("parser").Parser;
+const ast = @import("ast");
 
-const Lexer = @import("lexer/lexer.zig").Lexer;
-const token = @import("lexer/token.zig");
+const Lexer = @import("lexer").Lexer;
+const token = @import("token");
 const Token = token.Token;
 const TokenType = token.TokenType;
 

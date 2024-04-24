@@ -1,9 +1,9 @@
 const std = @import("std");
 
-const obj_import = @import("object.zig");
+const obj_import = @import("object");
 const Object = obj_import.Object;
 
-const eval_utils = @import("../utils/eval_utils.zig");
+const eval_utils = @import("eval_utils");
 
 const BuiltinsError = error{ ArrayCreation, ArrayClone, ArrayAppend };
 

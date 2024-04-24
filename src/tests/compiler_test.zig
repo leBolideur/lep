@@ -1,14 +1,14 @@
 const std = @import("std");
 
-const Lexer = @import("../interpreter/lexer/lexer.zig").Lexer;
-const Parser = @import("../interpreter/parser/parser.zig").Parser;
-const Object = @import("../interpreter/intern/object.zig").Object;
-const ast = @import("../interpreter/ast/ast.zig");
+const Lexer = @import("lexer").Lexer;
+const Parser = @import("parser").Parser;
+const Object = @import("object").Object;
+const ast = @import("ast");
 
-const Opcode = @import("opcode.zig").Opcode;
-const bytecode_ = @import("bytecode.zig");
+const Opcode = @import("opcode").Opcode;
+const bytecode_ = @import("bytecode");
 
-const comp_imp = @import("compiler.zig");
+const comp_imp = @import("compiler");
 const Compiler = comp_imp.Compiler;
 
 test "Test the compiler with Integers arithmetic" {

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const opcode_import = @import("opcode.zig");
+const opcode_import = @import("opcode");
 const Opcode = opcode_import.Opcode;
 const Definitions = opcode_import.Definitions;
 const OpDefinition = opcode_import.OpDefinition;

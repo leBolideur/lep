@@ -1,9 +1,9 @@
 const std = @import("std");
 
-const ast = @import("../ast/ast.zig");
-const Environment = @import("environment.zig").Environment;
+const ast = @import("ast");
+const Environment = @import("environment").Environment;
 
-const builtins = @import("builtins.zig");
+const builtins = @import("builtins");
 
 pub const ObjectType = union(enum) {
     Integer,

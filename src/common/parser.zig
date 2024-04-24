@@ -1,12 +1,12 @@
 const std = @import("std");
 
-const Lexer = @import("../lexer/lexer.zig").Lexer;
+const Lexer = @import("lexer").Lexer;
 
-const token = @import("../lexer/token.zig");
+const token = @import("token");
 const Token = token.Token;
 const TokenType = token.TokenType;
 
-const ast = @import("../ast/ast.zig");
+const ast = @import("ast");
 
 const ParseFnsError = error{ NoPrefixFn, NoInfixFn };
 const ParserError = ParseFnsError || error{

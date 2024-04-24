@@ -21,9 +21,112 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    const interp = b.addModule("interp", .{ .root_source_file = .{ .path = "src/interpreter/root.zig" } });
-    const ast = b.addModule("ast", .{ .root_source_file = .{ .path = "src/interpreter/ast/ast.zig" } });
-    exe.root_module.addImport("interp", interp);
+    const token = b.createModule(.{ .root_source_file = .{ .path = "src/interpreter/token.zig" } });
+    const lexer = b.createModule(.{
+        .root_source_file = .{ .path = "src/common/lexer.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "token", .module = token },
+        },
+    });
+    const ast = b.createModule(.{
+        .root_source_file = .{ .path = "src/common/ast.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "token", .module = token },
+        },
+    });
+    const object = b.createModule(.{
+        .root_source_file = .{ .path = "src/common/object.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "ast", .module = ast },
+        },
+    });
+    const parser = b.createModule(.{
+        .root_source_file = .{ .path = "src/common/parser.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "token", .module = token },
+            .{ .name = "ast", .module = ast },
+            .{ .name = "lexer", .module = lexer },
+        },
+    });
+    const environment = b.createModule(.{
+        .root_source_file = .{ .path = "src/interpreter/environment.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "object", .module = object },
+            .{ .name = "ast", .module = ast },
+        },
+    });
+    object.addImport("environment", environment);
+    const opcode = b.createModule(.{
+        .root_source_file = .{ .path = "src/compiler/opcode.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "object", .module = object },
+        },
+    });
+    const bytecode = b.createModule(.{
+        .root_source_file = .{ .path = "src/compiler/bytecode.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "object", .module = object },
+            .{ .name = "opcode", .module = opcode },
+        },
+    });
+    const builtins = b.createModule(.{
+        .root_source_file = .{ .path = "src/interpreter/builtins.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "object", .module = object },
+        },
+    });
+    object.addImport("builtins", builtins);
+    const compiler = b.createModule(.{
+        .root_source_file = .{ .path = "src/compiler/compiler.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "ast", .module = ast },
+            .{ .name = "object", .module = object },
+            .{ .name = "parser", .module = parser },
+            .{ .name = "bytecode", .module = bytecode },
+            .{ .name = "opcode", .module = opcode },
+        },
+    });
+    const vm = b.createModule(.{
+        .root_source_file = .{ .path = "src/compiler/vm.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "object", .module = object },
+            // .{ .name = "environment", .module = environment },
+            .{ .name = "bytecode", .module = bytecode },
+            .{ .name = "opcode", .module = opcode },
+            .{ .name = "compiler", .module = compiler },
+            // .{ .name = "builtins", .module = builtins },
+        },
+    });
+    const eval_utils = b.createModule(.{
+        .root_source_file = .{ .path = "src/common/eval_utils.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "object", .module = object },
+            .{ .name = "builtins", .module = builtins },
+            .{ .name = "environment", .module = environment },
+            .{ .name = "ast", .module = ast },
+            // .{ .name = "bytecode", .module = bytecode },
+            // .{ .name = "opcode", .module = opcode },
+            // .{ .name = "vm", .module = vm },
+        },
+    });
+    compiler.addImport("eval_utils", eval_utils);
+    vm.addImport("eval_utils", eval_utils);
+    builtins.addImport("eval_utils", eval_utils);
+    const evaluator = b.createModule(.{
+        .root_source_file = .{ .path = "src/interpreter/evaluator.zig" },
+        .imports = &[_]std.Build.Module.Import{
+            .{ .name = "object", .module = object },
+            .{ .name = "environment", .module = environment },
+            .{ .name = "builtins", .module = builtins },
+            .{ .name = "ast", .module = ast },
+            // .{ .name = "bytecode", .module = bytecode },
+            // .{ .name = "opcode", .module = opcode },
+            // .{ .name = "vm", .module = vm },
+            .{ .name = "eval_utils", .module = eval_utils },
+        },
+    });
+
+    // exe.root_module.addAnonymousImport("ast", ast);
 
     b.installArtifact(exe);
 
@@ -47,13 +150,24 @@ pub fn build(b: *std.Build) void {
     run_step.dependOn(&run_cmd.step);
 
     const unit_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = .{ .path = "src/tests/root.zig" },
         .target = target,
         .optimize = optimize,
     });
 
-    unit_tests.root_module.addImport("interp", interp);
     unit_tests.root_module.addImport("ast", ast);
+    unit_tests.root_module.addImport("token", token);
+    unit_tests.root_module.addImport("lexer", lexer);
+    unit_tests.root_module.addImport("object", object);
+    unit_tests.root_module.addImport("parser", parser);
+    unit_tests.root_module.addImport("environment", environment);
+    unit_tests.root_module.addImport("opcode", opcode);
+    unit_tests.root_module.addImport("bytecode", bytecode);
+    unit_tests.root_module.addImport("builtins", builtins);
+    unit_tests.root_module.addImport("compiler", compiler);
+    unit_tests.root_module.addImport("vm", vm);
+    unit_tests.root_module.addImport("eval_utils", eval_utils);
+    unit_tests.root_module.addImport("evaluator", evaluator);
     const run_unit_tests = b.addRunArtifact(unit_tests);
 
     // Similar to creating the run step earlier, this exposes a `test` step to
