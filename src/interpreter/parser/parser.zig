@@ -115,7 +115,7 @@ pub const Parser = struct {
         self.expect_peek(TokenType.ASSIGN) catch return ParserError.MissingToken;
         self.next();
 
-        var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
         self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
@@ -131,7 +131,7 @@ pub const Parser = struct {
         const ret_st_token = self.current_token;
         self.next();
 
-        var expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
         self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingToken;
@@ -277,7 +277,7 @@ pub const Parser = struct {
         };
 
         self.next();
-        var index_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        const index_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         index_ptr.* = try self.parse_expression(Precedence.LOWEST);
         index_expr.index = index_ptr;
 
@@ -312,7 +312,7 @@ pub const Parser = struct {
         };
         self.next();
 
-        var condition_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        const condition_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         condition_ptr.* = try self.parse_expression(Precedence.LOWEST);
         if_expresssion.condition = condition_ptr;
 
@@ -359,7 +359,7 @@ pub const Parser = struct {
 
         self.next();
 
-        var right_expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        const right_expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
 
         const right_expr = self.parse_expression(Precedence.PREFIX) catch {
             stderr.print("Error parsing right expression of Prefixed one!\n", .{}) catch {};
@@ -383,7 +383,7 @@ pub const Parser = struct {
         const precedence = self.current_precedence();
         self.next();
 
-        var right_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
+        const right_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
 
         const right_expr = self.parse_expression(precedence) catch {
             stderr.print("Error parsing right expression of Infixed one!\n", .{}) catch {};

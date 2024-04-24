@@ -43,7 +43,7 @@ pub const NULL = Object{
 };
 
 pub fn new_integer(allocator: *const std.mem.Allocator, value: i64) !*const Object {
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
     const result = Integer{ .type = ObjectType.Integer, .value = value };
     ptr.* = Object{ .integer = result };
@@ -52,7 +52,7 @@ pub fn new_integer(allocator: *const std.mem.Allocator, value: i64) !*const Obje
 }
 
 pub fn new_string(allocator: *const std.mem.Allocator, value: []const u8) !*const Object {
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
     const result = String{ .type = ObjectType.String, .value = value };
     ptr.* = Object{ .string = result };
@@ -64,7 +64,7 @@ pub fn new_array(
     allocator: *const std.mem.Allocator,
     elements: std.ArrayList(*const Object),
 ) !*const Object {
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
     const result = Array{ .type = ObjectType.String, .elements = elements };
     ptr.* = Object{ .array = result };
@@ -76,7 +76,7 @@ pub fn new_hash(
     allocator: *const std.mem.Allocator,
     pairs: std.StringHashMap(*const Object),
 ) !*const Object {
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
     const result = Hash{ .type = ObjectType.String, .pairs = pairs };
     ptr.* = Object{ .hash = result };
@@ -85,7 +85,7 @@ pub fn new_hash(
 }
 
 pub fn new_builtin(allocator: *const std.mem.Allocator, function: BuiltinFunction) !*const Object {
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
     const result = BuiltinObject{ .type = ObjectType.Builtin, .function = function };
     ptr.* = Object{ .builtin = result };
@@ -98,7 +98,7 @@ pub fn new_func(
     env: *const Environment,
     func: ast.Function,
 ) !*const Object {
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
 
     switch (func) {
         .named => |named| {
@@ -126,7 +126,7 @@ pub fn new_func(
 }
 
 pub fn new_return(allocator: *const std.mem.Allocator, object: *const Object) !*const Object {
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
     const ret = Return{ .type = ObjectType.Return, .value = object };
     ptr.* = Object{ .ret = ret };
 
@@ -139,7 +139,7 @@ pub fn new_error(
     args: anytype,
 ) !*const Object {
     const msg = std.fmt.allocPrint(allocator.*, fmt, args) catch return EvalError.MemAlloc;
-    var ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
     const err = Error{ .type = ObjectType.Error, .msg = msg };
     ptr.* = Object{ .err = err };
 

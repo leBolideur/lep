@@ -3,7 +3,7 @@ const std = @import("std");
 const Lexer = @import("../interpreter/lexer/lexer.zig").Lexer;
 const Parser = @import("../interpreter/parser/parser.zig").Parser;
 const Object = @import("../interpreter/intern/object.zig").Object;
-const ast = @import("../interpreter/ast/ast.zig");
+const ast = @import("ast");
 
 const opcode = @import("opcode.zig");
 
@@ -48,6 +48,23 @@ test "Test the VM with Booleans expressions" {
     const test_cases = [_]struct { []const u8, bool, usize }{
         .{ "true;", true, 0 },
         .{ "false;", false, 0 },
+        .{ "1 < 2", true, 0 },
+        .{ "1 > 2", false, 0 },
+        .{ "1 < 1", false, 0 },
+        .{ "1 > 1", false, 0 },
+        .{ "1 == 1", true, 0 },
+        .{ "1 != 1", false, 0 },
+        .{ "1 == 2", false, 0 },
+        .{ "1 != 2", true, 0 },
+        .{ "true == true", true, 0 },
+        .{ "false == false", true, 0 },
+        .{ "true == false", false, 0 },
+        .{ "true != false", true, 0 },
+        .{ "false != true", true, 0 },
+        .{ "(1 < 2) == true", true, 0 },
+        .{ "(1 < 2) == false", false, 0 },
+        .{ "(1 > 2) == true", false, 0 },
+        .{ "(1 > 2) == false", true, 0 },
     };
 
     try run_test(&alloc, test_cases, bool);
@@ -59,7 +76,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         var compiler = try Compiler.init(alloc);
         try compiler.compile(root_node);
 
-        var bytecode = compiler.get_bytecode();
+        const bytecode = compiler.get_bytecode();
 
         var vm = VM.new(alloc, bytecode);
         try vm.run();

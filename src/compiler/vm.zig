@@ -61,9 +61,9 @@ pub const VM = struct {
                 },
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),
-                .OpAdd, .OpSub, .OpMul, .OpDiv => {
-                    try self.execure_binary_operation(opcode);
-                },
+                .OpAdd, .OpSub, .OpMul, .OpDiv => try self.execure_binary_operation(opcode),
+
+                .OpEq, .OpNotEq, .OpGT => try self.execute_comparison(opcode),
                 .OpPop => {
                     _ = self.pop();
                 },
@@ -110,6 +110,67 @@ pub const VM = struct {
         }
 
         const object = eval_utils.new_integer(self.alloc, result) catch return VMError.ObjectCreation;
+        try self.push(object);
+    }
+
+    fn execute_comparison(self: *VM, opcode: Opcode) VMError!void {
+        const right_ = self.pop().?; // lifo! right pop before
+        const left_ = self.pop().?;
+
+        switch (right_.*) {
+            .integer => {
+                switch (left_.*) {
+                    .integer => try self.execute_integer_comparison(opcode, left_, right_),
+                    else => |other| {
+                        stderr.print("Wrong type! Comparison operation operands must have the same type, got={?}", .{other}) catch {};
+                        return VMError.WrongType;
+                    },
+                }
+            },
+            .boolean => {
+                switch (left_.*) {
+                    .boolean => {},
+                    else => |other| {
+                        stderr.print("Wrong type! Comparison operation operands must have the same type, got={?}", .{other}) catch {};
+                        return VMError.WrongType;
+                    },
+                }
+            },
+            else => |other| {
+                stderr.print("Wrong type! Comparison operations is only available with Integer and Boolean, got={?}", .{other}) catch {};
+                return VMError.WrongType;
+            },
+        }
+
+        const right = right_.integer.value;
+        const left = left_.integer.value;
+
+        const object = switch (opcode) {
+            .OpEq => if (left == right) true_object else false_object,
+            .OpNotEq => if (left != right) true_object else false_object,
+            .OpGT => if (left > right) true_object else false_object,
+
+            else => unreachable,
+        };
+
+        // const object = eval_utils.new_boolean(result);
+        try self.push(object);
+    }
+
+    fn execute_integer_comparison(
+        self: *VM,
+        opcode: Opcode,
+        left: *const Object,
+        right: *const Object,
+    ) VMError!void {
+        const object = switch (opcode) {
+            .OpEq => if (left == right) true_object else false_object,
+            .OpNotEq => if (left != right) true_object else false_object,
+            .OpGT => if (left.*.integer.value > right.*.integer.value) true_object else false_object,
+
+            else => unreachable,
+        };
+
         try self.push(object);
     }
 

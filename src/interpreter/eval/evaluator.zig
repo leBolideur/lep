@@ -231,7 +231,7 @@ pub const Evaluator = struct {
             );
         }
 
-        var func_env = env.extend_env(args, parameters) catch return EvalError.EnvExtendError;
+        const func_env = env.extend_env(args, parameters) catch return EvalError.EnvExtendError;
         const eval_body = try self.eval_block(body, func_env);
 
         // unwrap to void return bubbleup
@@ -573,8 +573,8 @@ pub const Evaluator = struct {
                 const total = left_len + right_len;
 
                 var buf = self.allocator.alloc(u8, total) catch return EvalError.MemAlloc;
-                std.mem.copy(u8, buf[0..left_len], left);
-                std.mem.copy(u8, buf[left_len..total], right);
+                std.mem.copyForwards(u8, buf[0..left_len], left);
+                std.mem.copyForwards(u8, buf[left_len..total], right);
 
                 // Be careful with 'buf' in case of allocator type change
                 const object = try eval_utils.new_string(self.allocator, buf);

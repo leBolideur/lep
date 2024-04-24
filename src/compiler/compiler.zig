@@ -12,12 +12,19 @@ const eval_utils = @import("../interpreter/utils/eval_utils.zig");
 
 const INFIX_OP = enum { SUM, SUB, MUL, DIV, LT, GT, LTE, GTE, EQ, NOT_EQ };
 
-const CompilerError = error{ OutOfMemory, ObjectCreation, MakeInstr };
+const CompilerError = error{
+    OutOfMemory,
+    ObjectCreation,
+    MakeInstr,
+    UnknownOperator,
+};
 
 pub const Bytecode = struct {
     instructions: bytecode_.Instructions,
     constants: std.ArrayList(*const Object),
 };
+
+const stderr = std.io.getStdErr().writer();
 
 pub const Compiler = struct {
     instructions: bytecode_.Instructions,
@@ -40,8 +47,8 @@ pub const Compiler = struct {
         try infix_op_map.put("==", INFIX_OP.EQ);
         try infix_op_map.put("!=", INFIX_OP.NOT_EQ);
 
-        var constants = std.ArrayList(*const Object).init(alloc.*);
-        var instructions = std.ArrayList(u8).init(alloc.*);
+        const constants = std.ArrayList(*const Object).init(alloc.*);
+        const instructions = std.ArrayList(u8).init(alloc.*);
 
         return Compiler{
             .instructions = bytecode_.Instructions{ .instructions = instructions },
@@ -87,13 +94,22 @@ pub const Compiler = struct {
                 }
             },
             .infix_expr => |infix| {
-                const left = try self.parse_expr_statement(infix.left_expr);
-                const right = try self.parse_expr_statement(infix.right_expr);
                 const op_ = infix.operator;
-                _ = left;
-                _ = right;
-
                 const op = self.infix_op_map.get(op_);
+                // Reordering for < operator
+                if (op == INFIX_OP.LT) {
+                    // FIRST compile right THEN left (inverse order of push on stack)
+                    try self.parse_expr_statement(infix.right_expr);
+                    try self.parse_expr_statement(infix.left_expr);
+
+                    _ = try self.emit(Opcode.OpGT, &[_]usize{});
+
+                    return;
+                }
+
+                // Normal order, left then right
+                try self.parse_expr_statement(infix.left_expr);
+                try self.parse_expr_statement(infix.right_expr);
 
                 switch (op.?) {
                     INFIX_OP.SUM => {
@@ -108,7 +124,19 @@ pub const Compiler = struct {
                     INFIX_OP.DIV => {
                         _ = try self.emit(Opcode.OpDiv, &[_]usize{});
                     },
-                    else => unreachable,
+                    INFIX_OP.EQ => {
+                        _ = try self.emit(Opcode.OpEq, &[_]usize{});
+                    },
+                    INFIX_OP.NOT_EQ => {
+                        _ = try self.emit(Opcode.OpNotEq, &[_]usize{});
+                    },
+                    INFIX_OP.GT => {
+                        _ = try self.emit(Opcode.OpGT, &[_]usize{});
+                    },
+                    else => |other| {
+                        stderr.print("Unknown operator {?}\n", .{other}) catch {};
+                        return CompilerError.UnknownOperator;
+                    },
                 }
             },
             else => unreachable,

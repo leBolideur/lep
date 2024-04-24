@@ -34,7 +34,7 @@ pub fn main() !void {
 
     const stat = try file.stat();
     var reader = file.reader();
-    var buffer = try alloc.alloc(u8, stat.size);
+    const buffer = try alloc.alloc(u8, stat.size);
     _ = try reader.readAll(buffer);
 
     var env = try Environment.init(&alloc);

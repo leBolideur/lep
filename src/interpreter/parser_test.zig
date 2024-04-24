@@ -227,7 +227,7 @@ test "Test Hashes with Integers" {
         try std.testing.expect(@TypeOf(hash) == ast.HashLiteral);
 
         var iter = hash.pairs.iterator();
-        var count = hash.pairs.count();
+        const count = hash.pairs.count();
 
         try std.testing.expectEqual(count, exp[1]);
 
@@ -266,7 +266,7 @@ test "Test Hashes with String" {
         try std.testing.expect(@TypeOf(hash) == ast.HashLiteral);
 
         var iter = hash.pairs.iterator();
-        var count = hash.pairs.count();
+        const count = hash.pairs.count();
 
         try std.testing.expectEqual(count, exp[1]);
 

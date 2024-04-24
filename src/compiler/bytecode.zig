@@ -107,8 +107,8 @@ pub fn read_operands(
 }
 
 pub fn read_u16(raw: []const u8) u16 {
-    var left: usize = @intCast(raw[0]);
-    var result: usize = (left << 8) | raw[1];
+    const left: usize = @intCast(raw[0]);
+    const result: usize = (left << 8) | raw[1];
 
     return @as(u16, @intCast(result));
 }

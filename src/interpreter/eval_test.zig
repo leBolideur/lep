@@ -774,7 +774,7 @@ test "Test high order functions" {
 fn test_func_object(object: *const Object.Object, expected: anytype) !void {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
-    var alloc = arena.allocator();
+    const alloc = arena.allocator();
 
     // TODO: Refactor
     switch (object.*) {

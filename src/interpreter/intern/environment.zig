@@ -82,7 +82,7 @@ test "test add and get" {
     var expected_size: u32 = 0;
 
     for (expected) |exp| {
-        var ptr = try alloc.create(Object);
+        const ptr = try alloc.create(Object);
 
         const result = Integer{ .type = ObjectType.Integer, .value = exp[1] };
         ptr.* = Object{ .integer = result };

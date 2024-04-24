@@ -99,6 +99,69 @@ test "Test the compiler with Boolean expressions" {
     try run_test(&alloc, test_cases, bool);
 }
 
+test "Test the compiler with Boolean Comparisons" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, [4][]const u8, [2]i64 }{
+        .{
+            "1 > 2;",
+            [_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpGT, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            [2]i64{ 1, 2 },
+        },
+        .{
+            "1 < 2;",
+            [_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpGT, &[_]usize{}), // Code reordering
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            [2]i64{ 1, 2 },
+        },
+        .{
+            "1 == 2;",
+            [_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpEq, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            [2]i64{ 1, 2 },
+        },
+        .{
+            "1 != 2;",
+            [_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpNotEq, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            [2]i64{ 1, 2 },
+        },
+        // FIXME: To do... Think about how to handle generic tests
+        // .{
+        //     "true == false;",
+        //     [_][]const u8{
+        //         try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+        //         try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+        //         try bytecode_.make(&alloc, Opcode.OpGT, &[_]usize{}),
+        //         try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+        //     },
+        //     [2]i64{ 1, 2 },
+        // },
+    };
+
+    try run_test(&alloc, test_cases, bool);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
