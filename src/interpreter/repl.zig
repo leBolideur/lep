@@ -1,13 +1,13 @@
 const std = @import("std");
 
 const Lexer = @import("lexer").Lexer;
-const TokenType = @import("token.zig").TokenType;
+const TokenType = @import("token").TokenType;
 
 const Parser = @import("parser").Parser;
 
-const Evaluator = @import("evaluator.zig").Evaluator;
+const Evaluator = @import("evaluator").Evaluator;
 
-const Environment = @import("environment.zig").Environment;
+const Environment = @import("environment").Environment;
 
 const Compiler = @import("compiler").Compiler;
 const VM = @import("vm").VM;
