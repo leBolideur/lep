@@ -1,8 +1,10 @@
 const std = @import("std");
 
-const Object = @import("object").Object;
+const common = @import("common");
 
-const ast = @import("ast");
+const Object = common.object.Object;
+
+const ast = common.ast;
 
 const EnvError = error{ MemAlloc, Undeclared, SetError };
 

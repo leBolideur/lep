@@ -1,15 +1,19 @@
 const std = @import("std");
 
-const Lexer = @import("lexer").Lexer;
-const Parser = @import("parser").Parser;
-const Object = @import("object").Object;
-const ast = @import("ast");
+const common = @import("common");
+const interpreter = @import("interpreter");
+const compiler_ = @import("compiler");
 
-const Opcode = @import("opcode").Opcode;
-const bytecode_ = @import("bytecode");
+const Lexer = common.lexer.Lexer;
+const Parser = common.parser.Parser;
+const Object = common.object.Object;
+const ast = common.ast;
 
-const comp_imp = @import("compiler");
-const Compiler = comp_imp.Compiler;
+const Opcode = compiler_.opcode.Opcode;
+const bytecode_ = compiler_.bytecode;
+
+// const comp_imp = @import("compiler");
+const Compiler = compiler_.compiler.Compiler;
 
 test "Test the compiler with Integers arithmetic" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

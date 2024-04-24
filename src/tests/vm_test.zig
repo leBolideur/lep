@@ -1,16 +1,19 @@
 const std = @import("std");
 
-const Lexer = @import("lexer").Lexer;
-const Parser = @import("parser").Parser;
-const Object = @import("object").Object;
-const ast = @import("ast");
+const interpreter = @import("interpreter");
+const common = @import("common");
+const compiler_ = @import("compiler");
 
-const opcode = @import("opcode");
+const Lexer = common.lexer.Lexer;
+const Parser = common.parser.Parser;
+const Object = common.object.Object;
+const ast = common.ast;
 
-const comp_imp = @import("compiler");
-const Compiler = comp_imp.Compiler;
+const opcode = compiler_.opcode;
 
-const VM = @import("vm").VM;
+const Compiler = compiler_.compiler.Compiler;
+
+const VM = compiler_.vm.VM;
 
 const ExpectedValue = union(enum) { integer: isize, boolean: bool };
 

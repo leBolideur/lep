@@ -1,16 +1,20 @@
 const std = @import("std");
 
-const Lexer = @import("lexer").Lexer;
-const TokenType = @import("token").TokenType;
+const interpreter = @import("interpreter");
+const common = @import("common");
+const compiler_ = @import("compiler");
 
-const Parser = @import("parser").Parser;
+const Lexer = common.lexer.Lexer;
+const TokenType = interpreter.token.TokenType;
 
-const Evaluator = @import("evaluator").Evaluator;
+const Parser = common.parser.Parser;
 
-const Environment = @import("environment").Environment;
+const Evaluator = interpreter.evaluator.Evaluator;
 
-const Compiler = @import("compiler").Compiler;
-const VM = @import("vm").VM;
+const Environment = interpreter.environment.Environment;
+
+const Compiler = compiler_.compiler.Compiler;
+const VM = compiler_.vm.VM;
 
 pub fn repl(alloc: *const std.mem.Allocator) !void {
     const stdin = std.io.getStdIn().reader();

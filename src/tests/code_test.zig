@@ -1,10 +1,12 @@
 const std = @import("std");
 
-const opcode_import = @import("opcode");
+const compiler = @import("compiler");
+
+const opcode_import = compiler.opcode;
 const Opcode = opcode_import.Opcode;
 const Definitions = opcode_import.Definitions;
 
-const bytecode_ = @import("bytecode");
+const bytecode_ = compiler.bytecode;
 
 test "Test bytecode_.make" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);

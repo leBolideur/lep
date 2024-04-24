@@ -1,17 +1,19 @@
 const std = @import("std");
 
-const ast = @import("ast");
-const obj_import = @import("object");
+const common = @import("common");
+
+const ast = common.ast;
+const obj_import = common.object;
 const Object = obj_import.Object;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
-const eval_utils = @import("eval_utils");
+const eval_utils = common.eval_utils;
 const EvalError = eval_utils.EvalError;
 
-const Environment = @import("environment").Environment;
+const Environment = @import("environment.zig").Environment;
 
-const builtins = @import("builtins");
+const builtins = @import("builtins.zig");
 
 const stderr = std.io.getStdOut().writer();
 

@@ -1,9 +1,11 @@
 const std = @import("std");
 
-const obj_import = @import("object");
+const common = @import("common");
+
+const obj_import = common.object;
 const Object = obj_import.Object;
 
-const eval_utils = @import("eval_utils");
+const eval_utils = common.eval_utils;
 
 const BuiltinsError = error{ ArrayCreation, ArrayClone, ArrayAppend };
 

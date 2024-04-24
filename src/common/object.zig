@@ -1,9 +1,11 @@
 const std = @import("std");
 
-const ast = @import("ast");
-const Environment = @import("environment").Environment;
+const interpreter = @import("interpreter");
 
-const builtins = @import("builtins");
+const ast = @import("ast.zig");
+const Environment = interpreter.environment.Environment;
+
+const builtins = interpreter.builtins;
 
 pub const ObjectType = union(enum) {
     Integer,

@@ -1,9 +1,12 @@
 const std = @import("std");
 
-const Parser = @import("parser").Parser;
-const ast = @import("ast");
+const common = @import("common");
+const interpreter = @import("interpreter");
 
-const token = @import("token");
+const Parser = common.parser.Parser;
+const ast = common.ast;
+
+const token = interpreter.token;
 const Token = token.Token;
 const TokenType = token.TokenType;
 

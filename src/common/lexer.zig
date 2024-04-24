@@ -1,6 +1,8 @@
 const std = @import("std");
 
-const token_import = @import("token");
+const interpreter = @import("interpreter");
+
+const token_import = interpreter.token;
 const Token = token_import.Token;
 const TokenType = token_import.TokenType;
 

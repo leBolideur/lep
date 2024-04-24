@@ -1,10 +1,15 @@
 const std = @import("std");
 
-const Parser = @import("parser").Parser;
-const ast = @import("ast");
+const common = @import("common");
+const interpreter = @import("interpreter");
+const compiler_ = @import("compiler");
 
-const Lexer = @import("lexer").Lexer;
-const token = @import("token");
+const Lexer = common.lexer.Lexer;
+const Parser = common.parser.Parser;
+const Object = common.object.Object;
+const ast = common.ast;
+
+const token = interpreter.token;
 const Token = token.Token;
 const TokenType = token.TokenType;
 

@@ -1,6 +1,9 @@
 const std = @import("std");
 
-const obj_import = @import("object");
+const interpreter = @import("interpreter");
+// const common = @import("common");
+
+const obj_import = @import("object.zig");
 const Object = obj_import.Object;
 const Integer = obj_import.Integer;
 const String = obj_import.String;
@@ -16,11 +19,11 @@ const LiteralFunc = obj_import.LiteralFunc;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
-const Environment = @import("environment").Environment;
+const Environment = interpreter.environment.Environment;
 
-const BuiltinFunction = @import("builtins").BuiltinFunction;
+const BuiltinFunction = interpreter.builtins.BuiltinFunction;
 
-const ast = @import("ast");
+const ast = @import("ast.zig");
 
 pub const EvalError = error{ BadNode, MemAlloc, EnvAddError, EnvGetError, EnvExtendError, BuiltinCall };
 

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const TokenError = @import("errors.zig").TokenError;
+pub const TokenError = error{UndefinedToken};
 
 pub const TokenType = enum {
     ILLEGAL,
