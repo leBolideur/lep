@@ -56,7 +56,7 @@ pub const VM = struct {
             switch (opcode) {
                 .OpConstant => {
                     const index = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip += 2;
+                    ip += 2; // Skip the operand just readed
 
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
@@ -71,8 +71,25 @@ pub const VM = struct {
                 .OpPop => {
                     _ = self.pop();
                 },
-                .OpJumpNotTrue => {},
-                .OpJump => {},
+                .OpJumpNotTrue => {
+                    const offset = bytecode_.read_u16(instr_[(ip + 1)..]);
+                    ip += 2; // Skip the operand just readed
+
+                    const condition_obj = self.pop();
+                    switch (condition_obj.?.*) {
+                        .boolean => |boo| {
+                            if (!boo.value) ip = offset - 1; // -1 because the while loop increment ip by 1
+                        },
+                        else => |other| {
+                            stderr.print("Expression of a condition must result as a Boolean, got: {?}\n", .{other}) catch {};
+                            return VMError.WrongType;
+                        },
+                    }
+                },
+                .OpJump => {
+                    const offset = bytecode_.read_u16(instr_[(ip + 1)..]);
+                    ip = offset - 1; // -1 because the while loop increment ip by 1
+                },
             }
         }
     }
@@ -228,7 +245,7 @@ pub const VM = struct {
 
     fn push(self: *VM, constant: *const Object) VMError!void {
         try self.stack.append(constant);
-        self.sp += 1;
+        // self.sp += 1;
     }
 
     pub fn stack_top(self: VM) ?*const Object {
@@ -238,7 +255,7 @@ pub const VM = struct {
 
     pub fn pop(self: *VM) ?*const Object {
         const pop_ = self.stack.popOrNull();
-        self.sp -= 1;
+        // self.sp -= 1;
         self.last_popped = pop_;
         return pop_;
     }

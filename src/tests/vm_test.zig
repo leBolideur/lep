@@ -80,6 +80,24 @@ test "Test the VM with Booleans expressions" {
     try run_test(&alloc, test_cases, bool);
 }
 
+test "Test the VM with Conditionals" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, isize, usize }{
+        .{ "if (true): 10; end", 10, 0 },
+        .{ "if (true): 10; else: 20; end", 10, 0 },
+        .{ "if (false): 10; else: 20; end", 20, 0 },
+        .{ "if (1 < 2): 10; end", 10, 0 },
+        .{ "if (1 < 2): 10; else: 20; end", 10, 0 },
+        .{ "if (1 > 2): 10; else: 20; end", 20, 0 },
+    };
+
+    try run_test(&alloc, test_cases, isize);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
