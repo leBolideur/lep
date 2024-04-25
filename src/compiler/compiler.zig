@@ -182,25 +182,23 @@ pub const Compiler = struct {
                 if (self.last_is_pop())
                     self.remove_last_pop();
 
+                const jump_pos = try self.emit(Opcode.OpJump, &[_]usize{9999});
+                const after_consequence = self.instructions.instructions.items.len;
+                try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
+
                 if (if_expr.alternative == null) {
-                    const after_consequence = self.instructions.instructions.items.len;
-                    try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
+                    _ = try self.emit(Opcode.OpNull, &[_]usize{});
                 } else {
-                    const jump_pos = try self.emit(Opcode.OpJump, &[_]usize{9999});
-
-                    const after_consequence = self.instructions.instructions.items.len;
-                    try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
-
                     for (if_expr.alternative.?.statements.items) |b_st| {
                         try self.compile_statement(b_st);
                     }
 
                     if (self.last_is_pop())
                         self.remove_last_pop();
-
-                    const after_alternative = self.instructions.instructions.items.len;
-                    try self.change_operand(jump_pos, &[_]usize{after_alternative});
                 }
+
+                const after_alternative = self.instructions.instructions.items.len;
+                try self.change_operand(jump_pos, &[_]usize{after_alternative});
             },
             else => unreachable,
         }

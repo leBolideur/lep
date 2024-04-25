@@ -15,7 +15,13 @@ const Compiler = compiler_.compiler.Compiler;
 
 const VM = compiler_.vm.VM;
 
-const ExpectedValue = union(enum) { integer: isize, boolean: bool };
+const null_object = compiler_.vm.null_object;
+
+const ExpectedValue = union(enum) {
+    integer: isize,
+    boolean: bool,
+    null_: *const Object,
+};
 
 test "Test the VM with Integers arithmetic" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
@@ -98,6 +104,20 @@ test "Test the VM with Conditionals" {
     try run_test(&alloc, test_cases, isize);
 }
 
+test "Test the VM  Conditionals with Null object" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, *const Object, usize }{
+        .{ "if (1 > 2): 10; end", null_object, 0 },
+        .{ "if (false): 10; end", null_object, 0 },
+    };
+
+    try run_test(&alloc, test_cases, *const Object);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
@@ -117,6 +137,9 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
             try test_expected_object(expected, last);
         } else if (type_ == bool) {
             const expected = ExpectedValue{ .boolean = exp[1] };
+            try test_expected_object(expected, last);
+        } else if (type_ == *const Object) {
+            const expected = ExpectedValue{ .null_ = exp[1] };
             try test_expected_object(expected, last);
         }
     }
@@ -139,6 +162,9 @@ fn test_expected_object(expected: ExpectedValue, actual: ?*const Object) !void {
         },
         .boolean => |boo| {
             try std.testing.expectEqual(expected.boolean, boo.value);
+        },
+        .null => {
+            try std.testing.expectEqual(expected.null_, null_object);
         },
         else => |other| {
             std.debug.print("Object is not an Integer, got: {any}\n", .{other});

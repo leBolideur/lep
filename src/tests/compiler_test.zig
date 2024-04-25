@@ -196,14 +196,18 @@ test "Test conditionals" {
                 // 0000
                 try bytecode_.make(&alloc, Opcode.OpTrue, &[_]usize{}),
                 // 0001
-                try bytecode_.make(&alloc, Opcode.OpJumpNotTrue, &[_]usize{7}),
+                try bytecode_.make(&alloc, Opcode.OpJumpNotTrue, &[_]usize{10}),
                 // 0004
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
-                // 0007 -- !Not a part of consequence! Conditionals are expression, evaluates to 10 here
+                // 0007
+                try bytecode_.make(&alloc, Opcode.OpJump, &[_]usize{11}),
+                // 0010
+                try bytecode_.make(&alloc, Opcode.OpNull, &[_]usize{}),
+                // 0011 -- !Not a part of consequence! Conditionals are expression, evaluates to 10 here
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
-                // 0008
+                // 0012
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
-                // 0011
+                // 0015
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             &[_]i64{ 10, 666 },

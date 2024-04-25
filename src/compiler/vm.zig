@@ -21,6 +21,7 @@ const VMError = error{ OutOfMemory, ObjectCreation, WrongType, DivideByZero };
 
 const true_object = eval_utils.new_boolean(true);
 const false_object = eval_utils.new_boolean(false);
+pub const null_object = eval_utils.new_null();
 
 pub const VM = struct {
     instructions: std.ArrayList(u8),
@@ -63,6 +64,7 @@ pub const VM = struct {
                 },
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),
+                .OpNull => try self.push(null_object),
                 .OpAdd, .OpSub, .OpMul, .OpDiv => try self.execute_binary_operation(opcode),
 
                 .OpEq, .OpNotEq, .OpGT => try self.execute_comparison(opcode),
