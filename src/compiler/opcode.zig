@@ -14,6 +14,9 @@ pub const Opcode = enum(u8) {
     OpNotEq,
     OpGT,
 
+    OpMinus,
+    OpBang,
+
     OpPop,
 };
 
@@ -49,7 +52,7 @@ pub const Definitions = struct {
             OpDefinition{
                 .name = "OpFalse",
                 .operand_widths = &[_]u8{0},
-                .operand_count = 1,
+                .operand_count = 0,
             },
         );
         try map.put(
@@ -104,6 +107,22 @@ pub const Definitions = struct {
             Opcode.OpGT,
             OpDefinition{
                 .name = "OpGT",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpMinus,
+            OpDefinition{
+                .name = "OpMinus",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpBang,
+            OpDefinition{
+                .name = "OpBang",
                 .operand_widths = &[_]u8{0},
                 .operand_count = 0,
             },

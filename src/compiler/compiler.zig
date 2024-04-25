@@ -96,6 +96,18 @@ pub const Compiler = struct {
                     _ = try self.emit(Opcode.OpFalse, &[_]usize{});
                 }
             },
+            .prefix_expr => |prefix| {
+                try self.parse_expr_statement(prefix.right_expr);
+
+                switch (prefix.operator) {
+                    '-' => _ = try self.emit(Opcode.OpMinus, &[_]usize{}),
+                    '!' => _ = try self.emit(Opcode.OpBang, &[_]usize{}),
+                    else => |other| {
+                        stderr.print("Unknown Prefix operator {?}\n", .{other}) catch {};
+                        return CompilerError.UnknownOperator;
+                    },
+                }
+            },
             .infix_expr => |infix| {
                 const op_ = infix.operator;
                 const op = self.infix_op_map.get(op_);
@@ -137,7 +149,7 @@ pub const Compiler = struct {
                         _ = try self.emit(Opcode.OpGT, &[_]usize{});
                     },
                     else => |other| {
-                        stderr.print("Unknown operator {?}\n", .{other}) catch {};
+                        stderr.print("Unknown Infix operator {?}\n", .{other}) catch {};
                         return CompilerError.UnknownOperator;
                     },
                 }
@@ -158,6 +170,7 @@ pub const Compiler = struct {
     }
 
     pub fn get_bytecode(self: Compiler) Bytecode {
+        // std.debug.print("get_bytecode: len {d}\n", .{self.instructions.instructions.items.len});
         return Bytecode{
             .instructions = self.instructions,
             .constants = self.constants,
@@ -182,8 +195,10 @@ pub const Compiler = struct {
         // Starting position of the instruction
         const pos_new_instr = self.instructions.instructions.items.len;
         for (instruction) |b| {
+            // std.debug.print("add_instruction: {any}\n", .{b});
             try self.instructions.instructions.append(b);
         }
+        // std.debug.print("add_instruction: len {d}\n", .{self.instructions.instructions.items.len});
 
         return pos_new_instr;
     }

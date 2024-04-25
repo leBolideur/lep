@@ -26,6 +26,9 @@ test "Test the VM with Integers arithmetic" {
     const test_cases = [_]struct { []const u8, isize, usize }{
         .{ "1;", 1, 0 },
         .{ "2;", 2, 0 },
+        .{ "-12;", -12, 0 },
+        .{ "-50 + 100 + -50", 0, 0 },
+        .{ "(5 + 10 * 2 + 15 / 3) * 2 + -10", 50, 0 },
         .{ "6 + 6;", 12, 0 },
         .{ "5 - 6;", -1, 0 },
         .{ "6 * 6;", 36, 0 },
@@ -68,6 +71,10 @@ test "Test the VM with Booleans expressions" {
         .{ "(1 < 2) == false", false, 0 },
         .{ "(1 > 2) == true", false, 0 },
         .{ "(1 > 2) == false", true, 0 },
+        .{ "!true", false, 0 },
+        .{ "!false", true, 0 },
+        .{ "!!true", true, 0 },
+        .{ "!!false", false, 0 },
     };
 
     try run_test(&alloc, test_cases, bool);

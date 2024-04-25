@@ -63,9 +63,11 @@ pub const VM = struct {
                 },
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),
-                .OpAdd, .OpSub, .OpMul, .OpDiv => try self.execure_binary_operation(opcode),
+                .OpAdd, .OpSub, .OpMul, .OpDiv => try self.execute_binary_operation(opcode),
 
                 .OpEq, .OpNotEq, .OpGT => try self.execute_comparison(opcode),
+                .OpMinus => try self.execute_minus_operator(),
+                .OpBang => try self.execute_bang_operator(),
                 .OpPop => {
                     _ = self.pop();
                 },
@@ -73,7 +75,40 @@ pub const VM = struct {
         }
     }
 
-    fn execure_binary_operation(self: *VM, opcode: Opcode) VMError!void {
+    fn execute_bang_operator(self: *VM) VMError!void {
+        const right = self.pop().?;
+
+        switch (right.*) {
+            .boolean => |boo| {
+                if (boo.value == true) {
+                    try self.push(false_object);
+                } else {
+                    try self.push(true_object);
+                }
+            },
+            else => |other| {
+                stderr.print("Bang operator only works with Boolean, got: {?}\n", .{other}) catch {};
+                return VMError.WrongType;
+            },
+        }
+    }
+
+    fn execute_minus_operator(self: *VM) VMError!void {
+        const right = self.pop().?;
+
+        switch (right.*) {
+            .integer => |int| {
+                const minus_int = eval_utils.new_integer(self.alloc, -int.value) catch return VMError.ObjectCreation;
+                try self.push(minus_int);
+            },
+            else => |other| {
+                stderr.print("Minus operator only works with Integer, got: {?}\n", .{other}) catch {};
+                return VMError.WrongType;
+            },
+        }
+    }
+
+    fn execute_binary_operation(self: *VM, opcode: Opcode) VMError!void {
         const right_ = self.pop().?; // lifo! right pop before
         const left_ = self.pop().?;
 

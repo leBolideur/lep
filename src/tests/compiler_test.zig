@@ -21,56 +21,65 @@ test "Test the compiler with Integers arithmetic" {
     var alloc = arena.allocator();
 
     // expr, instructions, constants
-    const test_cases = [_]struct { []const u8, [4][]const u8, [2]i64 }{
+    const test_cases = [_]struct { []const u8, []const []const u8, []const i64 }{
         .{
             "1 + 2;",
-            [_][]const u8{
+            &[_][]const u8{
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                 try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
-            [_]i64{ 1, 2 },
+            &[_]i64{ 1, 2 },
         },
         .{
             "1 - 2;",
-            [_][]const u8{
+            &[_][]const u8{
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                 try bytecode_.make(&alloc, Opcode.OpSub, &[_]usize{}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
-            [_]i64{ 1, 2 },
+            &[_]i64{ 1, 2 },
         },
         .{
             "2 * 3;",
-            [_][]const u8{
+            &[_][]const u8{
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                 try bytecode_.make(&alloc, Opcode.OpMul, &[_]usize{}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
-            [_]i64{ 2, 3 },
+            &[_]i64{ 2, 3 },
         },
         .{
             "6 / 2;",
-            [_][]const u8{
+            &[_][]const u8{
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                 try bytecode_.make(&alloc, Opcode.OpDiv, &[_]usize{}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
-            [_]i64{ 6, 2 },
+            &[_]i64{ 6, 2 },
         },
         .{
             "1; 2;",
-            [_][]const u8{
+            &[_][]const u8{
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
-            [_]i64{ 1, 2 },
+            &[_]i64{ 1, 2 },
+        },
+        .{
+            "-6;",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpMinus, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{6},
         },
     };
 
@@ -83,18 +92,26 @@ test "Test the compiler with Boolean expressions" {
     var alloc = arena.allocator();
 
     // expr, instructions
-    const test_cases = [_]struct { []const u8, [2][]const u8 }{
+    const test_cases = [_]struct { []const u8, []const []const u8 }{
         .{
             "true;",
-            [_][]const u8{
+            &[_][]const u8{
                 try bytecode_.make(&alloc, Opcode.OpTrue, &[_]usize{}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
         },
         .{
             "false;",
-            [_][]const u8{
+            &[_][]const u8{
                 try bytecode_.make(&alloc, Opcode.OpFalse, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+        },
+        .{
+            "!false;",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpFalse, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpBang, &[_]usize{}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
         },
