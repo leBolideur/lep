@@ -1,24 +1,6 @@
 const std = @import("std");
 
-pub const Opcode = enum(u8) {
-    OpConstant = 1,
-    OpTrue,
-    OpFalse,
-
-    OpAdd,
-    OpSub,
-    OpMul,
-    OpDiv,
-
-    OpEq,
-    OpNotEq,
-    OpGT,
-
-    OpMinus,
-    OpBang,
-
-    OpPop,
-};
+pub const Opcode = enum(u8) { OpConstant = 1, OpTrue, OpFalse, OpAdd, OpSub, OpMul, OpDiv, OpEq, OpNotEq, OpGT, OpMinus, OpBang, OpPop, OpJumpNotTrue, OpJump };
 
 pub const OpDefinition = struct {
     name: []const u8,
@@ -133,6 +115,22 @@ pub const Definitions = struct {
                 .name = "OpPop",
                 .operand_widths = &[_]u8{0},
                 .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpJumpNotTrue,
+            OpDefinition{
+                .name = "OpJumpNotTrue",
+                .operand_widths = &[_]u8{2},
+                .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpJump,
+            OpDefinition{
+                .name = "OpJump",
+                .operand_widths = &[_]u8{2},
+                .operand_count = 1,
             },
         );
 

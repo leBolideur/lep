@@ -27,11 +27,19 @@ pub const Bytecode = struct {
     constants: std.ArrayList(*const Object),
 };
 
+const EmittedInstruction = struct {
+    opcode: Opcode,
+    position: usize,
+};
+
 const stderr = std.io.getStdErr().writer();
 
 pub const Compiler = struct {
     instructions: bytecode_.Instructions,
     constants: std.ArrayList(*const Object),
+
+    last_instruction: ?EmittedInstruction,
+    previous_instruction: ?EmittedInstruction,
 
     infix_op_map: std.StringHashMap(INFIX_OP),
 
@@ -57,6 +65,9 @@ pub const Compiler = struct {
             .instructions = bytecode_.Instructions{ .instructions = instructions },
             .constants = constants,
 
+            .last_instruction = null,
+            .previous_instruction = null,
+
             .infix_op_map = infix_op_map,
 
             .alloc = alloc,
@@ -67,27 +78,32 @@ pub const Compiler = struct {
         switch (node) {
             .program => |program| {
                 for (program.statements.items) |st| {
-                    try self.parse_statement(st);
+                    try self.compile_statement(st);
                 }
             },
             else => unreachable,
         }
     }
 
-    fn parse_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
+    fn compile_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .expr_statement => |expr_st| {
-                try self.parse_expr_statement(expr_st.expression);
+                try self.compile_expr_statement(expr_st.expression);
                 _ = try self.emit(Opcode.OpPop, &[_]usize{});
+            },
+            .block_statement => |block| {
+                for (block.statements.items) |b_st| {
+                    try self.compile_statement(b_st);
+                }
             },
             else => unreachable,
         }
     }
 
-    fn parse_expr_statement(self: *Compiler, expr: *const ast.Expression) CompilerError!void {
+    fn compile_expr_statement(self: *Compiler, expr: *const ast.Expression) CompilerError!void {
         switch (expr.*) {
             .integer => |int| {
-                try self.parse_integer(int);
+                try self.compile_integer(int);
             },
             .boolean => |boo| {
                 if (boo.value) {
@@ -97,7 +113,7 @@ pub const Compiler = struct {
                 }
             },
             .prefix_expr => |prefix| {
-                try self.parse_expr_statement(prefix.right_expr);
+                try self.compile_expr_statement(prefix.right_expr);
 
                 switch (prefix.operator) {
                     '-' => _ = try self.emit(Opcode.OpMinus, &[_]usize{}),
@@ -114,8 +130,8 @@ pub const Compiler = struct {
                 // Reordering for < operator
                 if (op == INFIX_OP.LT) {
                     // FIRST compile right THEN left (inverse order of push on stack)
-                    try self.parse_expr_statement(infix.right_expr);
-                    try self.parse_expr_statement(infix.left_expr);
+                    try self.compile_expr_statement(infix.right_expr);
+                    try self.compile_expr_statement(infix.left_expr);
 
                     _ = try self.emit(Opcode.OpGT, &[_]usize{});
 
@@ -123,8 +139,8 @@ pub const Compiler = struct {
                 }
 
                 // Normal order, left then right
-                try self.parse_expr_statement(infix.left_expr);
-                try self.parse_expr_statement(infix.right_expr);
+                try self.compile_expr_statement(infix.left_expr);
+                try self.compile_expr_statement(infix.right_expr);
 
                 switch (op.?) {
                     INFIX_OP.SUM => {
@@ -154,11 +170,43 @@ pub const Compiler = struct {
                     },
                 }
             },
+            .if_expression => |if_expr| {
+                try self.compile_expr_statement(if_expr.condition);
+
+                const jump_not_true_pos = try self.emit(Opcode.OpJumpNotTrue, &[_]usize{9999});
+
+                for (if_expr.consequence.statements.items) |b_st| {
+                    try self.compile_statement(b_st);
+                }
+
+                if (self.last_is_pop())
+                    self.remove_last_pop();
+
+                if (if_expr.alternative == null) {
+                    const after_consequence = self.instructions.instructions.items.len;
+                    try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
+                } else {
+                    const jump_pos = try self.emit(Opcode.OpJump, &[_]usize{9999});
+
+                    const after_consequence = self.instructions.instructions.items.len;
+                    try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
+
+                    for (if_expr.alternative.?.statements.items) |b_st| {
+                        try self.compile_statement(b_st);
+                    }
+
+                    if (self.last_is_pop())
+                        self.remove_last_pop();
+
+                    const after_alternative = self.instructions.instructions.items.len;
+                    try self.change_operand(jump_pos, &[_]usize{after_alternative});
+                }
+            },
             else => unreachable,
         }
     }
 
-    fn parse_integer(self: *Compiler, int: ast.IntegerLiteral) CompilerError!void {
+    fn compile_integer(self: *Compiler, int: ast.IntegerLiteral) CompilerError!void {
         const object = eval_utils.new_integer(self.alloc, int.value) catch return CompilerError.ObjectCreation;
         const identifier = try self.add_constant(object);
 
@@ -170,7 +218,6 @@ pub const Compiler = struct {
     }
 
     pub fn get_bytecode(self: Compiler) Bytecode {
-        // std.debug.print("get_bytecode: len {d}\n", .{self.instructions.instructions.items.len});
         return Bytecode{
             .instructions = self.instructions,
             .constants = self.constants,
@@ -188,6 +235,9 @@ pub const Compiler = struct {
         const instruction = bytecode_.make(self.alloc, opcode, operands) catch return CompilerError.MakeInstr;
         const pos = try self.add_instruction(instruction);
 
+        self.previous_instruction = self.last_instruction;
+        self.last_instruction = EmittedInstruction{ .opcode = opcode, .position = pos };
+
         return pos;
     }
 
@@ -195,11 +245,31 @@ pub const Compiler = struct {
         // Starting position of the instruction
         const pos_new_instr = self.instructions.instructions.items.len;
         for (instruction) |b| {
-            // std.debug.print("add_instruction: {any}\n", .{b});
             try self.instructions.instructions.append(b);
         }
-        // std.debug.print("add_instruction: len {d}\n", .{self.instructions.instructions.items.len});
 
         return pos_new_instr;
+    }
+
+    fn last_is_pop(self: Compiler) bool {
+        return self.last_instruction.?.opcode == Opcode.OpPop;
+    }
+
+    fn remove_last_pop(self: *Compiler) void {
+        _ = self.instructions.instructions.pop();
+        self.last_instruction = self.previous_instruction;
+    }
+
+    fn replace_instruction(self: *Compiler, pos: usize, new: []const u8) void {
+        var i: usize = 0;
+        while (i < new.len) : (i += 1) {
+            self.instructions.instructions.items[pos + i] = new[i];
+        }
+    }
+
+    fn change_operand(self: *Compiler, pos: usize, operand: []const usize) CompilerError!void {
+        const opcode = @as(Opcode, @enumFromInt(self.instructions.instructions.items[pos]));
+        const new_instruction = bytecode_.make(self.alloc, opcode, operand) catch return CompilerError.MakeInstr;
+        self.replace_instruction(pos, new_instruction);
     }
 };

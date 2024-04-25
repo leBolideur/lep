@@ -71,6 +71,8 @@ pub const VM = struct {
                 .OpPop => {
                     _ = self.pop();
                 },
+                .OpJumpNotTrue => {},
+                .OpJump => {},
             }
         }
     }

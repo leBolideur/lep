@@ -183,7 +183,59 @@ test "Test the compiler with Boolean Comparisons" {
     try run_test(&alloc, test_cases, bool);
 }
 
-fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
+test "Test conditionals" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const i64 }{
+        .{
+            "if (true): 10; end 666;",
+            &[_][]const u8{
+                // 0000
+                try bytecode_.make(&alloc, Opcode.OpTrue, &[_]usize{}),
+                // 0001
+                try bytecode_.make(&alloc, Opcode.OpJumpNotTrue, &[_]usize{7}),
+                // 0004
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                // 0007 -- !Not a part of consequence! Conditionals are expression, evaluates to 10 here
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+                // 0008
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                // 0011
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{ 10, 666 },
+        },
+        .{
+            "if (true): 10; else: 20; end 666;",
+            &[_][]const u8{
+                // 0000
+                try bytecode_.make(&alloc, Opcode.OpTrue, &[_]usize{}),
+                // 0001
+                try bytecode_.make(&alloc, Opcode.OpJumpNotTrue, &[_]usize{10}),
+                // 0004
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                // 0007
+                try bytecode_.make(&alloc, Opcode.OpJump, &[_]usize{13}),
+                // 0010
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                // 0013 -- ! Reason of pop here: Conditionals are expression, evaluates to 10 here
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+                // 0014
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                // 0017
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{ 10, 20, 666 },
+        },
+    };
+
+    try run_test(&alloc, test_cases, null);
+}
+
+fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: ?type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
         var compiler = try Compiler.init(alloc);
