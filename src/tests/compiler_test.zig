@@ -239,6 +239,50 @@ test "Test conditionals" {
     try run_test(&alloc, test_cases, null);
 }
 
+test "Test global var statements" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const i64 }{
+        .{
+            "var a = 6; var b = 12;",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{1}),
+            },
+            &[_]i64{ 6, 12 },
+        },
+        .{
+            "var a = 6; a;",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{6},
+        },
+        .{
+            "var a = 6; var b = a; b;",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{6},
+        },
+    };
+
+    try run_test(&alloc, test_cases, i64);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: ?type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);

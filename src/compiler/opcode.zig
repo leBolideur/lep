@@ -2,21 +2,29 @@ const std = @import("std");
 
 pub const Opcode = enum(u8) {
     OpConstant = 1,
+
+    OpSetGlobal,
+    OpGetGlobal,
+
     OpTrue,
     OpFalse,
+    OpNull,
+
     OpAdd,
     OpSub,
     OpMul,
     OpDiv,
+
     OpEq,
     OpNotEq,
     OpGT,
     OpMinus,
+
     OpBang,
     OpPop,
+
     OpJumpNotTrue,
     OpJump,
-    OpNull,
 };
 
 pub const OpDefinition = struct {
@@ -34,6 +42,22 @@ pub const Definitions = struct {
             Opcode.OpConstant,
             OpDefinition{
                 .name = "OpConstant",
+                .operand_widths = &[_]u8{2},
+                .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpSetGlobal,
+            OpDefinition{
+                .name = "OpSetGlobal",
+                .operand_widths = &[_]u8{2},
+                .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpGetGlobal,
+            OpDefinition{
+                .name = "OpGetGlobal",
                 .operand_widths = &[_]u8{2},
                 .operand_count = 1,
             },

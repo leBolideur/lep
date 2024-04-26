@@ -11,6 +11,8 @@ const bytecode_ = @import("bytecode.zig");
 
 const Opcode = @import("opcode.zig").Opcode;
 
+const SymbolTable = @import("symbol_table.zig").SymbolTable;
+
 const eval_utils = common.eval_utils;
 
 const INFIX_OP = enum { SUM, SUB, MUL, DIV, LT, GT, LTE, GTE, EQ, NOT_EQ };
@@ -20,6 +22,9 @@ const CompilerError = error{
     ObjectCreation,
     MakeInstr,
     UnknownOperator,
+    SetSymbol,
+    GetSymbol,
+    UndefinedVariable,
 };
 
 pub const Bytecode = struct {
@@ -40,6 +45,8 @@ pub const Compiler = struct {
 
     last_instruction: ?EmittedInstruction,
     previous_instruction: ?EmittedInstruction,
+
+    symbol_table: SymbolTable,
 
     infix_op_map: std.StringHashMap(INFIX_OP),
 
@@ -68,6 +75,8 @@ pub const Compiler = struct {
             .last_instruction = null,
             .previous_instruction = null,
 
+            .symbol_table = SymbolTable.new(alloc),
+
             .infix_op_map = infix_op_map,
 
             .alloc = alloc,
@@ -87,6 +96,12 @@ pub const Compiler = struct {
 
     fn compile_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
+            .var_statement => |var_st| {
+                try self.compile_expr_statement(var_st.expression);
+                const symbol = self.symbol_table.define(var_st.name.value) catch return CompilerError.SetSymbol;
+
+                _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
+            },
             .expr_statement => |expr_st| {
                 try self.compile_expr_statement(expr_st.expression);
                 _ = try self.emit(Opcode.OpPop, &[_]usize{});
@@ -111,6 +126,15 @@ pub const Compiler = struct {
                 } else {
                     _ = try self.emit(Opcode.OpFalse, &[_]usize{});
                 }
+            },
+            .identifier => |ident| {
+                const symbol = self.symbol_table.resolve(ident.value);
+                if (symbol == null) {
+                    stderr.print("Undefined variable '{s}'\n", .{ident.value}) catch {};
+                    return CompilerError.UndefinedVariable;
+                }
+
+                _ = try self.emit(Opcode.OpGetGlobal, &[_]usize{symbol.?.index});
             },
             .prefix_expr => |prefix| {
                 try self.compile_expr_statement(prefix.right_expr);

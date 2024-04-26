@@ -62,17 +62,23 @@ pub const VM = struct {
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
                 },
+                .OpSetGlobal => {},
+                .OpGetGlobal => {},
+
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),
                 .OpNull => try self.push(null_object),
+
                 .OpAdd, .OpSub, .OpMul, .OpDiv => try self.execute_binary_operation(opcode),
 
                 .OpEq, .OpNotEq, .OpGT => try self.execute_comparison(opcode),
                 .OpMinus => try self.execute_minus_operator(),
                 .OpBang => try self.execute_bang_operator(),
+
                 .OpPop => {
                     _ = self.pop();
                 },
+
                 .OpJumpNotTrue => {
                     const offset = bytecode_.read_u16(instr_[(ip + 1)..]);
                     ip += 2; // Skip the operand just readed
