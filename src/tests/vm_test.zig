@@ -118,6 +118,21 @@ test "Test the VM  Conditionals with Null object" {
     try run_test(&alloc, test_cases, *const Object);
 }
 
+test "Test the VM Bindings" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, isize, usize }{
+        .{ "var one = 1; one", 1, 0 },
+        .{ "var one = 2; var two = 2; one + two", 4, 0 },
+        .{ "var one = 1; var two = one + one; one + two", 3, 0 },
+    };
+
+    try run_test(&alloc, test_cases, isize);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
@@ -126,7 +141,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
 
         const bytecode = compiler.get_bytecode();
 
-        var vm = VM.new(alloc, bytecode);
+        var vm = try VM.new(alloc, bytecode);
         try vm.run();
         const last = vm.last_popped_element();
 

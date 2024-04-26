@@ -1,0 +1,9 @@
+var my_number = 1 + 20;
+var second_number = 29;
+var result = my_number + second_number;
+
+if (result > 30):
+   result;
+else:
+    666;
+end

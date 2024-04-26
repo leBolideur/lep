@@ -31,9 +31,11 @@ pub const VM = struct {
     last_popped: ?*const Object,
     sp: usize, // always point to the next free slot
 
+    globals: []*const Object,
+
     alloc: *const std.mem.Allocator,
 
-    pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VM {
+    pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
         return VM{
             .instructions = bytecode.instructions.instructions,
             .constants = bytecode.constants,
@@ -41,6 +43,8 @@ pub const VM = struct {
             .stack = std.ArrayList(*const Object).init(alloc.*),
             .last_popped = null,
             .sp = 0,
+
+            .globals = alloc.*.alloc(*const Object, 65536) catch return VMError.OutOfMemory,
 
             .alloc = alloc,
         };
@@ -62,8 +66,18 @@ pub const VM = struct {
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
                 },
-                .OpSetGlobal => {},
-                .OpGetGlobal => {},
+                .OpSetGlobal => {
+                    const global_index = bytecode_.read_u16(instr_[(ip + 1)..]);
+                    ip += 2;
+
+                    self.globals[global_index] = self.pop().?;
+                },
+                .OpGetGlobal => {
+                    const global_index = bytecode_.read_u16(instr_[(ip + 1)..]);
+                    ip += 2;
+
+                    try self.push(self.globals[global_index]);
+                },
 
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),

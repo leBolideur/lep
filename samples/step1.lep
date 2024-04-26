@@ -1,9 +1,0 @@
-var my_number = 1 + 20;
-
-var add = fn(a, b):
-  ret a + b;
-end;
-
-print(add(1, 2));
-
-print(my_number);

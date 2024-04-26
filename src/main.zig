@@ -2,6 +2,10 @@ const std = @import("std");
 
 const interpreter = @import("interpreter");
 const common = @import("common");
+const compiler_ = @import("compiler");
+
+const Compiler = compiler_.compiler.Compiler;
+const VM = compiler_.vm.VM;
 
 const repl = @import("repl.zig");
 
@@ -39,18 +43,24 @@ pub fn main() !void {
     const buffer = try alloc.alloc(u8, stat.size);
     _ = try reader.readAll(buffer);
 
-    var env = try Environment.init(&alloc);
+    // var env = try Environment.init(&alloc);
 
     var lexer = Lexer.init(buffer);
     var parser = try Parser.init(&lexer, &alloc);
     const program = try parser.parse();
 
-    const evaluator = try Evaluator.init(&alloc);
-    const object = try evaluator.eval(program, &env);
+    // const evaluator = try Evaluator.init(&alloc);
+    // const object = try evaluator.eval(program, &env);
+
+    var compiler = try Compiler.init(&alloc);
+    try compiler.compile(program);
+    var vm = try VM.new(&alloc, compiler.get_bytecode());
+    try vm.run();
+    const object = vm.last_popped_element();
 
     var buf = std.ArrayList(u8).init(alloc);
-    try object.inspect(&buf);
-    switch (object.*) {
+    try object.?.inspect(&buf);
+    switch (object.?.*) {
         .err => try stderr.print("error > {s}\n", .{try buf.toOwnedSlice()}),
         .null => {},
         else => try stdout.print("{s}\n", .{try buf.toOwnedSlice()}),
