@@ -17,7 +17,13 @@ const Opcode = @import("opcode.zig").Opcode;
 const eval_utils = common.eval_utils;
 
 const stderr = std.io.getStdErr().writer();
-const VMError = error{ OutOfMemory, ObjectCreation, WrongType, DivideByZero };
+const VMError = error{
+    OutOfMemory,
+    ObjectCreation,
+    WrongType,
+    DivideByZero,
+    InvalidOperation,
+};
 
 const true_object = eval_utils.new_boolean(true);
 const false_object = eval_utils.new_boolean(false);
@@ -156,7 +162,16 @@ pub const VM = struct {
         switch (right_.*) {
             .integer => {
                 switch (left_.*) {
-                    .integer => {},
+                    .integer => try self.execute_bin_integer_op(opcode, left_, right_),
+                    else => |other| {
+                        stderr.print("Wrong type! Arithmetic operation operands must have the same type, got={?}", .{other}) catch {};
+                        return VMError.WrongType;
+                    },
+                }
+            },
+            .string => {
+                switch (left_.*) {
+                    .string => try self.execute_bin_string_op(opcode, left_, right_),
                     else => |other| {
                         stderr.print("Wrong type! Arithmetic operation operands must have the same type, got={?}", .{other}) catch {};
                         return VMError.WrongType;
@@ -164,11 +179,18 @@ pub const VM = struct {
                 }
             },
             else => |other| {
-                stderr.print("Wrong type! Arithmetic operations is only available with Integer, got={?}", .{other}) catch {};
+                stderr.print("Wrong type! Arithmetic operations is only available with Integer and String, got={?}", .{other}) catch {};
                 return VMError.WrongType;
             },
         }
+    }
 
+    fn execute_bin_integer_op(
+        self: *VM,
+        opcode: Opcode,
+        left_: *const Object,
+        right_: *const Object,
+    ) VMError!void {
         const right = right_.integer.value;
         const left = left_.integer.value;
 
@@ -184,11 +206,37 @@ pub const VM = struct {
                 }
                 result = @divFloor(left, right);
             },
-            else => unreachable,
+            else => {
+                stderr.print("Invalid operation on Integers.", .{}) catch {};
+                return VMError.InvalidOperation;
+            },
         }
 
         const object = eval_utils.new_integer(self.alloc, result) catch return VMError.ObjectCreation;
         try self.push(object);
+    }
+
+    fn execute_bin_string_op(
+        self: *VM,
+        opcode: Opcode,
+        left_: *const Object,
+        right_: *const Object,
+    ) VMError!void {
+        const right = right_.string.value;
+        const left = left_.string.value;
+
+        switch (opcode) {
+            .OpAdd => {
+                const result = std.fmt.allocPrint(self.alloc.*, "{s}{s}", .{ left, right }) catch return VMError.OutOfMemory;
+                // const result = left ++ right;
+                const object = eval_utils.new_string(self.alloc, result) catch return VMError.ObjectCreation;
+                try self.push(object);
+            },
+            else => {
+                stderr.print("Invalid operation on Strings.", .{}) catch {};
+                return VMError.InvalidOperation;
+            },
+        }
     }
 
     fn execute_comparison(self: *VM, opcode: Opcode) VMError!void {

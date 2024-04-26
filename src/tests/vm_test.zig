@@ -21,6 +21,7 @@ const ExpectedValue = union(enum) {
     integer: isize,
     boolean: bool,
     null_: *const Object,
+    string: []const u8,
 };
 
 test "Test the VM with Integers arithmetic" {
@@ -133,6 +134,30 @@ test "Test the VM Bindings" {
     try run_test(&alloc, test_cases, isize);
 }
 
+test "Test VM Strings expressions" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, []const u8, usize }{
+        .{
+            \\"Hello";
+            ,
+            "Hello",
+            0,
+        },
+        .{
+            \\"Hello" + ", " + "World!";
+            ,
+            "Hello, World!",
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, []const u8);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
@@ -155,6 +180,9 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
             try test_expected_object(expected, last);
         } else if (type_ == *const Object) {
             const expected = ExpectedValue{ .null_ = exp[1] };
+            try test_expected_object(expected, last);
+        } else if (type_ == []const u8) {
+            const expected = ExpectedValue{ .string = exp[1] };
             try test_expected_object(expected, last);
         }
     }
@@ -181,8 +209,11 @@ fn test_expected_object(expected: ExpectedValue, actual: ?*const Object) !void {
         .null => {
             try std.testing.expectEqual(expected.null_, null_object);
         },
+        .string => |string| {
+            try std.testing.expectEqualStrings(expected.string, string.value);
+        },
         else => |other| {
-            std.debug.print("Object is not an Integer, got: {any}\n", .{other});
+            std.debug.print("Object cannot be tested, got: {any}\n", .{other});
         },
     }
 }

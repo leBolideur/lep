@@ -136,6 +136,11 @@ pub const Compiler = struct {
 
                 _ = try self.emit(Opcode.OpGetGlobal, &[_]usize{symbol.?.index});
             },
+            .string => |string| {
+                const str_obj = eval_utils.new_string(self.alloc, string.value) catch return CompilerError.ObjectCreation;
+                const const_index = try self.add_constant(str_obj);
+                _ = try self.emit(Opcode.OpConstant, &[_]usize{const_index});
+            },
             .prefix_expr => |prefix| {
                 try self.compile_expr_statement(prefix.right_expr);
 

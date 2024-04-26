@@ -283,6 +283,40 @@ test "Test global var statements" {
     try run_test(&alloc, test_cases, i64);
 }
 
+test "Test Strings litteral and expressions" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const []const u8 }{
+        .{
+            \\"LEP";
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_][]const u8{"LEP"},
+        },
+        .{
+            \\"Hello" + ", " + "World!";
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_][]const u8{ "Hello", ", ", "World!" },
+        },
+    };
+
+    try run_test(&alloc, test_cases, []const u8);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: ?type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
@@ -293,6 +327,8 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         try test_instructions(alloc, exp[1], bytecode.instructions);
         if (type_ == i64) {
             try test_integer_constants(exp[2], bytecode.constants);
+        } else if (type_ == []const u8) {
+            try test_string_constants(exp[2], bytecode.constants);
         }
     }
 }
@@ -337,6 +373,21 @@ fn test_integer_constants(expected: anytype, actual: std.ArrayList(*const Object
             },
             else => |other| {
                 std.debug.print("Object is not an Integer, got: {any}\n", .{other});
+            },
+        }
+    }
+}
+
+fn test_string_constants(expected: anytype, actual: std.ArrayList(*const Object)) !void {
+    try std.testing.expectEqual(expected.len, actual.items.len);
+
+    for (expected, actual.items) |exp, obj| {
+        switch (obj.*) {
+            .string => |string| {
+                try std.testing.expectEqualStrings(exp, string.value);
+            },
+            else => |other| {
+                std.debug.print("Object is not a String, got: {any}\n", .{other});
             },
         }
     }
