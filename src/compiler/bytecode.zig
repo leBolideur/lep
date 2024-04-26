@@ -1,7 +1,5 @@
 const std = @import("std");
 
-// const compiler = @import("compiler");
-
 const opcode_import = @import("opcode.zig");
 const Opcode = opcode_import.Opcode;
 const Definitions = opcode_import.Definitions;

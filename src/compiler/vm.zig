@@ -23,6 +23,7 @@ const VMError = error{
     WrongType,
     DivideByZero,
     InvalidOperation,
+    ArrayCreation,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -85,6 +86,14 @@ pub const VM = struct {
                     try self.push(self.globals[global_index]);
                 },
 
+                .OpArray => {
+                    const array_size = bytecode_.read_u16(instr_[(ip + 1)..]);
+                    ip += 2;
+
+                    const array = try self.build_array(array_size);
+                    try self.push(array);
+                },
+
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),
                 .OpNull => try self.push(null_object),
@@ -120,6 +129,17 @@ pub const VM = struct {
                 },
             }
         }
+    }
+
+    fn build_array(self: *VM, array_size: usize) VMError!*const Object {
+        var popped_values = std.ArrayList(*const Object).init(self.alloc.*);
+        for(0..array_size) |_| {
+            // Insert at 0 to preserve stack order
+            popped_values.insert(0, self.pop().?) catch return VMError.ArrayCreation;
+        }
+
+        const array = eval_utils.new_array(self.alloc, popped_values) catch return VMError.ArrayCreation;
+        return array;
     }
 
     fn execute_bang_operator(self: *VM) VMError!void {

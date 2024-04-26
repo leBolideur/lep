@@ -22,6 +22,7 @@ const ExpectedValue = union(enum) {
     boolean: bool,
     null_: *const Object,
     string: []const u8,
+    int_array: []const i8,
 };
 
 test "Test the VM with Integers arithmetic" {
@@ -158,6 +159,33 @@ test "Test VM Strings expressions" {
     try run_test(&alloc, test_cases, []const u8);
 }
 
+test "Test VM Array with Integers" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, []const i8, usize }{
+        .{
+            "[]",
+            &[_]i8{},
+            0,
+        },
+        .{
+            "[1, 3, 4];",
+            &[_]i8{ 1, 3, 4 },
+            0,
+        },
+        .{
+            "[1 + 2, 6 * 7, 6 - 9];",
+            &[_]i8{ 3, 42, -3 },
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, []const i8);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
@@ -172,19 +200,15 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
 
         try std.testing.expectEqual(exp[2], vm.stack.items.len);
 
-        if (type_ == isize) {
-            const expected = ExpectedValue{ .integer = exp[1] };
-            try test_expected_object(expected, last);
-        } else if (type_ == bool) {
-            const expected = ExpectedValue{ .boolean = exp[1] };
-            try test_expected_object(expected, last);
-        } else if (type_ == *const Object) {
-            const expected = ExpectedValue{ .null_ = exp[1] };
-            try test_expected_object(expected, last);
-        } else if (type_ == []const u8) {
-            const expected = ExpectedValue{ .string = exp[1] };
-            try test_expected_object(expected, last);
-        }
+        const expected = switch (type_) {
+            isize => ExpectedValue{ .integer = exp[1] },
+            bool => ExpectedValue{ .boolean = exp[1] },
+            *const Object => ExpectedValue{ .null_ = exp[1] },
+            []const u8 => ExpectedValue{ .string = exp[1] },
+            []const i8 => ExpectedValue{ .int_array = exp[1] },
+            else => unreachable,
+        };
+        try test_expected_object(expected, last);
     }
 }
 
@@ -211,6 +235,17 @@ fn test_expected_object(expected: ExpectedValue, actual: ?*const Object) !void {
         },
         .string => |string| {
             try std.testing.expectEqualStrings(expected.string, string.value);
+        },
+        .array => |array| {
+            try std.testing.expectEqual(expected.int_array.len, array.elements.items.len);
+            for (expected.int_array, array.elements.items) |exp, act| {
+                switch (act.*) {
+                    .integer => |int| {
+                        try std.testing.expectEqual(exp, int.value);
+                    },
+                    else => unreachable,
+                }
+            }
         },
         else => |other| {
             std.debug.print("Object cannot be tested, got: {any}\n", .{other});

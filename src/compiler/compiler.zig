@@ -97,13 +97,13 @@ pub const Compiler = struct {
     fn compile_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .var_statement => |var_st| {
-                try self.compile_expr_statement(var_st.expression);
+                try self.compile_expression(var_st.expression);
                 const symbol = self.symbol_table.define(var_st.name.value) catch return CompilerError.SetSymbol;
 
                 _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
             },
             .expr_statement => |expr_st| {
-                try self.compile_expr_statement(expr_st.expression);
+                try self.compile_expression(expr_st.expression);
                 _ = try self.emit(Opcode.OpPop, &[_]usize{});
             },
             .block_statement => |block| {
@@ -115,7 +115,7 @@ pub const Compiler = struct {
         }
     }
 
-    fn compile_expr_statement(self: *Compiler, expr: *const ast.Expression) CompilerError!void {
+    fn compile_expression(self: *Compiler, expr: *const ast.Expression) CompilerError!void {
         switch (expr.*) {
             .integer => |int| {
                 try self.compile_integer(int);
@@ -141,8 +141,15 @@ pub const Compiler = struct {
                 const const_index = try self.add_constant(str_obj);
                 _ = try self.emit(Opcode.OpConstant, &[_]usize{const_index});
             },
+            .array => |array| {
+                for (array.elements.items) |elem| {
+                    try self.compile_expression(&elem);
+                }
+
+                _ = try self.emit(Opcode.OpArray, &[_]usize{array.elements.items.len});
+            },
             .prefix_expr => |prefix| {
-                try self.compile_expr_statement(prefix.right_expr);
+                try self.compile_expression(prefix.right_expr);
 
                 switch (prefix.operator) {
                     '-' => _ = try self.emit(Opcode.OpMinus, &[_]usize{}),
@@ -159,8 +166,8 @@ pub const Compiler = struct {
                 // Reordering for < operator
                 if (op == INFIX_OP.LT) {
                     // FIRST compile right THEN left (inverse order of push on stack)
-                    try self.compile_expr_statement(infix.right_expr);
-                    try self.compile_expr_statement(infix.left_expr);
+                    try self.compile_expression(infix.right_expr);
+                    try self.compile_expression(infix.left_expr);
 
                     _ = try self.emit(Opcode.OpGT, &[_]usize{});
 
@@ -168,8 +175,8 @@ pub const Compiler = struct {
                 }
 
                 // Normal order, left then right
-                try self.compile_expr_statement(infix.left_expr);
-                try self.compile_expr_statement(infix.right_expr);
+                try self.compile_expression(infix.left_expr);
+                try self.compile_expression(infix.right_expr);
 
                 switch (op.?) {
                     INFIX_OP.SUM => {
@@ -200,7 +207,7 @@ pub const Compiler = struct {
                 }
             },
             .if_expression => |if_expr| {
-                try self.compile_expr_statement(if_expr.condition);
+                try self.compile_expression(if_expr.condition);
 
                 const jump_not_true_pos = try self.emit(Opcode.OpJumpNotTrue, &[_]usize{9999});
 
