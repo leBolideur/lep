@@ -93,6 +93,7 @@ pub const VM = struct {
                     const array = try self.build_array(array_size);
                     try self.push(array);
                 },
+                .OpHash => {},
 
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),

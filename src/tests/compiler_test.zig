@@ -12,7 +12,6 @@ const ast = common.ast;
 const Opcode = compiler_.opcode.Opcode;
 const bytecode_ = compiler_.bytecode;
 
-// const comp_imp = @import("compiler");
 const Compiler = compiler_.compiler.Compiler;
 
 test "Test the compiler with Integers arithmetic" {
@@ -359,6 +358,59 @@ test "Test Array litteral with Integers" {
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             &[_]i64{ 1, 2, 3, 4, 5, 6 },
+        },
+    };
+
+    try run_test(&alloc, test_cases, i64);
+}
+
+test "Test Hash litteral with Integers" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants, string constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const i64 }{
+        .{
+            "{};",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpHash, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{},
+        },
+        .{
+            \\{"one": 1, "two": 2, "not_three": 4};
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{3}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{4}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{5}),
+                try bytecode_.make(&alloc, Opcode.OpHash, &[_]usize{6}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{ 1, 2, 4 },
+        },
+        .{
+            \\{"foo":  3 - 4, "bar": 5 * 6};
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpSub, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{3}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{4}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{5}),
+                try bytecode_.make(&alloc, Opcode.OpMul, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpHash, &[_]usize{4}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+
+            &[_]i64{ 3, 4, 5, 6 },
         },
     };
 

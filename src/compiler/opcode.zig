@@ -7,6 +7,7 @@ pub const Opcode = enum(u8) {
     OpGetGlobal,
 
     OpArray,
+    OpHash,
 
     OpTrue,
     OpFalse,
@@ -68,6 +69,14 @@ pub const Definitions = struct {
             Opcode.OpArray,
             OpDefinition{
                 .name = "OpArray",
+                .operand_widths = &[_]u8{2},
+                .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpHash,
+            OpDefinition{
+                .name = "OpHash",
                 .operand_widths = &[_]u8{2},
                 .operand_count = 1,
             },

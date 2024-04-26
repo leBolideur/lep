@@ -148,6 +148,21 @@ pub const Compiler = struct {
 
                 _ = try self.emit(Opcode.OpArray, &[_]usize{array.elements.items.len});
             },
+            .hash => |hash| {
+                var iterator = hash.pairs.iterator();
+                while (iterator.next()) |item| {
+                    // Have to push strings key object
+                    const key = item.key_ptr.*;
+                    const key_obj = eval_utils.new_string(self.alloc, key) catch return CompilerError.ObjectCreation;
+                    const const_index = try self.add_constant(key_obj);
+                    _ = try self.emit(Opcode.OpConstant, &[_]usize{const_index});
+
+                    const value = item.value_ptr;
+                    try self.compile_expression(value);
+                }
+
+                _ = try self.emit(Opcode.OpHash, &[_]usize{hash.pairs.count() * 2}); // *2 -> pair = key and value
+            },
             .prefix_expr => |prefix| {
                 try self.compile_expression(prefix.right_expr);
 
@@ -244,11 +259,7 @@ pub const Compiler = struct {
         const object = eval_utils.new_integer(self.alloc, int.value) catch return CompilerError.ObjectCreation;
         const identifier = try self.add_constant(object);
 
-        // Cast to []usize
-        const operands = &[_]usize{identifier};
-        const pos = try self.emit(Opcode.OpConstant, operands);
-
-        _ = pos;
+        _ = try self.emit(Opcode.OpConstant, &[_]usize{identifier});
     }
 
     pub fn get_bytecode(self: Compiler) Bytecode {
