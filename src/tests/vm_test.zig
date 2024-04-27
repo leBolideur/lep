@@ -4,6 +4,8 @@ const interpreter = @import("interpreter");
 const common = @import("common");
 const compiler_ = @import("compiler");
 
+const eval_utils = common.eval_utils;
+
 const Lexer = common.lexer.Lexer;
 const Parser = common.parser.Parser;
 const Object = common.object.Object;
@@ -23,6 +25,7 @@ const ExpectedValue = union(enum) {
     null_: *const Object,
     string: []const u8,
     int_array: []const i8,
+    map: std.StringHashMap(*const Object),
 };
 
 test "Test the VM with Integers arithmetic" {
@@ -186,6 +189,53 @@ test "Test VM Array with Integers" {
     try run_test(&alloc, test_cases, []const i8);
 }
 
+test "Test VM Hash with Integers" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    const map = std.StringHashMap(*const Object).init(alloc);
+
+    var map1 = std.StringHashMap(*const Object).init(alloc);
+    const one = try eval_utils.new_integer(&alloc, 1);
+    try map1.put("one", one);
+    const two = try eval_utils.new_integer(&alloc, 2);
+    try map1.put("two", two);
+
+    var map2 = std.StringHashMap(*const Object).init(alloc);
+    const t = try eval_utils.new_integer(&alloc, 10);
+    try map2.put("foo", t);
+    const tt = try eval_utils.new_integer(&alloc, 7);
+    try map2.put("bar", tt);
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct {
+        []const u8,
+        std.StringHashMap(*const Object),
+        usize,
+    }{
+        .{
+            \\{};
+            ,
+            map,
+            0,
+        },
+        .{
+            \\{"one": 1, "two": 2};
+            ,
+            map1,
+            0,
+        },
+        .{
+            \\{"foo": 9 + 1, "bar": 3 * 2 + 1};
+            ,
+            map2,
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, std.StringHashMap(*const Object));
+}
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
@@ -206,6 +256,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
             *const Object => ExpectedValue{ .null_ = exp[1] },
             []const u8 => ExpectedValue{ .string = exp[1] },
             []const i8 => ExpectedValue{ .int_array = exp[1] },
+            std.StringHashMap(*const Object) => ExpectedValue{ .map = exp[1] },
             else => unreachable,
         };
         try test_expected_object(expected, last);
@@ -242,6 +293,24 @@ fn test_expected_object(expected: ExpectedValue, actual: ?*const Object) !void {
                 switch (act.*) {
                     .integer => |int| {
                         try std.testing.expectEqual(exp, int.value);
+                    },
+                    else => unreachable,
+                }
+            }
+        },
+        .hash => |hash| {
+            try std.testing.expectEqual(expected.map.count(), hash.pairs.count());
+            var iterator = hash.pairs.iterator();
+            var i: usize = 0;
+            while (iterator.next()) |exp| : (i += 1) {
+                const key = exp.key_ptr.*;
+                const value = exp.value_ptr.*;
+
+                const tt = expected.map.get(key).?;
+
+                switch (value.*) {
+                    .integer => |int| {
+                        try std.testing.expectEqual(tt.integer.value, int.value);
                     },
                     else => unreachable,
                 }

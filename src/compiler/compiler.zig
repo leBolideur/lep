@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const common = @import("common");
-// const interpreter = @import("interpreter.zig");
 
 const ast = common.ast;
 const object_import = common.object;
@@ -25,6 +24,7 @@ const CompilerError = error{
     SetSymbol,
     GetSymbol,
     UndefinedVariable,
+    SortError,
 };
 
 pub const Bytecode = struct {
@@ -149,16 +149,15 @@ pub const Compiler = struct {
                 _ = try self.emit(Opcode.OpArray, &[_]usize{array.elements.items.len});
             },
             .hash => |hash| {
-                var iterator = hash.pairs.iterator();
-                while (iterator.next()) |item| {
+                const sorted = try self.sort_hash(hash.pairs);
+                for (sorted) |key| {
                     // Have to push strings key object
-                    const key = item.key_ptr.*;
                     const key_obj = eval_utils.new_string(self.alloc, key) catch return CompilerError.ObjectCreation;
                     const const_index = try self.add_constant(key_obj);
                     _ = try self.emit(Opcode.OpConstant, &[_]usize{const_index});
 
-                    const value = item.value_ptr;
-                    try self.compile_expression(value);
+                    const value = hash.pairs.get(key);
+                    try self.compile_expression(&value.?);
                 }
 
                 _ = try self.emit(Opcode.OpHash, &[_]usize{hash.pairs.count() * 2}); // *2 -> pair = key and value
@@ -253,6 +252,25 @@ pub const Compiler = struct {
             },
             else => unreachable,
         }
+    }
+
+    fn compare_strings(_: void, lhs: []const u8, rhs: []const u8) bool {
+        return std.mem.order(u8, lhs, rhs).compare(std.math.CompareOperator.lt);
+    }
+
+    fn sort_hash(
+        self: *Compiler,
+        pairs: std.StringHashMap(ast.Expression),
+    ) CompilerError![]const []const u8 {
+        var to_sort = std.ArrayList([]const u8).init(self.alloc.*);
+        var iterator_sort = pairs.iterator();
+        while (iterator_sort.next()) |item| {
+            const key = item.key_ptr.*;
+            try to_sort.append(key);
+        }
+        const sorted = to_sort.toOwnedSlice() catch return CompilerError.SortError;
+        std.sort.insertion([]const u8, sorted, {}, compare_strings);
+        return sorted;
     }
 
     fn compile_integer(self: *Compiler, int: ast.IntegerLiteral) CompilerError!void {

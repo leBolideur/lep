@@ -24,6 +24,8 @@ const VMError = error{
     DivideByZero,
     InvalidOperation,
     ArrayCreation,
+    HashCreation,
+    InvalidHashKey,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -93,7 +95,13 @@ pub const VM = struct {
                     const array = try self.build_array(array_size);
                     try self.push(array);
                 },
-                .OpHash => {},
+                .OpHash => {
+                    const hash_size = bytecode_.read_u16(instr_[(ip + 1)..]);
+                    ip += 2;
+
+                    const hash = try self.build_hash(hash_size);
+                    try self.push(hash);
+                },
 
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),
@@ -134,13 +142,38 @@ pub const VM = struct {
 
     fn build_array(self: *VM, array_size: usize) VMError!*const Object {
         var popped_values = std.ArrayList(*const Object).init(self.alloc.*);
-        for(0..array_size) |_| {
+        for (0..array_size) |_| {
             // Insert at 0 to preserve stack order
             popped_values.insert(0, self.pop().?) catch return VMError.ArrayCreation;
         }
 
         const array = eval_utils.new_array(self.alloc, popped_values) catch return VMError.ArrayCreation;
         return array;
+    }
+
+    fn build_hash(self: *VM, hash_size: usize) VMError!*const Object {
+        var popped_values = std.StringHashMap(*const Object).init(self.alloc.*);
+        for (0..hash_size) |_| {
+            const value = self.pop() orelse eval_utils.new_null();
+            const key = self.pop();
+            // std.debug.print("key type: {?}\n", .{key.?});
+
+            // FIXME: bizare...
+            if (key != null) {
+                switch (key.?.*) {
+                    .string => |string| {
+                        popped_values.put(string.value, value) catch return VMError.HashCreation;
+                    },
+                    else => |other| {
+                        stderr.print("Invalid hash key, got: {?}\n", .{other}) catch {};
+                        return VMError.InvalidHashKey;
+                    },
+                }
+            }
+        }
+
+        const hash = eval_utils.new_hash(self.alloc, popped_values) catch return VMError.HashCreation;
+        return hash;
     }
 
     fn execute_bang_operator(self: *VM) VMError!void {
