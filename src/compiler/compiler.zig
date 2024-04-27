@@ -162,6 +162,11 @@ pub const Compiler = struct {
 
                 _ = try self.emit(Opcode.OpHash, &[_]usize{hash.pairs.count() * 2}); // *2 -> pair = key and value
             },
+            .index_expr => |index| {
+                try self.compile_expression(index.left);
+                try self.compile_expression(index.index);
+                _ = try self.emit(Opcode.OpIndex, &[_]usize{});
+            },
             .prefix_expr => |prefix| {
                 try self.compile_expression(prefix.right_expr);
 

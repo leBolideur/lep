@@ -433,6 +433,65 @@ test "Test Hash litteral with Integers" {
     try run_test(&alloc, test_cases, ExpectedHashConstant);
 }
 
+test "Test Index expressions with Array" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const i64 }{
+        .{
+            "[1,2,3][1 + 1];",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpArray, &[_]usize{3}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{3}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{4}),
+                try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpIndex, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]i64{ 1, 2, 3, 1, 1 },
+        },
+    };
+
+    try run_test(&alloc, test_cases, i64);
+}
+
+test "Test Index expressions with Hash" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const ExpectedHashConstant }{
+        .{
+            \\{"foo": "bar"}[1 * 1];
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpHash, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{3}),
+                try bytecode_.make(&alloc, Opcode.OpMul, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpIndex, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedHashConstant{
+                ExpectedHashConstant{ .string = "foo" },
+                ExpectedHashConstant{ .string = "bar" },
+                ExpectedHashConstant{ .integer = 1 },
+                ExpectedHashConstant{ .integer = 1 },
+            },
+        },
+    };
+
+    try run_test(&alloc, test_cases, ExpectedHashConstant);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: ?type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);

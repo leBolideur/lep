@@ -26,6 +26,7 @@ const VMError = error{
     ArrayCreation,
     HashCreation,
     InvalidHashKey,
+    BadIndex,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -102,6 +103,35 @@ pub const VM = struct {
                     const hash = try self.build_hash(hash_size);
                     try self.push(hash);
                 },
+                .OpIndex => {
+                    const index = self.pop().?;
+                    const left = self.pop().?;
+
+                    switch (left.*) {
+                        .array => {
+                            switch (index.*) {
+                                .integer => try self.execute_array_index(left, index),
+                                else => |other| {
+                                    stderr.print("Array must be indexed with Integer only, got: {?}\n", .{other}) catch {};
+                                    return VMError.BadIndex;
+                                },
+                            }
+                        },
+                        .hash => {
+                            switch (index.*) {
+                                .string => try self.execute_hash_index(left, index),
+                                else => |other| {
+                                    stderr.print("Hash must be indexed with String only, got: {?}\n", .{other}) catch {};
+                                    return VMError.BadIndex;
+                                },
+                            }
+                        },
+                        else => |other| {
+                            stderr.print("Indexing is only possible on Array or Hash, got: {?}\n", .{other}) catch {};
+                            return VMError.WrongType;
+                        },
+                    }
+                },
 
                 .OpTrue => try self.push(true_object),
                 .OpFalse => try self.push(false_object),
@@ -138,6 +168,32 @@ pub const VM = struct {
                 },
             }
         }
+    }
+
+    fn execute_array_index(self: *VM, object: *const Object, index: *const Object) VMError!void {
+        const array_len = object.array.elements.items.len;
+
+        if (index.integer.value > 0 and index.integer.value < array_len) {
+            const idx = @as(usize, @intCast(index.integer.value));
+            const elem = object.array.elements.items[idx];
+            try self.push(elem);
+            return;
+        }
+        try self.push(null_object);
+        // if (elem == null) {
+        //     try self.push(null_object);
+        //     return;
+        // }
+    }
+
+    fn execute_hash_index(self: *VM, object: *const Object, index: *const Object) VMError!void {
+        const idx = index.string.value;
+        const elem = object.hash.pairs.get(idx);
+        if (elem == null) {
+            try self.push(null_object);
+            return;
+        }
+        try self.push(elem.?);
     }
 
     fn build_array(self: *VM, array_size: usize) VMError!*const Object {

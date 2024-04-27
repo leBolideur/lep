@@ -236,6 +236,61 @@ test "Test VM Hash with Integers" {
 
     try run_test(&alloc, test_cases, std.StringHashMap(*const Object));
 }
+
+test "Test VM Index expressions" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, isize, usize }{
+        .{ "[1, 2, 3][1]", 2, 0 },
+        .{ "[1, 2, 3][0 + 2]", 3, 0 },
+        .{ "[[1, 1, 1]][0][0]", 1, 0 },
+        .{
+            \\{"one": 1, "two": 2}["one"];
+            ,
+            1,
+            0,
+        },
+        .{
+            \\{"one": 1, "two": 2}["two"];
+            ,
+            2,
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, isize);
+}
+
+test "Test VM Index expressions - null cases" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, *const Object, usize }{
+        .{ "[][0]", null_object, 0 },
+        .{ "[1, 2, 3][99]", null_object, 0 },
+        .{ "[1][-1]", null_object, 0 },
+        .{
+            \\{"one": 1}[""]
+            ,
+            null_object,
+            0,
+        },
+        .{
+            \\{}[""];
+            ,
+            null_object,
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, *const Object);
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
