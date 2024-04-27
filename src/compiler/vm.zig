@@ -180,10 +180,6 @@ pub const VM = struct {
             return;
         }
         try self.push(null_object);
-        // if (elem == null) {
-        //     try self.push(null_object);
-        //     return;
-        // }
     }
 
     fn execute_hash_index(self: *VM, object: *const Object, index: *const Object) VMError!void {
@@ -212,7 +208,6 @@ pub const VM = struct {
         for (0..hash_size) |_| {
             const value = self.pop() orelse eval_utils.new_null();
             const key = self.pop();
-            // std.debug.print("key type: {?}\n", .{key.?});
 
             // FIXME: bizare...
             if (key != null) {
