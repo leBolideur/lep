@@ -166,6 +166,10 @@ pub const VM = struct {
                     const offset = bytecode_.read_u16(instr_[(ip + 1)..]);
                     ip = offset - 1; // -1 because the while loop increment ip by 1
                 },
+
+                .OpCall => {},
+                .OpReturnValue => {},
+                .OpReturn => {},
             }
         }
     }

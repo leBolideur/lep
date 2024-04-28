@@ -29,6 +29,10 @@ pub const Opcode = enum(u8) {
 
     OpJumpNotTrue,
     OpJump,
+
+    OpCall,
+    OpReturnValue,
+    OpReturn,
 };
 
 pub const OpDefinition = struct {
@@ -208,6 +212,30 @@ pub const Definitions = struct {
                 .name = "OpJump",
                 .operand_widths = &[_]u8{2},
                 .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpCall,
+            OpDefinition{
+                .name = "OpCall",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpReturnValue,
+            OpDefinition{
+                .name = "OpReturnValue",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpReturn,
+            OpDefinition{
+                .name = "OpReturn",
+                .operand_widths = &[_]u8{0},
+                .operand_count = 0,
             },
         );
 

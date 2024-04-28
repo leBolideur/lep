@@ -25,6 +25,8 @@ const CompilerError = error{
     GetSymbol,
     UndefinedVariable,
     SortError,
+    EnterScope,
+    InvalidPosition,
 };
 
 pub const Bytecode = struct {
@@ -37,14 +39,19 @@ const EmittedInstruction = struct {
     position: usize,
 };
 
+const Scope = struct {
+    instructions: bytecode_.Instructions,
+    last_instruction: ?EmittedInstruction,
+    previous_instruction: ?EmittedInstruction,
+};
+
 const stderr = std.io.getStdErr().writer();
 
 pub const Compiler = struct {
-    instructions: bytecode_.Instructions,
     constants: std.ArrayList(*const Object),
 
-    last_instruction: ?EmittedInstruction,
-    previous_instruction: ?EmittedInstruction,
+    scopes: std.ArrayList(Scope),
+    scope_index: usize = 0,
 
     symbol_table: SymbolTable,
 
@@ -68,12 +75,18 @@ pub const Compiler = struct {
         const constants = std.ArrayList(*const Object).init(alloc.*);
         const instructions = std.ArrayList(u8).init(alloc.*);
 
-        return Compiler{
+        const main_scope = Scope{
             .instructions = bytecode_.Instructions{ .instructions = instructions },
+            .previous_instruction = null,
+            .last_instruction = null,
+        };
+        var scopes = std.ArrayList(Scope).init(alloc.*);
+        try scopes.append(main_scope);
+
+        return Compiler{
             .constants = constants,
 
-            .last_instruction = null,
-            .previous_instruction = null,
+            .scopes = scopes,
 
             .symbol_table = SymbolTable.new(alloc),
 
@@ -81,6 +94,31 @@ pub const Compiler = struct {
 
             .alloc = alloc,
         };
+    }
+
+    fn current_scope(self: Compiler) Scope {
+        return self.scopes.items[self.scope_index];
+    }
+
+    pub fn enter_scope(self: *Compiler) !void {
+        const new = Scope{
+            .instructions = bytecode_.Instructions{
+                .instructions = std.ArrayList(u8).init(self.alloc.*),
+            },
+            .last_instruction = null,
+            .previous_instruction = null,
+        };
+
+        try self.scopes.append(new);
+        self.scope_index += 1;
+    }
+
+    pub fn leave_scope(self: *Compiler) bytecode_.Instructions {
+        const instructions = self.current_scope().instructions;
+        _ = self.scopes.pop();
+        self.scope_index -= 1;
+
+        return instructions;
     }
 
     pub fn compile(self: *Compiler, node: ast.Node) CompilerError!void {
@@ -102,6 +140,10 @@ pub const Compiler = struct {
 
                 _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
             },
+            .ret_statement => |ret_st| {
+                try self.compile_expression(ret_st.expression);
+                _ = try self.emit(Opcode.OpReturnValue, &[_]usize{});
+            },
             .expr_statement => |expr_st| {
                 try self.compile_expression(expr_st.expression);
                 _ = try self.emit(Opcode.OpPop, &[_]usize{});
@@ -111,7 +153,13 @@ pub const Compiler = struct {
                     try self.compile_statement(b_st);
                 }
             },
-            else => unreachable,
+        }
+    }
+
+    // FIXME: Ugly and duplicate...
+    fn compile_block_statement(self: *Compiler, block: ast.BlockStatement) CompilerError!void {
+        for (block.statements.items) |b_st| {
+            try self.compile_statement(b_st);
         }
     }
 
@@ -237,8 +285,9 @@ pub const Compiler = struct {
                 if (self.last_is_pop())
                     self.remove_last_pop();
 
+                const current = self.current_scope();
                 const jump_pos = try self.emit(Opcode.OpJump, &[_]usize{9999});
-                const after_consequence = self.instructions.instructions.items.len;
+                const after_consequence = current.instructions.instructions.items.len;
                 try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
 
                 if (if_expr.alternative == null) {
@@ -252,8 +301,25 @@ pub const Compiler = struct {
                         self.remove_last_pop();
                 }
 
-                const after_alternative = self.instructions.instructions.items.len;
+                const after_alternative = current.instructions.instructions.items.len;
                 try self.change_operand(jump_pos, &[_]usize{after_alternative});
+            },
+            .func => |func| {
+                switch (func) {
+                    .literal => |lit| {
+                        self.enter_scope() catch return CompilerError.EnterScope;
+
+                        try self.compile_block_statement(lit.body);
+                        const instructions = self.leave_scope();
+
+                        const func_obj = eval_utils.new_compiled_func(self.alloc, instructions) catch return CompilerError.ObjectCreation;
+                        const constant_idx = try self.add_constant(func_obj);
+
+                        _ = try self.emit(Opcode.OpConstant, &[_]usize{constant_idx});
+                    },
+                    // TODO: Handle named function
+                    .named => {},
+                }
             },
             else => unreachable,
         }
@@ -286,8 +352,9 @@ pub const Compiler = struct {
     }
 
     pub fn get_bytecode(self: Compiler) Bytecode {
+        const current = self.current_scope();
         return Bytecode{
-            .instructions = self.instructions,
+            .instructions = current.instructions,
             .constants = self.constants,
         };
     }
@@ -299,44 +366,55 @@ pub const Compiler = struct {
         return self.constants.items.len - 1;
     }
 
-    fn emit(self: *Compiler, opcode: Opcode, operands: []const usize) CompilerError!usize {
+    pub fn emit(self: *Compiler, opcode: Opcode, operands: []const usize) CompilerError!usize {
         const instruction = bytecode_.make(self.alloc, opcode, operands) catch return CompilerError.MakeInstr;
         const pos = try self.add_instruction(instruction);
 
-        self.previous_instruction = self.last_instruction;
-        self.last_instruction = EmittedInstruction{ .opcode = opcode, .position = pos };
+        var current = self.current_scope();
+        current.previous_instruction = current.last_instruction;
+        current.last_instruction = EmittedInstruction{ .opcode = opcode, .position = pos };
 
         return pos;
     }
 
     fn add_instruction(self: *Compiler, instruction: []const u8) CompilerError!usize {
         // Starting position of the instruction
-        const pos_new_instr = self.instructions.instructions.items.len;
+        var current = self.current_scope();
+        const pos_new_instr = current.instructions.instructions.items.len;
         for (instruction) |b| {
-            try self.instructions.instructions.append(b);
+            try current.instructions.instructions.append(b);
         }
 
         return pos_new_instr;
     }
 
     fn last_is_pop(self: Compiler) bool {
-        return self.last_instruction.?.opcode == Opcode.OpPop;
+        const current = self.current_scope();
+        const last = current.last_instruction orelse return false;
+        return last.opcode == Opcode.OpPop;
     }
 
     fn remove_last_pop(self: *Compiler) void {
-        _ = self.instructions.instructions.pop();
-        self.last_instruction = self.previous_instruction;
+        var current = self.current_scope();
+        _ = current.instructions.instructions.pop();
+        current.last_instruction = current.previous_instruction;
     }
 
     fn replace_instruction(self: *Compiler, pos: usize, new: []const u8) void {
+        const current = self.current_scope();
         var i: usize = 0;
         while (i < new.len) : (i += 1) {
-            self.instructions.instructions.items[pos + i] = new[i];
+            current.instructions.instructions.items[pos + i] = new[i];
         }
     }
 
     fn change_operand(self: *Compiler, pos: usize, operand: []const usize) CompilerError!void {
-        const opcode = @as(Opcode, @enumFromInt(self.instructions.instructions.items[pos]));
+        const current = self.current_scope();
+        const instr_len = current.instructions.instructions.items.len;
+        if (pos < 0 or pos > instr_len) return CompilerError.InvalidPosition;
+        std.debug.print("pos: {d}\tlen: {d}\n", .{ pos, instr_len });
+
+        const opcode = @as(Opcode, @enumFromInt(current.instructions.instructions.items[pos]));
         const new_instruction = bytecode_.make(self.alloc, opcode, operand) catch return CompilerError.MakeInstr;
         self.replace_instruction(pos, new_instruction);
     }

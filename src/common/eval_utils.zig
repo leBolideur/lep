@@ -1,7 +1,9 @@
 const std = @import("std");
 
 const interpreter = @import("interpreter");
-// const common = @import("common");
+const compiler = @import("compiler");
+
+const bytecode = compiler.bytecode;
 
 const obj_import = @import("object.zig");
 const Object = obj_import.Object;
@@ -16,6 +18,7 @@ const Error = obj_import.Error;
 const Func = obj_import.Func;
 const NamedFunc = obj_import.NamedFunc;
 const LiteralFunc = obj_import.LiteralFunc;
+const CompiledFunc = obj_import.CompiledFunc;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
@@ -124,6 +127,17 @@ pub fn new_func(
             ptr.* = Object{ .literal_func = lit };
         },
     }
+
+    return ptr;
+}
+
+pub fn new_compiled_func(allocator: *const std.mem.Allocator, instructions: bytecode.Instructions) !*const Object {
+    const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
+    const compiled = CompiledFunc{
+        .type = ObjectType.CompiledFunc,
+        .instructions = instructions,
+    };
+    ptr.* = Object{ .compiled_func = compiled };
 
     return ptr;
 }

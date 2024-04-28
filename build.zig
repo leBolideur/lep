@@ -25,6 +25,7 @@ pub fn build(b: *std.Build) void {
     common.addImport("interpreter", interpreter);
 
     exe.root_module.addImport("compiler", compiler);
+    common.addImport("compiler", compiler);
 
     b.installArtifact(exe);
 
