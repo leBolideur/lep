@@ -281,7 +281,7 @@ pub const Compiler = struct {
                     try self.compile_statement(b_st);
                 }
 
-                if (self.last_is_pop())
+                if (self.last_instruction_is(Opcode.OpPop))
                     self.remove_last_pop();
 
                 const current = self.current_scope();
@@ -296,7 +296,7 @@ pub const Compiler = struct {
                         try self.compile_statement(b_st);
                     }
 
-                    if (self.last_is_pop())
+                    if (self.last_instruction_is(Opcode.OpPop))
                         self.remove_last_pop();
                 }
 
@@ -309,6 +309,14 @@ pub const Compiler = struct {
                         self.enter_scope() catch return CompilerError.EnterScope;
 
                         try self.compile_block_statement(lit.body);
+
+                        // Implicit return
+                        if (self.last_instruction_is(Opcode.OpPop))
+                            try self.replace_last_pop_with_return();
+                        // function with empty body
+                        if (!self.last_instruction_is(Opcode.OpReturnValue))
+                            _ = try self.emit(Opcode.OpReturn, &[_]usize{});
+
                         const instructions = self.leave_scope();
 
                         const func_obj = eval_utils.new_compiled_func(self.alloc, instructions) catch return CompilerError.ObjectCreation;
@@ -322,6 +330,16 @@ pub const Compiler = struct {
             },
             else => unreachable,
         }
+    }
+
+    fn replace_last_pop_with_return(self: *Compiler) !void {
+        var current = self.current_scope();
+        const last_position = current.last_instruction.?.position;
+
+        const op_return = bytecode_.make(self.alloc, Opcode.OpReturnValue, &[_]usize{}) catch return CompilerError.MakeInstr;
+        self.replace_instruction(last_position, op_return);
+
+        current.last_instruction.?.opcode = Opcode.OpReturnValue;
     }
 
     fn compare_strings(_: void, lhs: []const u8, rhs: []const u8) bool {
@@ -387,10 +405,12 @@ pub const Compiler = struct {
         return pos_new_instr;
     }
 
-    fn last_is_pop(self: *Compiler) bool {
+    fn last_instruction_is(self: *Compiler, opcode: Opcode) bool {
         const current = self.current_scope();
+        if (current.instructions.items.len == 0) return false; // function with no body?
+
         const last = current.last_instruction orelse return false;
-        return last.opcode == Opcode.OpPop;
+        return last.opcode == opcode;
     }
 
     fn remove_last_pop(self: *Compiler) void {

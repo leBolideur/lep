@@ -510,15 +510,67 @@ test "Test Functions" {
                 try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
-            &[3]ExpectedFunctionConstants{
+            &[_]ExpectedFunctionConstants{
                 ExpectedFunctionConstants{ .int = 5 },
                 ExpectedFunctionConstants{ .int = 10 },
                 ExpectedFunctionConstants{
-                    .instructions = &[4][]const u8{
+                    .instructions = &[_][]const u8{
                         try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
                         try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                         try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
                         try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+        .{
+            "fn(): 10 + 6; end",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 10 },
+                ExpectedFunctionConstants{ .int = 6 },
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+        .{
+            "fn(): 10; 6; end",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 10 },
+                ExpectedFunctionConstants{ .int = 6 },
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+        .{
+            "fn():  end",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpReturn, &[_]usize{}),
                     },
                 },
             },
@@ -653,32 +705,45 @@ fn test_hash_constants(expected: []const ExpectedHashConstant, actual: std.Array
 }
 
 fn test_function_constants(expected: []const ExpectedFunctionConstants, actual: std.ArrayList(*const Object)) !void {
-    _ = expected;
-    _ = actual;
-    //     try std.testing.expectEqual(expected.len, actual.items.len);
-    //
-    //     for (expected, actual.items) |exp, obj| {
-    //         switch (obj.*) {
-    //             .integer => |int| {
-    //                 try std.testing.expectEqual(exp.int, int.value);
-    //             },
-    //             .compiled_func => |func| {
-    //                 // try std.testing.expectEqual(exp.instructions.len, func.instructions.items.len);
-    //                 for (func.instructions.items) |fi| {
-    //                     std.debug.print("fi >> {any}\n", .{fi});
-    //                 }
-    //
-    //                 // for (exp.instructions, func.instructions.items) |exp_i, act| {
-    //                 //     std.debug.print("exp_i >> {s}\n", .{exp_i});
-    //                 //     std.debug.print("act >> {?}\n\n", .{act});
-    //                 //     // try std.testing.expectEqual(exp_i, act);
-    //                 // }
-    //             },
-    //             else => |other| {
-    //                 std.debug.print("Object is not a Function, got: {any}\n", .{other});
-    //             },
-    //         }
-    //     }
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    try std.testing.expectEqual(expected.len, actual.items.len);
+
+    for (expected, actual.items) |exp, obj| {
+        switch (obj.*) {
+            .integer => |int| {
+                try std.testing.expectEqual(exp.int, int.value);
+            },
+            .compiled_func => |func| {
+                for (expected) |case| {
+                    switch (case) {
+                        .instructions => |ei| {
+                            var flat = std.ArrayList(u8).init(alloc);
+
+                            for (ei) |i| {
+                                for (i) |b| {
+                                    try flat.append(b);
+                                }
+                            }
+                            const flattened = try flat.toOwnedSlice();
+
+                            var func_i = func.instructions;
+                            const func_slice = try func_i.toOwnedSlice();
+                            try std.testing.expectEqualSlices(u8, flattened, func_slice);
+                        },
+                        .int => |int| {
+                            _ = int;
+                        },
+                    }
+                }
+            },
+            else => |other| {
+                std.debug.print("Object is not a Function, got: {any}\n", .{other});
+            },
+        }
+    }
 }
 
 fn print_instruction(i: std.ArrayList(u8)) !void {
