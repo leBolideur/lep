@@ -11,6 +11,7 @@ const bytecode_ = @import("bytecode.zig");
 
 const comp_imp = @import("compiler.zig");
 const Bytecode = comp_imp.Bytecode;
+const Frame = @import("frame.zig").Frame;
 
 const Opcode = @import("opcode.zig").Opcode;
 
@@ -27,6 +28,7 @@ const VMError = error{
     HashCreation,
     InvalidHashKey,
     BadIndex,
+    FrameCreation,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -34,25 +36,35 @@ const false_object = eval_utils.new_boolean(false);
 pub const null_object = eval_utils.new_null();
 
 pub const VM = struct {
-    instructions: std.ArrayList(u8),
+    // instructions: std.ArrayList(u8),
     constants: std.ArrayList(*const Object),
 
     stack: std.ArrayList(*const Object),
     last_popped: ?*const Object,
-    sp: usize, // always point to the next free slot
+    // sp: usize, // always point to the next free slot
+
+    frames: std.ArrayList(*Frame),
 
     globals: []*const Object,
 
     alloc: *const std.mem.Allocator,
 
     pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
+        const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions) catch return VMError.ObjectCreation;
+        const main_frame = Frame.new(alloc, main_fn) catch return VMError.FrameCreation;
+
+        var frames = std.ArrayList(*Frame).init(alloc.*);
+        frames.append(main_frame) catch return VMError.OutOfMemory;
+
         return VM{
-            .instructions = bytecode.instructions,
+            // .instructions = bytecode.instructions,
             .constants = bytecode.constants,
 
             .stack = std.ArrayList(*const Object).init(alloc.*),
             .last_popped = null,
-            .sp = 0,
+            // .sp = 0,
+
+            .frames = frames,
 
             .globals = alloc.*.alloc(*const Object, 65536) catch return VMError.OutOfMemory,
 
@@ -60,45 +72,63 @@ pub const VM = struct {
         };
     }
 
-    pub fn run(self: *VM) VMError!void {
-        var ip: usize = 0;
+    fn current_frame(self: VM) *Frame {
+        return self.frames.getLast();
+    }
 
-        const instr_ = try self.instructions.toOwnedSlice();
-        while (ip < instr_.len) : (ip += 1) {
-            const opcode_ = instr_[ip];
+    fn push_frame(self: *VM, frame: *const Frame) *Frame {
+        try self.frames.append(frame);
+        return self.current_frame();
+    }
+
+    fn pop_frame(self: *VM) *Frame {
+        return self.frames.pop().?;
+    }
+
+    pub fn run(self: *VM) VMError!void {
+        // const instructions = try self.instructions.toOwnedSlice();
+        var current = self.current_frame().*;
+        var ip: usize = undefined;
+        var instructions: std.ArrayList(u8) = undefined;
+
+        while (current.ip < current.instructions().items.len) : (current.ip += 1) {
+            ip = current.ip;
+            instructions = current.instructions();
+
+            const opcode_ = instructions.items[ip];
             const opcode = @as(Opcode, @enumFromInt(opcode_));
 
             switch (opcode) {
                 .OpConstant => {
-                    const index = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip += 2; // Skip the operand just readed
+                    const index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    current.ip += 2; // Skip the operand just readed
 
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
                 },
                 .OpSetGlobal => {
-                    const global_index = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip += 2;
+                    const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    current.ip += 2;
 
                     self.globals[global_index] = self.pop().?;
                 },
                 .OpGetGlobal => {
-                    const global_index = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip += 2;
+                    const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    current.ip += 2;
 
                     try self.push(self.globals[global_index]);
                 },
 
                 .OpArray => {
-                    const array_size = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip += 2;
+                    const array_size = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    current.ip += 2;
 
                     const array = try self.build_array(array_size);
                     try self.push(array);
                 },
                 .OpHash => {
-                    const hash_size = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip += 2;
+                    const hash_size = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    current.ip += 2;
 
                     const hash = try self.build_hash(hash_size);
                     try self.push(hash);
@@ -148,8 +178,8 @@ pub const VM = struct {
                 },
 
                 .OpJumpNotTrue => {
-                    const offset = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip += 2; // Skip the operand just readed
+                    const offset = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    current.ip += 2; // Skip the operand just readed
 
                     const condition_obj = self.pop();
                     switch (condition_obj.?.*) {
@@ -163,8 +193,8 @@ pub const VM = struct {
                     }
                 },
                 .OpJump => {
-                    const offset = bytecode_.read_u16(instr_[(ip + 1)..]);
-                    ip = offset - 1; // -1 because the while loop increment ip by 1
+                    const offset = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    current.ip = offset - 1; // -1 because the while loop increment ip by 1
                 },
 
                 .OpCall => {},
