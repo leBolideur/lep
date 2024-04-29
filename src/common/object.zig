@@ -111,7 +111,7 @@ pub const LiteralFunc = struct {
 pub const CompiledFunc = struct {
     type: ObjectType,
     // name: []const u8,
-    instructions: Instructions,
+    instructions: std.ArrayList(u8),
 
     pub fn inspect(_: CompiledFunc, buf: *std.ArrayList(u8)) ObjectError!void {
         std.fmt.format(buf.*.writer(), "CompiledFunc", .{}) catch return ObjectError.InspectFormatError;

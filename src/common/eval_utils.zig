@@ -131,7 +131,7 @@ pub fn new_func(
     return ptr;
 }
 
-pub fn new_compiled_func(allocator: *const std.mem.Allocator, instructions: bytecode.Instructions) !*const Object {
+pub fn new_compiled_func(allocator: *const std.mem.Allocator, instructions: std.ArrayList(u8)) !*const Object {
     const ptr = allocator.create(Object) catch return EvalError.MemAlloc;
     const compiled = CompiledFunc{
         .type = ObjectType.CompiledFunc,

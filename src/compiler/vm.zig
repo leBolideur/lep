@@ -47,7 +47,7 @@ pub const VM = struct {
 
     pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
         return VM{
-            .instructions = bytecode.instructions.instructions,
+            .instructions = bytecode.instructions,
             .constants = bytecode.constants,
 
             .stack = std.ArrayList(*const Object).init(alloc.*),

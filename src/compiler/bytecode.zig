@@ -10,42 +10,51 @@ const BytecodeError = error{ OpNoDefinition, ArrayListError, OutOfMemory };
 pub const Instructions = struct {
     instructions: std.ArrayList(u8),
 
-    pub fn to_string(
-        self: *Instructions,
-        alloc: *const std.mem.Allocator,
-        definitions: *const Definitions,
-    ) BytecodeError![]const u8 {
-        const instructions = try self.instructions.toOwnedSlice();
-        var offset: u8 = 0;
-        var string = std.ArrayList(u8).init(alloc.*);
+    pub fn init(alloc: *const std.mem.Allocator) !*const Instructions {
+        const ptr = try alloc.*.create(Instructions);
+        ptr.* = Instructions{
+            .instructions = std.ArrayList(u8).init(alloc.*),
+        };
 
-        while (offset < instructions.len) {
-            const instr = instructions[offset];
-
-            const op_def = try definitions.*.lookup(@enumFromInt(instr));
-            const def: OpDefinition = op_def orelse return BytecodeError.OpNoDefinition;
-
-            var bytes_read: u8 = 0;
-            const operands = instructions[(offset + 1)..]; // +1 to skip opcode
-            const operands_read = try read_operands(alloc, def, operands, &bytes_read);
-
-            try std.fmt.format(string.writer(), "{d:0>4} {s}", .{ offset, def.name });
-            if (bytes_read == 0) {
-                try std.fmt.format(string.writer(), "\n", .{});
-            }
-            for (operands_read, 1..) |op, i| {
-                try std.fmt.format(string.writer(), " {d}", .{op});
-                if (i != operands_read.len - 1) {
-                    try std.fmt.format(string.writer(), "\n", .{});
-                }
-            }
-
-            offset += bytes_read + 1; // +1 to jump opcode
-        }
-
-        return try string.toOwnedSlice();
+        return ptr;
     }
 };
+
+pub fn to_string(
+    instructions_: *std.ArrayList(u8),
+    alloc: *const std.mem.Allocator,
+    definitions: *const Definitions,
+) BytecodeError![]const u8 {
+    const instructions = try instructions_.toOwnedSlice();
+    var offset: u8 = 0;
+    var string = std.ArrayList(u8).init(alloc.*);
+
+    while (offset < instructions.len) {
+        const instr = instructions[offset];
+
+        const op_def = try definitions.*.lookup(@enumFromInt(instr));
+        const def: OpDefinition = op_def orelse return BytecodeError.OpNoDefinition;
+
+        var bytes_read: u8 = 0;
+        const operands = instructions[(offset + 1)..]; // +1 to skip opcode
+        const operands_read = try read_operands(alloc, def, operands, &bytes_read);
+
+        try std.fmt.format(string.writer(), "{d:0>4} {s}", .{ offset, def.name });
+        if (bytes_read == 0) {
+            try std.fmt.format(string.writer(), "\n", .{});
+        }
+        for (operands_read, 1..) |op, i| {
+            try std.fmt.format(string.writer(), " {d}", .{op});
+            if (i != operands_read.len - 1) {
+                try std.fmt.format(string.writer(), "\n", .{});
+            }
+        }
+
+        offset += bytes_read + 1; // +1 to jump opcode
+    }
+
+    return try string.toOwnedSlice();
+}
 
 pub fn make(
     alloc: *const std.mem.Allocator,

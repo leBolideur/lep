@@ -73,10 +73,10 @@ test "Test Instruction.string" {
             try flattened_.append(b);
         }
     }
-    var flattened = bytecode_.Instructions{ .instructions = flattened_ };
+    // var flattened = bytecode_.Instructions{ .instructions = flattened_ };
 
     var definitions = try Definitions.init(&alloc);
-    const str = try flattened.to_string(&alloc, &definitions);
+    const str = try bytecode_.to_string(&flattened_, &alloc, &definitions);
 
     try std.testing.expectEqualStrings(expected, str);
 }
