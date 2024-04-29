@@ -580,6 +580,56 @@ test "Test Functions" {
     try run_test(&alloc, test_cases, ExpectedFunctionConstants);
 }
 
+test "Test Functions Calls" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const ExpectedFunctionConstants }{
+        .{
+            "fn(): 10; end();",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 10 },
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+        .{
+            \\var func = fn(): 10; end;
+            \\func();
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 10 },
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+    };
+
+    try run_test(&alloc, test_cases, ExpectedFunctionConstants);
+}
+
 test "Test Compiler Scopes" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();

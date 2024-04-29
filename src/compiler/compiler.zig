@@ -328,7 +328,10 @@ pub const Compiler = struct {
                     .named => {},
                 }
             },
-            else => unreachable,
+            .call_expression => |call| {
+                try self.compile_expression(call.function);
+                _ = try self.emit(Opcode.OpCall, &[_]usize{});
+            },
         }
     }
 
