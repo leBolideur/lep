@@ -284,9 +284,9 @@ pub const Compiler = struct {
                 if (self.last_instruction_is(Opcode.OpPop))
                     self.remove_last_pop();
 
-                const current = self.current_scope();
+                // const current = self.current_scope();
                 const jump_pos = try self.emit(Opcode.OpJump, &[_]usize{9999});
-                const after_consequence = current.instructions.items.len;
+                const after_consequence = self.current_scope().instructions.items.len;
                 try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
 
                 if (if_expr.alternative == null) {
@@ -300,7 +300,7 @@ pub const Compiler = struct {
                         self.remove_last_pop();
                 }
 
-                const after_alternative = current.instructions.items.len;
+                const after_alternative = self.current_scope().instructions.items.len;
                 try self.change_operand(jump_pos, &[_]usize{after_alternative});
             },
             .func => |func| {
@@ -372,9 +372,8 @@ pub const Compiler = struct {
     }
 
     pub fn get_bytecode(self: *Compiler) Bytecode {
-        const current = self.current_scope();
         return Bytecode{
-            .instructions = current.instructions,
+            .instructions = self.current_scope().instructions,
             .constants = self.constants,
         };
     }

@@ -98,12 +98,12 @@ test "Test the VM with Conditionals" {
 
     // expr, result, remaining element on stacks
     const test_cases = [_]struct { []const u8, isize, usize }{
-        .{ "if (true): 10; end", 10, 0 },
-        .{ "if (true): 10; else: 20; end", 10, 0 },
-        .{ "if (false): 10; else: 20; end", 20, 0 },
-        .{ "if (1 < 2): 10; end", 10, 0 },
-        .{ "if (1 < 2): 10; else: 20; end", 10, 0 },
-        .{ "if (1 > 2): 10; else: 20; end", 20, 0 },
+        .{ "if (true): 9; end", 9, 0 },
+        .{ "if (true): 11; else: 21; end", 11, 0 },
+        .{ "if (false): 13; else: 22; end", 22, 0 },
+        .{ "if (1 < 2): 8; end", 8, 0 },
+        .{ "if (1 < 2): 10; else: 23; end", 10, 0 },
+        .{ "if (1 > 2): 10; else: 24; end", 24, 0 },
     };
 
     try run_test(&alloc, test_cases, isize);
@@ -291,6 +291,83 @@ test "Test VM Index expressions - null cases" {
     try run_test(&alloc, test_cases, *const Object);
 }
 
+test "Test VM Calling functions without arguments" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, isize, usize }{
+        .{
+            \\var test = fn(): ret 1 + 5; end;
+            \\test();
+            ,
+            6,
+            0,
+        },
+        // Implicit return
+        .{
+            \\var test = fn(): 3 + 5; end;
+            \\test();
+            ,
+            8,
+            0,
+        },
+        .{
+            \\var test = fn(): ret 1 + 5; end;
+            \\var same = fn(): test(); end;
+            \\test() + same();
+            ,
+            12,
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, isize);
+}
+
+fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
+    switch (object.*) {
+        .integer => {
+            switch (value) {
+                .integer => return true,
+                else => return false,
+            }
+        },
+        .boolean => {
+            switch (value) {
+                .boolean => return true,
+                else => return false,
+            }
+        },
+        .null => {
+            switch (value) {
+                .null_ => return true,
+                else => return false,
+            }
+        },
+        .string => {
+            switch (value) {
+                .string => return true,
+                else => return false,
+            }
+        },
+        .array => {
+            switch (value) {
+                .int_array => return true,
+                else => return false,
+            }
+        },
+        .hash => {
+            switch (value) {
+                .map => return true,
+                else => return false,
+            }
+        },
+        else => unreachable,
+    }
+}
+
 fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_: type) !void {
     for (test_cases) |exp| {
         const root_node = try parse(exp[0], alloc);
@@ -303,6 +380,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         try vm.run();
         const last = vm.last_popped_element();
 
+        // Remaining element on the stack
         try std.testing.expectEqual(exp[2], vm.stack.items.len);
 
         const expected = switch (type_) {
@@ -314,6 +392,10 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
             std.StringHashMap(*const Object) => ExpectedValue{ .map = exp[1] },
             else => unreachable,
         };
+
+        const is_same_type = expected_same_type(last.?, expected);
+        try std.testing.expect(is_same_type);
+
         try test_expected_object(expected, last);
     }
 }

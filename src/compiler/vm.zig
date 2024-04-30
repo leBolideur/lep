@@ -29,6 +29,7 @@ const VMError = error{
     InvalidHashKey,
     BadIndex,
     FrameCreation,
+    MissingExpression,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -36,14 +37,12 @@ const false_object = eval_utils.new_boolean(false);
 pub const null_object = eval_utils.new_null();
 
 pub const VM = struct {
-    // instructions: std.ArrayList(u8),
     constants: std.ArrayList(*const Object),
 
     stack: std.ArrayList(*const Object),
     last_popped: ?*const Object,
-    // sp: usize, // always point to the next free slot
 
-    frames: std.ArrayList(*Frame),
+    frames: std.ArrayList(Frame),
 
     globals: []*const Object,
 
@@ -51,18 +50,17 @@ pub const VM = struct {
 
     pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
         const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions) catch return VMError.ObjectCreation;
-        const main_frame = Frame.new(alloc, main_fn) catch return VMError.FrameCreation;
 
-        var frames = std.ArrayList(*Frame).init(alloc.*);
+        const main_frame = Frame.new(main_fn) catch return VMError.FrameCreation;
+
+        var frames = std.ArrayList(Frame).init(alloc.*);
         frames.append(main_frame) catch return VMError.OutOfMemory;
 
         return VM{
-            // .instructions = bytecode.instructions,
             .constants = bytecode.constants,
 
             .stack = std.ArrayList(*const Object).init(alloc.*),
             .last_popped = null,
-            // .sp = 0,
 
             .frames = frames,
 
@@ -72,28 +70,24 @@ pub const VM = struct {
         };
     }
 
-    fn current_frame(self: VM) *Frame {
+    fn current_frame(self: *VM) Frame {
         return self.frames.getLast();
     }
 
-    fn push_frame(self: *VM, frame: *const Frame) *Frame {
-        try self.frames.append(frame);
+    fn push_frame(self: *VM, frame: Frame) VMError!Frame {
+        self.frames.append(frame) catch return VMError.FrameCreation;
         return self.current_frame();
     }
 
-    fn pop_frame(self: *VM) *Frame {
-        return self.frames.pop().?;
+    fn pop_frame(self: *VM) Frame {
+        return self.frames.pop();
     }
 
     pub fn run(self: *VM) VMError!void {
-        // const instructions = try self.instructions.toOwnedSlice();
-        var current = self.current_frame().*;
-        var ip: usize = undefined;
-        var instructions: std.ArrayList(u8) = undefined;
-
-        while (current.ip < current.instructions().items.len) : (current.ip += 1) {
-            ip = current.ip;
-            instructions = current.instructions();
+        var current_f = self.current_frame();
+        while (current_f.ip < (current_f.instructions().items.len)) : (current_f.ip += 1) {
+            const ip = current_f.ip;
+            var instructions = current_f.instructions();
 
             const opcode_ = instructions.items[ip];
             const opcode = @as(Opcode, @enumFromInt(opcode_));
@@ -101,34 +95,34 @@ pub const VM = struct {
             switch (opcode) {
                 .OpConstant => {
                     const index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    current.ip += 2; // Skip the operand just readed
+                    current_f.ip += 2; // Skip the operand just readed
 
                     const constant_obj = self.constants.items[index];
                     try self.push(constant_obj);
                 },
                 .OpSetGlobal => {
                     const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    current.ip += 2;
+                    current_f.ip += 2;
 
                     self.globals[global_index] = self.pop().?;
                 },
                 .OpGetGlobal => {
                     const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    current.ip += 2;
+                    current_f.ip += 2;
 
                     try self.push(self.globals[global_index]);
                 },
 
                 .OpArray => {
                     const array_size = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    current.ip += 2;
+                    current_f.ip += 2;
 
                     const array = try self.build_array(array_size);
                     try self.push(array);
                 },
                 .OpHash => {
                     const hash_size = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    current.ip += 2;
+                    current_f.ip += 2;
 
                     const hash = try self.build_hash(hash_size);
                     try self.push(hash);
@@ -179,12 +173,12 @@ pub const VM = struct {
 
                 .OpJumpNotTrue => {
                     const offset = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    current.ip += 2; // Skip the operand just readed
+                    current_f.ip += 2; // Skip the operand just readed
 
                     const condition_obj = self.pop();
                     switch (condition_obj.?.*) {
                         .boolean => |boo| {
-                            if (!boo.value) ip = offset - 1; // -1 because the while loop increment ip by 1
+                            if (!boo.value) current_f.ip = offset - 1; // -1 because the while loop increment ip by 1
                         },
                         else => |other| {
                             stderr.print("Expression of a condition must result as a Boolean, got: {?}\n", .{other}) catch {};
@@ -194,11 +188,33 @@ pub const VM = struct {
                 },
                 .OpJump => {
                     const offset = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    current.ip = offset - 1; // -1 because the while loop increment ip by 1
+                    current_f.ip = offset - 1; // -1 because the while loop increment ip by 1
                 },
 
-                .OpCall => {},
-                .OpReturnValue => {},
+                .OpCall => {
+                    const compiled_func = self.stack_top().?;
+                    switch (compiled_func.*) {
+                        .compiled_func => {
+                            const new_frame = Frame.new(compiled_func) catch return VMError.FrameCreation;
+                            _ = try self.push_frame(new_frame);
+                        },
+                        else => |other| {
+                            stderr.print("Trying to call a non-function object, got: {?}", .{other}) catch {};
+                            return VMError.WrongType;
+                        },
+                    }
+                },
+                .OpReturnValue => {
+                    const ret = self.pop();
+
+                    // Return to the caller function
+                    _ = self.pop_frame();
+
+                    // pop the compiledFunction object
+                    _ = self.pop();
+
+                    try self.push(ret.?);
+                },
                 .OpReturn => {},
             }
         }
@@ -379,8 +395,9 @@ pub const VM = struct {
     }
 
     fn execute_comparison(self: *VM, opcode: Opcode) VMError!void {
-        const right_ = self.pop().?; // lifo! right pop before
-        const left_ = self.pop().?;
+        // lifo! right pop before
+        const right_ = self.pop() orelse return VMError.MissingExpression;
+        const left_ = self.pop() orelse return VMError.MissingExpression;
 
         switch (right_.*) {
             .integer => {
@@ -416,20 +433,6 @@ pub const VM = struct {
                 return VMError.WrongType;
             },
         }
-
-        // const right = right_.integer.value;
-        // const left = left_.integer.value;
-
-        // const object = switch (opcode) {
-        //     .OpEq => if (left == right) true_object else false_object,
-        //     .OpNotEq => if (left != right) true_object else false_object,
-        //     .OpGT => if (left > right) true_object else false_object,
-
-        //     else => unreachable,
-        // };
-
-        // const object = eval_utils.new_boolean(result);
-        // try self.push(object);
     }
 
     fn execute_integer_comparison(
@@ -454,17 +457,14 @@ pub const VM = struct {
 
     fn push(self: *VM, constant: *const Object) VMError!void {
         try self.stack.append(constant);
-        // self.sp += 1;
     }
 
     pub fn stack_top(self: VM) ?*const Object {
-        const last = self.stack.getLastOrNull();
-        return last;
+        return self.stack.getLastOrNull();
     }
 
     pub fn pop(self: *VM) ?*const Object {
         const pop_ = self.stack.popOrNull();
-        // self.sp -= 1;
         self.last_popped = pop_;
         return pop_;
     }
