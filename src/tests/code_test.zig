@@ -35,6 +35,11 @@ test "Test bytecode_.make" {
             &[_]usize{},
             &[_]u8{@as(u8, @intCast(@intFromEnum(Opcode.OpPop)))},
         },
+        .{
+            Opcode.OpGetLocal,
+            &[_]usize{1},
+            &[_]u8{ @as(u8, @intCast(@intFromEnum(Opcode.OpGetLocal))), 1 },
+        },
     };
 
     for (expected) |exp| {
@@ -56,7 +61,8 @@ test "Test Instruction.string" {
         \\0000 OpAdd
         \\0001 OpConstant 2
         \\0004 OpConstant 65535
-        \\0007 OpPop
+        \\0007 OpGetLocal 1
+        \\0009 OpPop
         \\
     ;
 
@@ -64,6 +70,7 @@ test "Test Instruction.string" {
         try bytecode_.make(&alloc, Opcode.OpAdd, &[0]usize{}),
         try bytecode_.make(&alloc, Opcode.OpConstant, &[1]usize{2}),
         try bytecode_.make(&alloc, Opcode.OpConstant, &[1]usize{65535}),
+        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[1]usize{1}),
         try bytecode_.make(&alloc, Opcode.OpPop, &[0]usize{}),
     };
 
@@ -92,6 +99,11 @@ test "Test read operands" {
             Opcode.OpConstant,
             &[_]usize{65534},
             2,
+        },
+        .{
+            Opcode.OpGetLocal,
+            &[_]usize{1},
+            1,
         },
     };
 

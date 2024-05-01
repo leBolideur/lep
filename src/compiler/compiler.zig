@@ -10,7 +10,9 @@ const bytecode_ = @import("bytecode.zig");
 
 const Opcode = @import("opcode.zig").Opcode;
 
-const SymbolTable = @import("symbol_table.zig").SymbolTable;
+const sym_import = @import("symbol_table.zig");
+const SymbolTable = sym_import.SymbolTable;
+const SymbolScope = sym_import.SymbolScope;
 
 const eval_utils = common.eval_utils;
 
@@ -54,7 +56,7 @@ pub const Compiler = struct {
     scopes: std.ArrayList(Scope),
     scope_index: usize,
 
-    symbol_table: SymbolTable,
+    symbol_table: *SymbolTable,
 
     infix_op_map: std.StringHashMap(INFIX_OP),
 
@@ -89,7 +91,7 @@ pub const Compiler = struct {
             .scopes = scopes,
             .scope_index = 0,
 
-            .symbol_table = SymbolTable.new(alloc),
+            .symbol_table = SymbolTable.new(alloc) catch return CompilerError.MemAlloc,
 
             .infix_op_map = infix_op_map,
 
@@ -110,12 +112,16 @@ pub const Compiler = struct {
 
         try self.scopes.append(new);
         self.scope_index += 1;
+
+        self.symbol_table = SymbolTable.new_enclosed(self.alloc, self.symbol_table) catch return CompilerError.MemAlloc;
     }
 
     pub fn leave_scope(self: *Compiler) std.ArrayList(u8) {
         const instructions = self.current_scope().instructions;
         _ = self.scopes.pop();
         self.scope_index -= 1;
+
+        self.symbol_table = self.symbol_table.outer.?;
 
         return instructions;
     }
@@ -137,7 +143,11 @@ pub const Compiler = struct {
                 try self.compile_expression(var_st.expression);
                 const symbol = self.symbol_table.define(var_st.name.value) catch return CompilerError.SetSymbol;
 
-                _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
+                if (symbol.scope == SymbolScope.GLOBAL) {
+                    _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
+                } else {
+                    _ = try self.emit(Opcode.OpSetLocal, &[_]usize{symbol.index});
+                }
             },
             .ret_statement => |ret_st| {
                 try self.compile_expression(ret_st.expression);
@@ -181,7 +191,11 @@ pub const Compiler = struct {
                     return CompilerError.UndefinedVariable;
                 }
 
-                _ = try self.emit(Opcode.OpGetGlobal, &[_]usize{symbol.?.index});
+                if (symbol.?.scope == SymbolScope.GLOBAL) {
+                    _ = try self.emit(Opcode.OpGetGlobal, &[_]usize{symbol.?.index});
+                } else {
+                    _ = try self.emit(Opcode.OpGetLocal, &[_]usize{symbol.?.index});
+                }
             },
             .string => |string| {
                 const str_obj = eval_utils.new_string(self.alloc, string.value) catch return CompilerError.ObjectCreation;

@@ -81,6 +81,9 @@ pub fn make(
                 instr_ptr[offset] = @as(u8, @intCast((operand & 0xFF00) >> 8));
                 instr_ptr[offset + 1] = @as(u8, @intCast(operand & 0x00FF));
             },
+            1 => {
+                instr_ptr[offset] = @as(u8, @intCast(operand));
+            },
             else => unreachable,
         }
 
@@ -104,6 +107,9 @@ pub fn read_operands(
             2 => {
                 try operands.append(read_u16(instruction));
             },
+            1 => {
+                try operands.append(read_u8(instruction));
+            },
             0 => {},
             else => unreachable,
         }
@@ -113,6 +119,12 @@ pub fn read_operands(
 
     bytes_read.* = offset;
     return operands.toOwnedSlice();
+}
+
+pub fn read_u8(raw: []const u8) u8 {
+    const result: usize = @intCast(raw[0]);
+
+    return @as(u8, @intCast(result));
 }
 
 pub fn read_u16(raw: []const u8) u16 {

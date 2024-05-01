@@ -5,6 +5,8 @@ pub const Opcode = enum(u8) {
 
     OpSetGlobal,
     OpGetGlobal,
+    OpSetLocal,
+    OpGetLocal,
 
     OpArray,
     OpHash,
@@ -67,6 +69,22 @@ pub const Definitions = struct {
             OpDefinition{
                 .name = "OpGetGlobal",
                 .operand_widths = &[_]u8{2},
+                .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpSetLocal,
+            OpDefinition{
+                .name = "OpSetLocal",
+                .operand_widths = &[_]u8{1},
+                .operand_count = 1,
+            },
+        );
+        try map.put(
+            Opcode.OpGetLocal,
+            OpDefinition{
+                .name = "OpGetLocal",
+                .operand_widths = &[_]u8{1},
                 .operand_count = 1,
             },
         );

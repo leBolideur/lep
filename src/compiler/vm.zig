@@ -113,6 +113,18 @@ pub const VM = struct {
 
                     try self.push(self.globals[global_index]);
                 },
+                .OpSetLocal => {
+                    // const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    // current_f.ip += 2;
+                    //
+                    // self.globals[global_index] = self.pop().?;
+                },
+                .OpGetLocal => {
+                    // const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
+                    // current_f.ip += 2;
+                    //
+                    // try self.push(self.globals[global_index]);
+                },
 
                 .OpArray => {
                     const array_size = bytecode_.read_u16(instructions.items[(ip + 1)..]);

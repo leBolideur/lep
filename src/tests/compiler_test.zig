@@ -580,6 +580,89 @@ test "Test Functions" {
     try run_test(&alloc, test_cases, ExpectedFunctionConstants);
 }
 
+test "Test Functions local bindings" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const ExpectedFunctionConstants }{
+        .{
+            \\var num = 1;
+            \\fn(): ret num; end
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 1 },
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+        .{
+            \\fn(): 
+            \\  var num = 10 + 6;
+            \\  ret num; 
+            \\end"
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 10 },
+                ExpectedFunctionConstants{ .int = 6 },
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+        .{
+            \\fn(): 
+            \\  var a = 10;
+            \\  var b = 6;
+            \\  a + b;
+            \\end
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 10 },
+                ExpectedFunctionConstants{ .int = 6 },
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+    };
+
+    try run_test(&alloc, test_cases, ExpectedFunctionConstants);
+}
+
 test "Test Functions Calls" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -636,6 +719,7 @@ test "Test Compiler Scopes" {
     var alloc = arena.allocator();
 
     var compiler = try Compiler.init(&alloc);
+    const global_symbol_table = compiler.symbol_table;
 
     try std.testing.expectEqual(compiler.scope_index, 0);
     _ = try compiler.emit(Opcode.OpMul, &[_]usize{});
@@ -646,7 +730,14 @@ test "Test Compiler Scopes" {
     try std.testing.expectEqual(compiler.scopes.items[compiler.scope_index].instructions.items.len, 1);
     try std.testing.expectEqual(compiler.scopes.items[compiler.scope_index].last_instruction.?.opcode, Opcode.OpSub);
 
+    // Check enclose symbol table
+    try std.testing.expectEqual(compiler.symbol_table, global_symbol_table);
+
     _ = compiler.leave_scope();
+    // Check restore symbol table
+    try std.testing.expectEqual(compiler.symbol_table, global_symbol_table);
+    try std.testing.expectEqual(compiler.symbol_table.outer, null);
+
     try std.testing.expectEqual(compiler.scope_index, 0);
 
     _ = try compiler.emit(Opcode.OpAdd, &[_]usize{});
