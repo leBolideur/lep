@@ -321,9 +321,45 @@ test "Test VM Calling functions without arguments" {
             12,
             0,
         },
+        // First class function
+        .{
+            \\var test = fn(): ret 1 + 5; end;
+            \\var same = fn(): ret test; end;
+            \\same()();
+            ,
+            6,
+            0,
+        },
     };
 
     try run_test(&alloc, test_cases, isize);
+}
+
+test "Test VM Calling functions without body" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, *const Object, usize }{
+        .{
+            \\var test = fn():  end;
+            \\test();
+            ,
+            null_object,
+            0,
+        },
+        .{
+            \\var test = fn():  end;
+            \\var same = fn(): test(); end;
+            \\same();
+            ,
+            null_object,
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, *const Object);
 }
 
 fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
@@ -364,7 +400,10 @@ fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
                 else => return false,
             }
         },
-        else => unreachable,
+        else => |other| {
+            std.debug.print("Unknown type, got: {any}\n", .{other});
+            return false;
+        },
     }
 }
 

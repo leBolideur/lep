@@ -42,7 +42,7 @@ pub const VM = struct {
     stack: std.ArrayList(*const Object),
     last_popped: ?*const Object,
 
-    frames: std.ArrayList(Frame),
+    frames: std.ArrayList(*Frame),
 
     globals: []*const Object,
 
@@ -51,9 +51,9 @@ pub const VM = struct {
     pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
         const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions) catch return VMError.ObjectCreation;
 
-        const main_frame = Frame.new(main_fn) catch return VMError.FrameCreation;
+        const main_frame = Frame.new(alloc, main_fn.compiled_func) catch return VMError.FrameCreation;
 
-        var frames = std.ArrayList(Frame).init(alloc.*);
+        var frames = std.ArrayList(*Frame).init(alloc.*);
         frames.append(main_frame) catch return VMError.OutOfMemory;
 
         return VM{
@@ -70,24 +70,25 @@ pub const VM = struct {
         };
     }
 
-    fn current_frame(self: *VM) Frame {
+    fn current_frame(self: *VM) *Frame {
         return self.frames.getLast();
     }
 
-    fn push_frame(self: *VM, frame: Frame) VMError!Frame {
+    fn push_frame(self: *VM, frame: *Frame) VMError!void {
         self.frames.append(frame) catch return VMError.FrameCreation;
-        return self.current_frame();
     }
 
-    fn pop_frame(self: *VM) Frame {
+    fn pop_frame(self: *VM) *Frame {
         return self.frames.pop();
     }
 
     pub fn run(self: *VM) VMError!void {
-        var current_f = self.current_frame();
-        while (current_f.ip < (current_f.instructions().items.len)) : (current_f.ip += 1) {
-            const ip = current_f.ip;
-            var instructions = current_f.instructions();
+        while (self.current_frame().ip < (self.current_frame().instructions().items.len) - 1) {
+            self.current_frame().ip += 1;
+
+            const current_f = self.current_frame();
+            const ip = @as(usize, @intCast(current_f.ip));
+            var instructions = self.current_frame().instructions();
 
             const opcode_ = instructions.items[ip];
             const opcode = @as(Opcode, @enumFromInt(opcode_));
@@ -194,9 +195,9 @@ pub const VM = struct {
                 .OpCall => {
                     const compiled_func = self.stack_top().?;
                     switch (compiled_func.*) {
-                        .compiled_func => {
-                            const new_frame = Frame.new(compiled_func) catch return VMError.FrameCreation;
-                            _ = try self.push_frame(new_frame);
+                        .compiled_func => |c_func| {
+                            const new_frame = Frame.new(self.alloc, c_func) catch return VMError.FrameCreation;
+                            try self.push_frame(new_frame);
                         },
                         else => |other| {
                             stderr.print("Trying to call a non-function object, got: {?}", .{other}) catch {};
@@ -205,17 +206,24 @@ pub const VM = struct {
                     }
                 },
                 .OpReturnValue => {
+                    // the returned value
                     const ret = self.pop();
 
                     // Return to the caller function
                     _ = self.pop_frame();
-
                     // pop the compiledFunction object
                     _ = self.pop();
 
                     try self.push(ret.?);
                 },
-                .OpReturn => {},
+                .OpReturn => {
+                    // Return to the caller function
+                    _ = self.pop_frame();
+                    // pop the compiledFunction object
+                    _ = self.pop();
+
+                    try self.push(null_object);
+                },
             }
         }
     }

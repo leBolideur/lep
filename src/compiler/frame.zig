@@ -9,26 +9,21 @@ const FrameError = error{ MemAlloc, BadType };
 const stderr = std.io.getStdErr().writer();
 
 pub const Frame = struct {
-    func: *const CompiledFunc,
-    ip: usize,
+    func: CompiledFunc,
+    ip: isize,
 
-    pub fn new(func: *const object.Object) FrameError!Frame {
-        switch (func.*) {
-            .compiled_func => |cmp_func| {
-                return Frame{
-                    .func = &cmp_func,
-                    .ip = 0,
-                };
-            },
-            else => |other| {
-                stderr.print("Init frame with non CompiledFunc object, got: {?}\n", .{other}) catch {};
+    pub fn new(alloc: *const std.mem.Allocator, func: object.CompiledFunc) FrameError!*Frame {
+        const ptr = alloc.create(Frame) catch return FrameError.MemAlloc;
 
-                return FrameError.BadType;
-            },
-        }
+        ptr.* = Frame{
+            .func = func,
+            .ip = -1,
+        };
+
+        return ptr;
     }
 
-    pub fn instructions(self: Frame) std.ArrayList(u8) {
-        return self.func.*.instructions;
+    pub fn instructions(self: *Frame) std.ArrayList(u8) {
+        return self.func.instructions;
     }
 };

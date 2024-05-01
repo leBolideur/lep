@@ -311,11 +311,13 @@ pub const Compiler = struct {
                         try self.compile_block_statement(lit.body);
 
                         // Implicit return
-                        if (self.last_instruction_is(Opcode.OpPop))
+                        if (self.last_instruction_is(Opcode.OpPop)) {
                             try self.replace_last_pop_with_return();
+                        }
                         // function with empty body
-                        if (!self.last_instruction_is(Opcode.OpReturnValue))
+                        if (!self.last_instruction_is(Opcode.OpReturnValue)) {
                             _ = try self.emit(Opcode.OpReturn, &[_]usize{});
+                        }
 
                         const instructions = self.leave_scope();
 
@@ -323,6 +325,9 @@ pub const Compiler = struct {
                         const constant_idx = try self.add_constant(func_obj);
 
                         _ = try self.emit(Opcode.OpConstant, &[_]usize{constant_idx});
+                        // for (func_obj.*.compiled_func.instructions.items) |i| {
+                        //     std.debug.print("\tscope i >> {any}\n", .{i});
+                        // }
                     },
                     // TODO: Handle named function
                     .named => {},
