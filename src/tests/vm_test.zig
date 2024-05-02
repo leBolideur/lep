@@ -362,6 +362,57 @@ test "Test VM Calling functions without body" {
     try run_test(&alloc, test_cases, *const Object);
 }
 
+test "Test VM Calling functions with bindings" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, isize, usize }{
+        .{
+            \\var one = fn(): var one = 1; one; end;
+            \\one();
+            ,
+            1,
+            0,
+        },
+        .{
+            \\var oneAndTwo = fn(): var one = 1; var two = 2; one + two; end;
+            \\oneAndTwo();
+            ,
+            3,
+            0,
+        },
+        .{
+            \\var one = fn(): var one = 1; one; end;
+            \\var one_bis = fn(): var one = 1; one; end;
+            \\one() + one_bis();
+            ,
+            2,
+            0,
+        },
+        .{
+            \\var oneAndTwo = fn(): var one = 1; var two = 2; one + two; end;
+            \\var threeAndFour = fn(): var three = 3; var four = 4; three + four; end;
+            \\oneAndTwo() + threeAndFour();
+            ,
+            10,
+            0,
+        },
+        .{
+            \\var globalSeed = 50;
+            \\var minusOne = fn(): var num = 1; globalSeed - num; end;
+            \\var minusTwo = fn(): var num = 2; globalSeed - num; end;
+            \\minusOne() + minusTwo();
+            ,
+            97,
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, isize);
+}
+
 fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
     switch (object.*) {
         .integer => {
@@ -420,7 +471,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         const last = vm.last_popped_element();
 
         // Remaining element on the stack
-        try std.testing.expectEqual(exp[2], vm.stack.items.len);
+        try std.testing.expectEqual(exp[2], vm.sp);
 
         const expected = switch (type_) {
             isize => ExpectedValue{ .integer = exp[1] },

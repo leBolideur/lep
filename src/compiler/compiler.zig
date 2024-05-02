@@ -333,9 +333,11 @@ pub const Compiler = struct {
                             _ = try self.emit(Opcode.OpReturn, &[_]usize{});
                         }
 
+                        const locals_count = self.symbol_table.definitions_count;
+
                         const instructions = try self.leave_scope();
 
-                        const func_obj = eval_utils.new_compiled_func(self.alloc, instructions) catch return CompilerError.ObjectCreation;
+                        const func_obj = eval_utils.new_compiled_func(self.alloc, instructions, locals_count) catch return CompilerError.ObjectCreation;
                         const constant_idx = try self.add_constant(func_obj);
 
                         _ = try self.emit(Opcode.OpConstant, &[_]usize{constant_idx});

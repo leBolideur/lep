@@ -27,7 +27,7 @@ pub const Opcode = enum(u8) {
     OpMinus,
 
     OpBang,
-    OpPop,
+    OpPop, // 21,
 
     OpJumpNotTrue,
     OpJump,

@@ -112,6 +112,7 @@ pub const CompiledFunc = struct {
     type: ObjectType,
     // name: []const u8,
     instructions: std.ArrayList(u8),
+    locals_count: usize,
 
     pub fn inspect(_: CompiledFunc, buf: *std.ArrayList(u8)) ObjectError!void {
         std.fmt.format(buf.*.writer(), "CompiledFunc", .{}) catch return ObjectError.InspectFormatError;

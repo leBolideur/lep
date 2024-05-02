@@ -30,16 +30,21 @@ const VMError = error{
     BadIndex,
     FrameCreation,
     MissingExpression,
+    StackResize,
+    StackOverflow,
 };
 
 const true_object = eval_utils.new_boolean(true);
 const false_object = eval_utils.new_boolean(false);
 pub const null_object = eval_utils.new_null();
 
+const STACK_SIZE = 2048;
+
 pub const VM = struct {
     constants: std.ArrayList(*const Object),
 
-    stack: std.ArrayList(*const Object),
+    stack: []*const Object,
+    sp: usize, // Always point to the next value, top of stack is sp-1
     last_popped: ?*const Object,
 
     frames: std.ArrayList(*Frame),
@@ -49,17 +54,20 @@ pub const VM = struct {
     alloc: *const std.mem.Allocator,
 
     pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
-        const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions) catch return VMError.ObjectCreation;
+        const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions, 0) catch return VMError.ObjectCreation;
 
-        const main_frame = Frame.new(alloc, main_fn.compiled_func) catch return VMError.FrameCreation;
+        const main_frame = Frame.new(alloc, main_fn.compiled_func, 0) catch return VMError.FrameCreation;
 
         var frames = std.ArrayList(*Frame).init(alloc.*);
         frames.append(main_frame) catch return VMError.OutOfMemory;
 
+        const stack = alloc.alloc(*const Object, STACK_SIZE) catch return VMError.OutOfMemory;
+
         return VM{
             .constants = bytecode.constants,
 
-            .stack = std.ArrayList(*const Object).init(alloc.*),
+            .stack = stack,
+            .sp = 0,
             .last_popped = null,
 
             .frames = frames,
@@ -114,16 +122,16 @@ pub const VM = struct {
                     try self.push(self.globals[global_index]);
                 },
                 .OpSetLocal => {
-                    // const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    // current_f.ip += 2;
-                    //
-                    // self.globals[global_index] = self.pop().?;
+                    const local_index = bytecode_.read_u8(instructions.items[(ip + 1)..]);
+                    current_f.ip += 1;
+
+                    self.stack[current_f.base_pointer + local_index] = self.pop().?;
                 },
                 .OpGetLocal => {
-                    // const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
-                    // current_f.ip += 2;
-                    //
-                    // try self.push(self.globals[global_index]);
+                    const local_index = bytecode_.read_u8(instructions.items[(ip + 1)..]);
+                    current_f.ip += 1;
+
+                    try self.push(self.stack[current_f.base_pointer + local_index]);
                 },
 
                 .OpArray => {
@@ -208,8 +216,10 @@ pub const VM = struct {
                     const compiled_func = self.stack_top().?;
                     switch (compiled_func.*) {
                         .compiled_func => |c_func| {
-                            const new_frame = Frame.new(self.alloc, c_func) catch return VMError.FrameCreation;
+                            const new_frame = Frame.new(self.alloc, c_func, self.sp) catch return VMError.FrameCreation;
                             try self.push_frame(new_frame);
+
+                            self.sp = new_frame.base_pointer + c_func.locals_count;
                         },
                         else => |other| {
                             stderr.print("Trying to call a non-function object, got: {?}", .{other}) catch {};
@@ -222,17 +232,17 @@ pub const VM = struct {
                     const ret = self.pop();
 
                     // Return to the caller function
-                    _ = self.pop_frame();
-                    // pop the compiledFunction object
-                    _ = self.pop();
+                    const frame = self.pop_frame();
+                    // free stack and pop the compiledFunction object
+                    self.sp = frame.base_pointer - 1;
 
                     try self.push(ret.?);
                 },
                 .OpReturn => {
                     // Return to the caller function
-                    _ = self.pop_frame();
-                    // pop the compiledFunction object
-                    _ = self.pop();
+                    const frame = self.pop_frame();
+                    // free stack and pop the compiledFunction object
+                    self.sp = frame.base_pointer - 1;
 
                     try self.push(null_object);
                 },
@@ -279,7 +289,6 @@ pub const VM = struct {
             const value = self.pop() orelse eval_utils.new_null();
             const key = self.pop();
 
-            // FIXME: bizare...
             if (key != null) {
                 switch (key.?.*) {
                     .string => |string| {
@@ -475,17 +484,26 @@ pub const VM = struct {
         try self.push(object);
     }
 
-    fn push(self: *VM, constant: *const Object) VMError!void {
-        try self.stack.append(constant);
+    pub fn stack_top(self: VM) ?*const Object {
+        if (self.sp == 0) return null;
+
+        return self.stack[self.sp - 1];
     }
 
-    pub fn stack_top(self: VM) ?*const Object {
-        return self.stack.getLastOrNull();
+    fn push(self: *VM, constant: *const Object) VMError!void {
+        if (self.sp >= STACK_SIZE) return VMError.StackOverflow;
+        self.stack[self.sp] = constant;
+        self.sp += 1;
     }
 
     pub fn pop(self: *VM) ?*const Object {
-        const pop_ = self.stack.popOrNull();
+        if (self.sp == 0) return null;
+        const pop_ = self.stack[self.sp - 1];
+        // std.debug.print("pop -- sp >> {d}\tpopped >> {any}\n", .{ self.sp, pop_ });
         self.last_popped = pop_;
+
+        self.sp -= 1;
+
         return pop_;
     }
 
