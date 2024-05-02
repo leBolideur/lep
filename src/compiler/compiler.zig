@@ -30,6 +30,7 @@ const CompilerError = error{
     EnterScope,
     InvalidPosition,
     MemAlloc,
+    SymbolTable,
 };
 
 pub const Bytecode = struct {
@@ -116,13 +117,12 @@ pub const Compiler = struct {
         self.symbol_table = SymbolTable.new_enclosed(self.alloc, self.symbol_table) catch return CompilerError.MemAlloc;
     }
 
-    pub fn leave_scope(self: *Compiler) std.ArrayList(u8) {
+    pub fn leave_scope(self: *Compiler) CompilerError!std.ArrayList(u8) {
         const instructions = self.current_scope().instructions;
         _ = self.scopes.pop();
         self.scope_index -= 1;
 
-        self.symbol_table = self.symbol_table.outer.?;
-
+        self.symbol_table = self.symbol_table.outer orelse return CompilerError.SymbolTable;
         return instructions;
     }
 
@@ -333,15 +333,12 @@ pub const Compiler = struct {
                             _ = try self.emit(Opcode.OpReturn, &[_]usize{});
                         }
 
-                        const instructions = self.leave_scope();
+                        const instructions = try self.leave_scope();
 
                         const func_obj = eval_utils.new_compiled_func(self.alloc, instructions) catch return CompilerError.ObjectCreation;
                         const constant_idx = try self.add_constant(func_obj);
 
                         _ = try self.emit(Opcode.OpConstant, &[_]usize{constant_idx});
-                        // for (func_obj.*.compiled_func.instructions.items) |i| {
-                        //     std.debug.print("\tscope i >> {any}\n", .{i});
-                        // }
                     },
                     // TODO: Handle named function
                     .named => {},

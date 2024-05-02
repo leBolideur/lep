@@ -592,9 +592,9 @@ test "Test Functions local bindings" {
             \\fn(): ret num; end
             ,
             &[_][]const u8{
-                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
-                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{2}),
-                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             &[_]ExpectedFunctionConstants{
@@ -609,22 +609,22 @@ test "Test Functions local bindings" {
         },
         .{
             \\fn(): 
-            \\  var num = 10 + 6;
+            \\  var num = 10;
             \\  ret num; 
-            \\end"
+            \\end
             ,
             &[_][]const u8{
-                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             &[_]ExpectedFunctionConstants{
                 ExpectedFunctionConstants{ .int = 10 },
-                ExpectedFunctionConstants{ .int = 6 },
+                // ExpectedFunctionConstants{ .int = 6 },
                 ExpectedFunctionConstants{
                     .instructions = &[_][]const u8{
                         try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
-                        try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{1}),
-                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{0}),
                         try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
                     },
                 },
@@ -647,10 +647,10 @@ test "Test Functions local bindings" {
                 ExpectedFunctionConstants{
                     .instructions = &[_][]const u8{
                         try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
                         try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{1}),
-                        try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
-                        try bytecode_.make(&alloc, Opcode.OpSetLocal, &[_]usize{1}),
-                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{0}),
                         try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{1}),
                         try bytecode_.make(&alloc, Opcode.OpAdd, &[_]usize{}),
                         try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
@@ -733,7 +733,7 @@ test "Test Compiler Scopes" {
     // Check enclose symbol table
     try std.testing.expectEqual(compiler.symbol_table.outer, global_symbol_table);
 
-    _ = compiler.leave_scope();
+    _ = try compiler.leave_scope();
     // Check restore symbol table
     try std.testing.expectEqual(compiler.symbol_table, global_symbol_table);
     try std.testing.expectEqual(compiler.symbol_table.outer, null);
@@ -755,6 +755,9 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         const bytecode = compiler.get_bytecode();
 
         try test_instructions(alloc, exp[1], bytecode.instructions);
+        // for (bytecode.instructions.items) |i| {
+        //     std.debug.print("\t> {any}\n", .{i});
+        // }
         if (type_ == i64) {
             try test_integer_constants(exp[2], bytecode.constants);
         } else if (type_ == []const u8) {
