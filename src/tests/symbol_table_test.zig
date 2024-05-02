@@ -132,7 +132,7 @@ test "Test Nested SymbolTable" {
 
     for (expected) |tt| {
         for (tt[1]) |exp| {
-            const resolved = local.resolve(exp.name);
+            const resolved = tt[0].resolve(exp.name);
 
             try std.testing.expect(resolved != null);
             try std.testing.expectEqual(exp, resolved);

@@ -731,7 +731,7 @@ test "Test Compiler Scopes" {
     try std.testing.expectEqual(compiler.scopes.items[compiler.scope_index].last_instruction.?.opcode, Opcode.OpSub);
 
     // Check enclose symbol table
-    try std.testing.expectEqual(compiler.symbol_table, global_symbol_table);
+    try std.testing.expectEqual(compiler.symbol_table.outer, global_symbol_table);
 
     _ = compiler.leave_scope();
     // Check restore symbol table
