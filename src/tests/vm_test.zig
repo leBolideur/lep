@@ -16,6 +16,7 @@ const opcode = compiler_.opcode;
 const Compiler = compiler_.compiler.Compiler;
 
 const VM = compiler_.vm.VM;
+const VMError = compiler_.vm.VMError;
 
 const null_object = compiler_.vm.null_object;
 
@@ -413,6 +414,118 @@ test "Test VM Calling functions with bindings" {
     try run_test(&alloc, test_cases, isize);
 }
 
+test "Test VM Calling functions with arguments bindings" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, isize, usize }{
+        .{
+            \\var get = fn(a): ret a; end;
+            \\get(5);
+            ,
+            5,
+            0,
+        },
+        .{
+            \\var sub = fn(a, b): ret a - b; end;
+            \\sub(5, 6);
+            ,
+            -1,
+            0,
+        },
+        .{
+            \\var sub = fn(a, b): 
+            \\  var result = a - b; 
+            \\  ret result;
+            \\end;
+            \\sub(5, 6);
+            ,
+            -1,
+            0,
+        },
+        .{
+            \\var sub = fn(a, b): 
+            \\  var result = a - b; 
+            \\  ret result;
+            \\end;
+            \\sub(5, 6) + sub(11, 1);
+            ,
+            9,
+            0,
+        },
+        .{
+            \\var sub = fn(a, b): 
+            \\  var result = a - b; 
+            \\  ret result;
+            \\end;
+            \\var outer = fn(a, b): ret sub(a, b); end;
+            \\outer(10, 10);
+            ,
+            0,
+            0,
+        },
+        .{
+            \\var globalNum = 10;
+            \\var sum = fn(a, b):
+            \\var c = a + b;
+            \\c + globalNum;
+            \\end;
+            \\var outer = fn():
+            \\sum(1, 2) + sum(3, 4) + globalNum;
+            \\end;
+            \\outer() + globalNum;
+            ,
+            50,
+            0,
+        },
+    };
+
+    try run_test(&alloc, test_cases, isize);
+}
+
+test "Test VM Calling functions with wrong number of arguments, expect errors" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, []const u8 }{
+        .{
+            \\var test = fn():  end;
+            \\test(1);
+            ,
+            "Wrong number of arguments, want=0 got=1",
+        },
+        .{
+            \\var test = fn(a): a;  end;
+            \\test();
+            ,
+            "Wrong number of arguments, want=1 got=0",
+        },
+    };
+
+    for (test_cases) |exp| {
+        const root_node = try parse(exp[0], &alloc);
+        var compiler = try Compiler.init(&alloc);
+        try compiler.compile(root_node);
+
+        const bytecode = compiler.get_bytecode();
+
+        var vm = try VM.new(&alloc, bytecode);
+        const ret = try vm.run();
+        _ = vm.last_popped_element();
+
+        switch (ret.?.*) {
+            .err => |err| {
+                try std.testing.expectEqualStrings(exp[1], err.msg);
+            },
+            else => unreachable,
+        }
+    }
+}
+
 fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
     switch (object.*) {
         .integer => {
@@ -467,7 +580,7 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         const bytecode = compiler.get_bytecode();
 
         var vm = try VM.new(alloc, bytecode);
-        try vm.run();
+        _ = try vm.run();
         const last = vm.last_popped_element();
 
         // Remaining element on the stack

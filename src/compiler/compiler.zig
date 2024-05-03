@@ -31,6 +31,7 @@ const CompilerError = error{
     InvalidPosition,
     MemAlloc,
     SymbolTable,
+    DefineParams,
 };
 
 pub const Bytecode = struct {
@@ -322,6 +323,10 @@ pub const Compiler = struct {
                     .literal => |lit| {
                         self.enter_scope() catch return CompilerError.EnterScope;
 
+                        for (lit.parameters.items) |param| {
+                            _ = self.symbol_table.define(param.value) catch return CompilerError.DefineParams;
+                        }
+
                         try self.compile_block_statement(lit.body);
 
                         // Implicit return
@@ -337,7 +342,7 @@ pub const Compiler = struct {
 
                         const instructions = try self.leave_scope();
 
-                        const func_obj = eval_utils.new_compiled_func(self.alloc, instructions, locals_count) catch return CompilerError.ObjectCreation;
+                        const func_obj = eval_utils.new_compiled_func(self.alloc, instructions, locals_count, lit.parameters.items.len) catch return CompilerError.ObjectCreation;
                         const constant_idx = try self.add_constant(func_obj);
 
                         _ = try self.emit(Opcode.OpConstant, &[_]usize{constant_idx});
@@ -348,7 +353,13 @@ pub const Compiler = struct {
             },
             .call_expression => |call| {
                 try self.compile_expression(call.function);
-                _ = try self.emit(Opcode.OpCall, &[_]usize{});
+
+                for (call.arguments.items) |arg| {
+                    try self.compile_expression(&arg);
+                }
+                const args_len = call.arguments.items.len;
+
+                _ = try self.emit(Opcode.OpCall, &[_]usize{args_len});
             },
         }
     }

@@ -236,8 +236,8 @@ pub const Definitions = struct {
             Opcode.OpCall,
             OpDefinition{
                 .name = "OpCall",
-                .operand_widths = &[_]u8{0},
-                .operand_count = 0,
+                .operand_widths = &[_]u8{1},
+                .operand_count = 1,
             },
         );
         try map.put(

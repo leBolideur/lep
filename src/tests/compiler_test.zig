@@ -673,8 +673,8 @@ test "Test Functions Calls" {
         .{
             "fn(): 10; end();",
             &[_][]const u8{
-                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
-                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}), // the compiled function itself
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             &[_]ExpectedFunctionConstants{
@@ -692,10 +692,10 @@ test "Test Functions Calls" {
             \\func();
             ,
             &[_][]const u8{
-                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}), // the compiled function itself
                 try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{0}),
-                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{0}),
                 try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
             },
             &[_]ExpectedFunctionConstants{
@@ -706,6 +706,58 @@ test "Test Functions Calls" {
                         try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
                     },
                 },
+            },
+        },
+        .{
+            \\var func = fn(a): a; end;
+            \\func(66);
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}), // the compiled function itself
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+                ExpectedFunctionConstants{ .int = 66 },
+            },
+        },
+        .{
+            \\var func = fn(a, b, c): a; b; c; end;
+            \\func(66, 77, 88);
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}), // the compiled function itself
+                try bytecode_.make(&alloc, Opcode.OpSetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpGetGlobal, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{3}),
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{3}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+                        try bytecode_.make(&alloc, Opcode.OpGetLocal, &[_]usize{2}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+                ExpectedFunctionConstants{ .int = 66 },
+                ExpectedFunctionConstants{ .int = 77 },
+                ExpectedFunctionConstants{ .int = 88 },
             },
         },
     };

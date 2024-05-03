@@ -18,7 +18,7 @@ const Opcode = @import("opcode.zig").Opcode;
 const eval_utils = common.eval_utils;
 
 const stderr = std.io.getStdErr().writer();
-const VMError = error{
+pub const VMError = error{
     OutOfMemory,
     ObjectCreation,
     WrongType,
@@ -32,6 +32,7 @@ const VMError = error{
     MissingExpression,
     StackResize,
     StackOverflow,
+    BadArgs,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -54,7 +55,7 @@ pub const VM = struct {
     alloc: *const std.mem.Allocator,
 
     pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
-        const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions, 0) catch return VMError.ObjectCreation;
+        const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions, 0, 0) catch return VMError.ObjectCreation;
 
         const main_frame = Frame.new(alloc, main_fn.compiled_func, 0) catch return VMError.FrameCreation;
 
@@ -90,7 +91,7 @@ pub const VM = struct {
         return self.frames.pop();
     }
 
-    pub fn run(self: *VM) VMError!void {
+    pub fn run(self: *VM) VMError!?*const Object {
         while (self.current_frame().ip < (self.current_frame().instructions().items.len) - 1) {
             self.current_frame().ip += 1;
 
@@ -213,18 +214,13 @@ pub const VM = struct {
                 },
 
                 .OpCall => {
-                    const compiled_func = self.stack_top().?;
-                    switch (compiled_func.*) {
-                        .compiled_func => |c_func| {
-                            const new_frame = Frame.new(self.alloc, c_func, self.sp) catch return VMError.FrameCreation;
-                            try self.push_frame(new_frame);
+                    const args_count = bytecode_.read_u8(instructions.items[(ip + 1)..]);
+                    current_f.ip += 1;
 
-                            self.sp = new_frame.base_pointer + c_func.locals_count;
-                        },
-                        else => |other| {
-                            stderr.print("Trying to call a non-function object, got: {?}", .{other}) catch {};
-                            return VMError.WrongType;
-                        },
+                    const err = try self.execute_function_call(args_count);
+                    if (err != null) {
+                        // stderr.print("function call error:\n{s}\n", .{err.?.err.msg}) catch {};
+                        return err;
                     }
                 },
                 .OpReturnValue => {
@@ -248,6 +244,32 @@ pub const VM = struct {
                 },
             }
         }
+
+        return null;
+    }
+
+    fn execute_function_call(self: *VM, args_count: usize) VMError!?*const Object {
+        const compiled_func = self.stack[(self.sp - 1) - args_count]; // -1 because self.sp always point to the next free slot
+        switch (compiled_func.*) {
+            .compiled_func => |c_func| {
+                if (c_func.params_count != args_count) {
+                    const err = eval_utils.new_error(self.alloc, "Wrong number of arguments, want={d} got={d}", .{ c_func.params_count, args_count }) catch return VMError.BadArgs;
+
+                    return err;
+                }
+
+                const new_frame = Frame.new(self.alloc, c_func, self.sp - args_count) catch return VMError.FrameCreation;
+                try self.push_frame(new_frame);
+
+                self.sp = new_frame.base_pointer + c_func.locals_count;
+            },
+            else => |other| {
+                stderr.print("Trying to call a non-function object, got: {?}", .{other}) catch {};
+                return VMError.WrongType;
+            },
+        }
+
+        return null;
     }
 
     fn execute_array_index(self: *VM, object: *const Object, index: *const Object) VMError!void {

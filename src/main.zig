@@ -55,7 +55,7 @@ pub fn main() !void {
     var compiler = try Compiler.init(&alloc);
     try compiler.compile(program);
     var vm = try VM.new(&alloc, compiler.get_bytecode());
-    try vm.run();
+    _ = try vm.run();
     const object = vm.last_popped_element();
 
     var buf = std.ArrayList(u8).init(alloc);
