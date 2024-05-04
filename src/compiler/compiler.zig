@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const common = @import("common");
+const builtins = common.builtins;
 
 const ast = common.ast;
 const object_import = common.object;
@@ -32,6 +33,7 @@ const CompilerError = error{
     MemAlloc,
     SymbolTable,
     DefineParams,
+    DefineBuiltin,
 };
 
 pub const Bytecode = struct {
@@ -87,13 +89,18 @@ pub const Compiler = struct {
         var scopes = std.ArrayList(Scope).init(alloc.*);
         try scopes.append(main_scope);
 
+        const symtab = SymbolTable.new(alloc) catch return CompilerError.MemAlloc;
+        for (builtins.builtins, 0..) |builtin, index| {
+            _ = symtab.define_builtin(index, builtin.name) catch return CompilerError.DefineBuiltin;
+        }
+
         return Compiler{
             .constants = constants,
 
             .scopes = scopes,
             .scope_index = 0,
 
-            .symbol_table = SymbolTable.new(alloc) catch return CompilerError.MemAlloc,
+            .symbol_table = symtab,
 
             .infix_op_map = infix_op_map,
 
@@ -187,12 +194,6 @@ pub const Compiler = struct {
             },
             .identifier => |ident| {
                 const symbol = self.symbol_table.resolve(ident.value);
-                // var iter = self.symbol_table.store.iterator();
-                // while (iter.next()) |item| {
-                //     const key = item.key_ptr.*;
-                //
-                //     std.debug.print("store key: {s}\n", .{key});
-                // }
                 if (symbol == null) {
                     stderr.print("Undefined variable '{s}'\n", .{ident.value}) catch {};
                     return CompilerError.UndefinedVariable;
@@ -200,8 +201,10 @@ pub const Compiler = struct {
 
                 if (symbol.?.scope == SymbolScope.GLOBAL) {
                     _ = try self.emit(Opcode.OpGetGlobal, &[_]usize{symbol.?.index});
-                } else {
+                } else if (symbol.?.scope == SymbolScope.LOCAL) {
                     _ = try self.emit(Opcode.OpGetLocal, &[_]usize{symbol.?.index});
+                } else {
+                    _ = try self.emit(Opcode.OpGetBuiltin, &[_]usize{symbol.?.index});
                 }
             },
             .string => |string| {

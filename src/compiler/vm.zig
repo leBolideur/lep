@@ -242,6 +242,7 @@ pub const VM = struct {
 
                     try self.push(null_object);
                 },
+                .OpGetBuiltin => {},
             }
         }
 

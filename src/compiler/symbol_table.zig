@@ -5,6 +5,7 @@ const SymbolTableError = error{AddSymbol};
 pub const SymbolScope = enum(u8) {
     GLOBAL = 0,
     LOCAL,
+    BUILTIN,
 };
 
 pub const Symbol = struct {
@@ -47,6 +48,17 @@ pub const SymbolTable = struct {
         self.store.put(identifier, sym) catch return SymbolTableError.AddSymbol;
         self.definitions_count += 1;
 
+        return sym;
+    }
+
+    pub fn define_builtin(self: *SymbolTable, index: usize, name: []const u8) SymbolTableError!Symbol {
+        const sym = Symbol{
+            .name = name,
+            .scope = SymbolScope.BUILTIN,
+            .index = index,
+        };
+
+        self.store.put(name, sym) catch return SymbolTableError.AddSymbol;
         return sym;
     }
 

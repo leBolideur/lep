@@ -35,6 +35,8 @@ pub const Opcode = enum(u8) {
     OpCall,
     OpReturnValue,
     OpReturn,
+
+    OpGetBuiltin,
 };
 
 pub const OpDefinition = struct {
@@ -254,6 +256,14 @@ pub const Definitions = struct {
                 .name = "OpReturn",
                 .operand_widths = &[_]u8{0},
                 .operand_count = 0,
+            },
+        );
+        try map.put(
+            Opcode.OpGetBuiltin,
+            OpDefinition{
+                .name = "OpGetBuiltin",
+                .operand_widths = &[_]u8{1},
+                .operand_count = 1,
             },
         );
 

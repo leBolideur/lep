@@ -765,6 +765,53 @@ test "Test Functions Calls" {
     try run_test(&alloc, test_cases, ExpectedFunctionConstants);
 }
 
+test "Test Builtins" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, instructions, constants
+    const test_cases = [_]struct { []const u8, []const []const u8, []const ExpectedFunctionConstants }{
+        .{
+            "len([]); push([], 1);",
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpGetBuiltin, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpArray, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{1}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+                try bytecode_.make(&alloc, Opcode.OpGetBuiltin, &[_]usize{5}),
+                try bytecode_.make(&alloc, Opcode.OpArray, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}),
+                try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{2}),
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{ .int = 1 },
+            },
+        },
+        .{
+            \\fn(): len([]); end
+            ,
+            &[_][]const u8{
+                try bytecode_.make(&alloc, Opcode.OpConstant, &[_]usize{0}), // the compiled function itself
+                try bytecode_.make(&alloc, Opcode.OpPop, &[_]usize{}),
+            },
+            &[_]ExpectedFunctionConstants{
+                ExpectedFunctionConstants{
+                    .instructions = &[_][]const u8{
+                        try bytecode_.make(&alloc, Opcode.OpGetBuiltin, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpArray, &[_]usize{0}),
+                        try bytecode_.make(&alloc, Opcode.OpCall, &[_]usize{1}),
+                        try bytecode_.make(&alloc, Opcode.OpReturnValue, &[_]usize{}),
+                    },
+                },
+            },
+        },
+    };
+
+    try run_test(&alloc, test_cases, ExpectedFunctionConstants);
+}
+
 test "Test Compiler Scopes" {
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
@@ -807,9 +854,6 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         const bytecode = compiler.get_bytecode();
 
         try test_instructions(alloc, exp[1], bytecode.instructions);
-        // for (bytecode.instructions.items) |i| {
-        //     std.debug.print("\t> {any}\n", .{i});
-        // }
         if (type_ == i64) {
             try test_integer_constants(exp[2], bytecode.constants);
         } else if (type_ == []const u8) {
@@ -817,7 +861,6 @@ fn run_test(alloc: *const std.mem.Allocator, test_cases: anytype, comptime type_
         } else if (type_ == ExpectedHashConstant) {
             try test_hash_constants(exp[2], bytecode.constants);
         } else if (type_ == ExpectedFunctionConstants) {
-            // try print_instruction(bytecode.instructions);
             try test_function_constants(exp[2], bytecode.constants);
         }
     }

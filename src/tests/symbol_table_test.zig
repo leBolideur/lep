@@ -139,3 +139,34 @@ test "Test Nested SymbolTable" {
         }
     }
 }
+
+test "Test Define/Resolve Builtins" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    var global = try SymbolTable.new(&alloc);
+    const local = try SymbolTable.new_enclosed(&alloc, global);
+    const nested = try SymbolTable.new_enclosed(&alloc, local);
+
+    const expected = [4]Symbol{
+        Symbol{ .name = "a", .scope = SymbolScope.BUILTIN, .index = 0 },
+        Symbol{ .name = "b", .scope = SymbolScope.BUILTIN, .index = 1 },
+        Symbol{ .name = "c", .scope = SymbolScope.BUILTIN, .index = 2 },
+        Symbol{ .name = "d", .scope = SymbolScope.BUILTIN, .index = 3 },
+    };
+
+    for (expected, 0..) |sym, index| {
+        _ = try global.define_builtin(index, sym.name);
+    }
+
+    const tables = [3]*SymbolTable{ global, local, nested };
+    for (tables) |table| {
+        for (expected) |symbol| {
+            const resolved = table.*.resolve(symbol.name);
+
+            try std.testing.expect(resolved != null);
+            try std.testing.expectEqual(symbol, resolved);
+        }
+    }
+}
