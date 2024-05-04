@@ -187,6 +187,12 @@ pub const Compiler = struct {
             },
             .identifier => |ident| {
                 const symbol = self.symbol_table.resolve(ident.value);
+                // var iter = self.symbol_table.store.iterator();
+                // while (iter.next()) |item| {
+                //     const key = item.key_ptr.*;
+                //
+                //     std.debug.print("store key: {s}\n", .{key});
+                // }
                 if (symbol == null) {
                     stderr.print("Undefined variable '{s}'\n", .{ident.value}) catch {};
                     return CompilerError.UndefinedVariable;

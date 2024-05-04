@@ -521,7 +521,6 @@ pub const VM = struct {
     pub fn pop(self: *VM) ?*const Object {
         if (self.sp == 0) return null;
         const pop_ = self.stack[self.sp - 1];
-        // std.debug.print("pop -- sp >> {d}\tpopped >> {any}\n", .{ self.sp, pop_ });
         self.last_popped = pop_;
 
         self.sp -= 1;
