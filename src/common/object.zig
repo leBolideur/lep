@@ -7,7 +7,8 @@ const ast = @import("ast.zig");
 const Environment = interpreter.environment.Environment;
 const Instructions = compiler_.bytecode.Instructions;
 
-const builtins = interpreter.builtins;
+// const builtins = interpreter.builtins;
+const builtins = @import("builtins.zig");
 
 pub const ObjectType = union(enum) {
     Integer,

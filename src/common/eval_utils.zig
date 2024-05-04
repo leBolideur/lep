@@ -24,7 +24,9 @@ const BuiltinObject = obj_import.BuiltinObject;
 
 const Environment = interpreter.environment.Environment;
 
-const BuiltinFunction = interpreter.builtins.BuiltinFunction;
+// const BuiltinFunction = interpreter.builtins.BuiltinFunction;
+const builtins = @import("builtins.zig");
+const BuiltinFunction = builtins.BuiltinFunction;
 
 const ast = @import("ast.zig");
 
