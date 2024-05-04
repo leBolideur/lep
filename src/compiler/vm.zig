@@ -33,6 +33,7 @@ pub const VMError = error{
     StackResize,
     StackOverflow,
     BadArgs,
+    CreateBuiltin,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -219,7 +220,6 @@ pub const VM = struct {
 
                     const err = try self.execute_function_call(args_count);
                     if (err != null) {
-                        // stderr.print("function call error:\n{s}\n", .{err.?.err.msg}) catch {};
                         return err;
                     }
                 },
@@ -242,7 +242,14 @@ pub const VM = struct {
 
                     try self.push(null_object);
                 },
-                .OpGetBuiltin => {},
+                .OpGetBuiltin => {
+                    const builtin_index = bytecode_.read_u8(instructions.items[(ip + 1)..]);
+                    current_f.ip += 1;
+
+                    const func = common.builtins.builtins[builtin_index];
+                    const func_obj = eval_utils.new_builtin(self.alloc, func.func) catch return VMError.CreateBuiltin;
+                    _ = try self.push(func_obj);
+                },
             }
         }
 
@@ -250,8 +257,8 @@ pub const VM = struct {
     }
 
     fn execute_function_call(self: *VM, args_count: usize) VMError!?*const Object {
-        const compiled_func = self.stack[(self.sp - 1) - args_count]; // -1 because self.sp always point to the next free slot
-        switch (compiled_func.*) {
+        const callee = self.stack[(self.sp - 1) - args_count]; // -1 because self.sp always point to the next free slot
+        switch (callee.*) {
             .compiled_func => |c_func| {
                 if (c_func.params_count != args_count) {
                     const err = eval_utils.new_error(self.alloc, "Wrong number of arguments, want={d} got={d}", .{ c_func.params_count, args_count }) catch return VMError.BadArgs;
@@ -263,6 +270,19 @@ pub const VM = struct {
                 try self.push_frame(new_frame);
 
                 self.sp = new_frame.base_pointer + c_func.locals_count;
+            },
+            .builtin => |builtin| {
+                const args = self.stack[self.sp - args_count .. self.sp];
+
+                const args_list = std.ArrayList(*const Object).fromOwnedSlice(self.alloc.*, args);
+                const result = builtin.function.func(self.alloc, args_list) catch null_object;
+                self.sp -= args_count - 1;
+
+                if (result != null) {
+                    try self.push(result.?);
+                } else {
+                    try self.push(null_object);
+                }
             },
             else => |other| {
                 stderr.print("Trying to call a non-function object, got: {?}", .{other}) catch {};

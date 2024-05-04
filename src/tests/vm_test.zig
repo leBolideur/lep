@@ -27,6 +27,7 @@ const ExpectedValue = union(enum) {
     string: []const u8,
     int_array: []const i8,
     map: std.StringHashMap(*const Object),
+    err: *const Object,
 };
 
 test "Test the VM with Integers arithmetic" {
@@ -526,6 +527,91 @@ test "Test VM Calling functions with wrong number of arguments, expect errors" {
     }
 }
 
+test "Test VM Builtins functions" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    var alloc = arena.allocator();
+
+    // expr, result, remaining element on stacks
+    const test_cases = [_]struct { []const u8, ExpectedValue }{
+        .{
+            \\len([]);
+            ,
+            ExpectedValue{ .integer = 0 },
+        },
+        .{
+            \\len("hello");
+            ,
+            ExpectedValue{ .integer = 5 },
+        },
+        .{
+            \\len(1);
+            ,
+            ExpectedValue{ .string = "argument to `len` not supported, got Integer" },
+        },
+        .{
+            \\len("one", "two");
+            ,
+            ExpectedValue{ .string = "wrong number of arguments. want=1, got=2" },
+        },
+        .{
+            \\len([1, 2, 3]);
+            ,
+            ExpectedValue{ .integer = 3 },
+        },
+        .{
+            \\print("hello");
+            ,
+            ExpectedValue{ .null_ = null_object },
+        },
+        .{
+            \\head([1, 2, 4]);
+            ,
+            ExpectedValue{ .integer = 1 },
+        },
+        .{
+            \\head([]);
+            ,
+            ExpectedValue{ .string = "`head` is not applicable on empty array." },
+        },
+        .{
+            \\last([1, 4, 9]);
+            ,
+            ExpectedValue{ .integer = 9 },
+        },
+        .{
+            \\tail([1, 4, 8]);
+            ,
+            ExpectedValue{ .int_array = &[2]i8{ 4, 8 } },
+        },
+        .{
+            \\push([], 1);
+            ,
+            ExpectedValue{ .int_array = &[1]i8{1} },
+        },
+        .{
+            \\push([1, 3], 6);
+            ,
+            ExpectedValue{ .int_array = &[3]i8{ 1, 3, 6 } },
+        },
+    };
+
+    for (test_cases) |exp| {
+        const root_node = try parse(exp[0], &alloc);
+        var compiler = try Compiler.init(&alloc);
+        try compiler.compile(root_node);
+
+        const bytecode = compiler.get_bytecode();
+
+        var vm = try VM.new(&alloc, bytecode);
+        const ret = try vm.run();
+        const last = vm.last_popped_element();
+        _ = ret;
+
+        try test_expected_object(exp[1], last);
+    }
+}
+
 fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
     switch (object.*) {
         .integer => {
@@ -543,6 +629,12 @@ fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
         .null => {
             switch (value) {
                 .null_ => return true,
+                else => return false,
+            }
+        },
+        .err => {
+            switch (value) {
+                .err => return true,
                 else => return false,
             }
         },
