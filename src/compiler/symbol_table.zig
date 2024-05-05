@@ -44,6 +44,7 @@ pub const SymbolTable = struct {
             .scope = scope,
             .index = self.definitions_count,
         };
+        // std.debug.print("define {s} @ {?}\n", .{ sym.name, sym.scope });
 
         self.store.put(identifier, sym) catch return SymbolTableError.AddSymbol;
         self.definitions_count += 1;
@@ -63,6 +64,14 @@ pub const SymbolTable = struct {
     }
 
     pub fn resolve(self: SymbolTable, identifier: []const u8) ?Symbol {
+        // var iter = self.store.iterator();
+        // while (iter.next()) |elem| {
+        //     const key = elem.key_ptr.*;
+        //     const value = elem.value_ptr.*;
+
+        //     if (value.scope == SymbolScope.GLOBAL)
+        //         std.debug.print("key: {s}\tvalue: {s}\tscope: {?}\n", .{ key, value.name, value.scope });
+        // }
         var obj = self.store.get(identifier);
         if (obj == null and self.outer != null) {
             obj = self.outer.?.resolve(identifier);

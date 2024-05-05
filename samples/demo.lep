@@ -15,28 +15,6 @@ end;
 
 printBookName(book);
 
-var fibonacci = fn(x):
-    if (x == 0):
-        0
-    else:
-        if (x == 1):
-            ret 1;
-        else:
-            fibonacci(x - 1) + fibonacci(x - 2);
-        end
-    end
-end;
-
-var map = fn(arr, f):
-    var iter = fn(arr, accumulated):
-        if (len(arr) == 0):
-            accumulated
-        else:
-            iter(tail(arr), push(accumulated, f(head(arr))));
-        end
-    end;
-    iter(arr, []);
-end;
-
 var numbers = [1, 1 + 1, 4 - 1, 2 * 2, 2 + 3, 12 / 2];
-map(numbers, fibonacci);
+print("len: ");
+len(numbers)

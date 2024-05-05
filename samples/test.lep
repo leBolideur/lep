@@ -1,5 +1,4 @@
-
-var loop =  fn(times, i):
+var loop = fn(times, i):
     if i < times:
 	i;
         loop(times, i + 1);

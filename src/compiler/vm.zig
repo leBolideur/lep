@@ -55,6 +55,13 @@ pub const VM = struct {
 
     alloc: *const std.mem.Allocator,
 
+    pub fn new_with_globals(alloc: *const std.mem.Allocator, bytecode: Bytecode, globals: []*const Object) VMError!VM {
+        var vm = try VM.new(alloc, bytecode);
+        vm.globals = globals;
+
+        return vm;
+    }
+
     pub fn new(alloc: *const std.mem.Allocator, bytecode: Bytecode) VMError!VM {
         const main_fn = eval_utils.new_compiled_func(alloc, bytecode.instructions, 0, 0) catch return VMError.ObjectCreation;
 

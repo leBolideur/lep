@@ -16,14 +16,25 @@ const Environment = interpreter.environment.Environment;
 const Compiler = compiler_.compiler.Compiler;
 const VM = compiler_.vm.VM;
 
+const Object = common.object.Object;
+
 pub fn repl(alloc: *const std.mem.Allocator) !void {
     const stdin = std.io.getStdIn().reader();
     const stdout = std.io.getStdOut().writer();
     // const stderr = std.io.getStdErr().writer();
 
     // var env = try Environment.init(alloc);
+    const constants = std.ArrayList(*const Object).init(alloc.*);
+    const globals = try alloc.alloc(*const Object, 1024);
+    const symtab = try compiler_.symbol_table.SymbolTable.new(alloc);
 
     while (true) {
+        // std.debug.print("constants: {d}\tsymtab: {d}\n", .{ constants.items.len, symtab.store.count() });
+        // std.debug.print("symtab >>\n", .{});
+        // var iter = symtab.store.iterator();
+        // while (iter.next()) |i| {
+        //     std.debug.print("\tkey: {s}\tvalue: {any}\n", .{ i.key_ptr.*, i.value_ptr.* });
+        // }
         var input: [1000]u8 = undefined;
 
         try stdout.print("\n>> ", .{});
@@ -38,9 +49,9 @@ pub fn repl(alloc: *const std.mem.Allocator) !void {
         // const evaluator = try Evaluator.init(alloc);
         // const object = try evaluator.eval(program, &env);
 
-        var compiler = try Compiler.init(alloc);
+        var compiler = try Compiler.init_with_state(alloc, symtab, constants);
         try compiler.compile(program);
-        var vm = try VM.new(alloc, compiler.get_bytecode());
+        var vm = try VM.new_with_globals(alloc, compiler.get_bytecode(), globals);
         // TODO: Erros handling here
         _ = try vm.run();
         const object = vm.last_popped_element();

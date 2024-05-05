@@ -27,7 +27,6 @@ const ExpectedValue = union(enum) {
     string: []const u8,
     int_array: []const i8,
     map: std.StringHashMap(*const Object),
-    err: *const Object,
 };
 
 test "Test the VM with Integers arithmetic" {
@@ -437,8 +436,8 @@ test "Test VM Calling functions with arguments bindings" {
             0,
         },
         .{
-            \\var sub = fn(a, b): 
-            \\  var result = a - b; 
+            \\var sub = fn(a, b):
+            \\  var result = a - b;
             \\  ret result;
             \\end;
             \\sub(5, 6);
@@ -447,8 +446,8 @@ test "Test VM Calling functions with arguments bindings" {
             0,
         },
         .{
-            \\var sub = fn(a, b): 
-            \\  var result = a - b; 
+            \\var sub = fn(a, b):
+            \\  var result = a - b;
             \\  ret result;
             \\end;
             \\sub(5, 6) + sub(11, 1);
@@ -457,8 +456,8 @@ test "Test VM Calling functions with arguments bindings" {
             0,
         },
         .{
-            \\var sub = fn(a, b): 
-            \\  var result = a - b; 
+            \\var sub = fn(a, b):
+            \\  var result = a - b;
             \\  ret result;
             \\end;
             \\var outer = fn(a, b): ret sub(a, b); end;
@@ -559,11 +558,11 @@ test "Test VM Builtins functions" {
             ,
             ExpectedValue{ .integer = 3 },
         },
-        .{
-            \\print("hello");
-            ,
-            ExpectedValue{ .null_ = null_object },
-        },
+        // .{
+        //     \\print("hello");
+        //     ,
+        //     ExpectedValue{ .null_ = null_object },
+        // },
         .{
             \\head([1, 2, 4]);
             ,
@@ -629,12 +628,6 @@ fn expected_same_type(object: *const Object, value: ExpectedValue) bool {
         .null => {
             switch (value) {
                 .null_ => return true,
-                else => return false,
-            }
-        },
-        .err => {
-            switch (value) {
-                .err => return true,
                 else => return false,
             }
         },

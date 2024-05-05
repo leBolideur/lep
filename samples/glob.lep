@@ -1,0 +1,14 @@
+var foo = fn(a): print(a); end;
+foo("Max");
+foo("yp");
+
+var loop = fn(count, func):
+    func("boo");
+    if (count > 0):
+        loop(count - 1, func);
+    end;
+end;
+
+var great = fn(name): print("hello, ", name); end;
+great("world");
+loop(2, great);

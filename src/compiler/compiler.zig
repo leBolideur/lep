@@ -34,6 +34,7 @@ const CompilerError = error{
     SymbolTable,
     DefineParams,
     DefineBuiltin,
+    NewError,
 };
 
 pub const Bytecode = struct {
@@ -65,6 +66,13 @@ pub const Compiler = struct {
     infix_op_map: std.StringHashMap(INFIX_OP),
 
     alloc: *const std.mem.Allocator,
+
+    pub fn init_with_state(alloc: *const std.mem.Allocator, symtab: *SymbolTable, constants: std.ArrayList(*const Object)) CompilerError!Compiler {
+        var c = try Compiler.init(alloc);
+        c.symbol_table = symtab;
+        c.constants = constants;
+        return c;
+    }
 
     pub fn init(alloc: *const std.mem.Allocator) CompilerError!Compiler {
         var infix_op_map = std.StringHashMap(INFIX_OP).init(alloc.*);
@@ -148,10 +156,13 @@ pub const Compiler = struct {
     fn compile_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .var_statement => |var_st| {
+                // std.debug.print("var_st >> name: {s}\n", .{st.var_statement.name.value});
                 try self.compile_expression(var_st.expression);
                 const symbol = self.symbol_table.define(var_st.name.value) catch return CompilerError.SetSymbol;
+                // std.debug.print("var -- name: {s}\n", .{symbol.name});
 
                 if (symbol.scope == SymbolScope.GLOBAL) {
+                    // std.debug.print("var global -- name: {s}\n", .{symbol.name});
                     _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
                 } else {
                     _ = try self.emit(Opcode.OpSetLocal, &[_]usize{symbol.index});
