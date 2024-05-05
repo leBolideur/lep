@@ -1,9 +1,10 @@
-var loop = fn(times, i):
-    if i < times:
-	i;
-        loop(times, i + 1);
+fn great(name): print("hello, " + name); end
+
+var loop = fn(times):
+    if (times > 0):
+        great("lep");
+        loop(times - 1);
     end
 end;
 
-loop(3, 0);
-loop(2, 0);
+loop(5);

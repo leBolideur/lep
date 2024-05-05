@@ -50,7 +50,6 @@ pub const Lexer = struct {
 
     fn new_token(self: Lexer, type_: TokenType, literal: []const u8) Token {
         const col = if (type_ == TokenType.EOF) 0 else self.col - literal.len;
-        // std.debug.print("col: {d}\tliteral {s} len: {d}\n", .{ col, literal, literal.len });
         return Token{
             .type = type_,
             .literal = literal,

@@ -53,15 +53,6 @@ pub const Environment = struct {
     pub fn add_var(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
         self.var_table.put(name, value) catch return EnvError.SetError;
 
-        // std.debug.print("\nTable content :\n", .{});
-        // var iter = self.var_table.iterator();
-        // while (iter.next()) |item| {
-        //     var buf = std.ArrayList(u8).init(self.allocator.*);
-        //     item.value_ptr.*.inspect(&buf) catch {};
-        //     const str = buf.toOwnedSlice() catch "";
-        //     std.debug.print("\t>{s} = {s}\n", .{ item.key_ptr.*, str });
-        // }
-
         return value;
     }
 };
@@ -97,7 +88,5 @@ test "test add and get" {
 
         const get = try env.get_var(exp[0]);
         try std.testing.expectEqual(get, ptr);
-
-        // std.debug.print("{?} = {d}\n", .{ get, get.?.integer.value });
     }
 }

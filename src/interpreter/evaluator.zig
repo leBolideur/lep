@@ -14,7 +14,6 @@ const EvalError = eval_utils.EvalError;
 const Environment = @import("environment.zig").Environment;
 
 const builtins = common.builtins;
-// const builtins = @import("builtins.zig");
 
 const stderr = std.io.getStdOut().writer();
 
@@ -137,7 +136,6 @@ pub const Evaluator = struct {
             },
             .hash => |hash_| {
                 return try self.eval_hash(hash_, env);
-                // return try eval_utils.new_hash(self.allocator, hash);
             },
             .index_expr => |idx| {
                 const left = try self.eval_expression(idx.left, env);
@@ -183,7 +181,6 @@ pub const Evaluator = struct {
             },
             .func => |func| {
                 const fun = try eval_utils.new_func(self.allocator, env, func);
-                // try env.add_fn(fun);
                 switch (func) {
                     .named => |named| _ = env.add_var(named.name.value, fun) catch return EvalError.EnvAddError,
                     .literal => {},

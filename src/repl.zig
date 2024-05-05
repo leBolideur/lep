@@ -24,7 +24,7 @@ pub fn repl(alloc: *const std.mem.Allocator) !void {
     // const stderr = std.io.getStdErr().writer();
 
     // var env = try Environment.init(alloc);
-    const constants = std.ArrayList(*const Object).init(alloc.*);
+    var constants = std.ArrayList(*const Object).init(alloc.*);
     const globals = try alloc.alloc(*const Object, 1024);
     const symtab = try compiler_.symbol_table.SymbolTable.new(alloc);
 
@@ -51,7 +51,10 @@ pub fn repl(alloc: *const std.mem.Allocator) !void {
 
         var compiler = try Compiler.init_with_state(alloc, symtab, constants);
         try compiler.compile(program);
-        var vm = try VM.new_with_globals(alloc, compiler.get_bytecode(), globals);
+
+        const bytecode = compiler.get_bytecode();
+        constants = bytecode.constants;
+        var vm = try VM.new_with_globals(alloc, bytecode, globals);
         // TODO: Erros handling here
         _ = try vm.run();
         const object = vm.last_popped_element();

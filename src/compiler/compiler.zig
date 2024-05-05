@@ -17,6 +17,8 @@ const SymbolScope = sym_import.SymbolScope;
 
 const eval_utils = common.eval_utils;
 
+const Token = @import("interpreter").token.Token;
+
 const INFIX_OP = enum { SUM, SUB, MUL, DIV, LT, GT, LTE, GTE, EQ, NOT_EQ };
 
 const CompilerError = error{
@@ -35,6 +37,7 @@ const CompilerError = error{
     DefineParams,
     DefineBuiltin,
     NewError,
+    AddToErrorList,
 };
 
 pub const Bytecode = struct {
@@ -53,6 +56,12 @@ const Scope = struct {
     previous_instruction: ?EmittedInstruction,
 };
 
+const CompError = struct {
+    line: usize,
+    col: usize,
+    msg: []const u8,
+};
+
 const stderr = std.io.getStdErr().writer();
 
 pub const Compiler = struct {
@@ -64,6 +73,8 @@ pub const Compiler = struct {
     symbol_table: *SymbolTable,
 
     infix_op_map: std.StringHashMap(INFIX_OP),
+
+    errors_list: std.ArrayList(CompError),
 
     alloc: *const std.mem.Allocator,
 
@@ -112,6 +123,8 @@ pub const Compiler = struct {
 
             .infix_op_map = infix_op_map,
 
+            .errors_list = std.ArrayList(CompError).init(alloc.*),
+
             .alloc = alloc,
         };
     }
@@ -131,6 +144,13 @@ pub const Compiler = struct {
         self.scope_index += 1;
 
         self.symbol_table = SymbolTable.new_enclosed(self.alloc, self.symbol_table) catch return CompilerError.MemAlloc;
+        // var iter = self.symbol_table.store.iterator();
+        // while (iter.next()) |item| {
+        //     const key = item.key_ptr.*;
+        //     const value = item.value_ptr.*;
+
+        //     std.debug.print("enter_scope\tkey: {s}\tvalue: {?}\n", .{ key, value });
+        // }
     }
 
     pub fn leave_scope(self: *Compiler) CompilerError!std.ArrayList(u8) {
@@ -140,6 +160,32 @@ pub const Compiler = struct {
 
         self.symbol_table = self.symbol_table.outer orelse return CompilerError.SymbolTable;
         return instructions;
+    }
+
+    fn new_comp_error(
+        self: *Compiler,
+        token: Token,
+        comptime fmt: []const u8,
+        args: anytype,
+    ) CompilerError!void {
+        const fmt_msg = std.fmt.allocPrint(self.alloc.*, fmt, args) catch return CompilerError.MemAlloc;
+        const msg = std.fmt.allocPrint(
+            self.alloc.*,
+            "line: {d} at col: {d}\t{s}",
+            .{ token.line, token.col, fmt_msg },
+        ) catch return CompilerError.MemAlloc;
+
+        const err = CompError{
+            .line = token.line,
+            .col = token.col,
+            .msg = msg,
+        };
+
+        self.errors_list.append(err) catch return CompilerError.AddToErrorList;
+    }
+
+    pub fn has_errors(self: Compiler) bool {
+        return self.errors_list.items.len > 0;
     }
 
     pub fn compile(self: *Compiler, node: ast.Node) CompilerError!void {
@@ -156,13 +202,16 @@ pub const Compiler = struct {
     fn compile_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .var_statement => |var_st| {
-                // std.debug.print("var_st >> name: {s}\n", .{st.var_statement.name.value});
+                // std.debug.print("comp expr for >> {s}\n", .{var_st.name.value});
+                // var buf = std.ArrayList(u8).init(self.alloc.*);
+                // var_st.expression.debug_string(&buf) catch {};
+                // const str = buf.toOwnedSlice() catch "err";
+                // std.debug.print("\texpr >> {s}\n", .{str});
+
                 try self.compile_expression(var_st.expression);
                 const symbol = self.symbol_table.define(var_st.name.value) catch return CompilerError.SetSymbol;
-                // std.debug.print("var -- name: {s}\n", .{symbol.name});
 
                 if (symbol.scope == SymbolScope.GLOBAL) {
-                    // std.debug.print("var global -- name: {s}\n", .{symbol.name});
                     _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
                 } else {
                     _ = try self.emit(Opcode.OpSetLocal, &[_]usize{symbol.index});
@@ -204,13 +253,15 @@ pub const Compiler = struct {
                 }
             },
             .identifier => |ident| {
+                std.debug.print("identifier > {s}\n", .{ident.value});
                 const symbol = self.symbol_table.resolve(ident.value);
                 if (symbol == null) {
-                    stderr.print("Undefined variable '{s}'\n", .{ident.value}) catch {};
-                    return CompilerError.UndefinedVariable;
+                    try self.new_comp_error(ident.token, "Undefined variable '{s}'", .{ident.value});
+                    return;
                 }
 
                 if (symbol.?.scope == SymbolScope.GLOBAL) {
+                    std.debug.print("identifier glob - symbol: {s}\t\n", .{symbol.?.name});
                     _ = try self.emit(Opcode.OpGetGlobal, &[_]usize{symbol.?.index});
                 } else if (symbol.?.scope == SymbolScope.LOCAL) {
                     _ = try self.emit(Opcode.OpGetLocal, &[_]usize{symbol.?.index});
@@ -256,8 +307,8 @@ pub const Compiler = struct {
                     '-' => _ = try self.emit(Opcode.OpMinus, &[_]usize{}),
                     '!' => _ = try self.emit(Opcode.OpBang, &[_]usize{}),
                     else => |other| {
-                        stderr.print("Unknown Prefix operator {?}\n", .{other}) catch {};
-                        return CompilerError.UnknownOperator;
+                        try self.new_comp_error(prefix.token, "Unknown Prefix operator {?}\n", .{other});
+                        return;
                     },
                 }
             },
@@ -302,8 +353,8 @@ pub const Compiler = struct {
                         _ = try self.emit(Opcode.OpGT, &[_]usize{});
                     },
                     else => |other| {
-                        stderr.print("Unknown Infix operator {?}\n", .{other}) catch {};
-                        return CompilerError.UnknownOperator;
+                        try self.new_comp_error(infix.token, "Unknown Infix operator {?}\n", .{other});
+                        return;
                     },
                 }
             },
@@ -319,7 +370,6 @@ pub const Compiler = struct {
                 if (self.last_instruction_is(Opcode.OpPop))
                     self.remove_last_pop();
 
-                // const current = self.current_scope();
                 const jump_pos = try self.emit(Opcode.OpJump, &[_]usize{9999});
                 const after_consequence = self.current_scope().instructions.items.len;
                 try self.change_operand(jump_not_true_pos, &[_]usize{after_consequence});
@@ -341,34 +391,21 @@ pub const Compiler = struct {
             .func => |func| {
                 switch (func) {
                     .literal => |lit| {
-                        self.enter_scope() catch return CompilerError.EnterScope;
-
-                        for (lit.parameters.items) |param| {
-                            _ = self.symbol_table.define(param.value) catch return CompilerError.DefineParams;
-                        }
-
-                        try self.compile_block_statement(lit.body);
-
-                        // Implicit return
-                        if (self.last_instruction_is(Opcode.OpPop)) {
-                            try self.replace_last_pop_with_return();
-                        }
-                        // function with empty body
-                        if (!self.last_instruction_is(Opcode.OpReturnValue)) {
-                            _ = try self.emit(Opcode.OpReturn, &[_]usize{});
-                        }
-
-                        const locals_count = self.symbol_table.definitions_count;
-
-                        const instructions = try self.leave_scope();
-
-                        const func_obj = eval_utils.new_compiled_func(self.alloc, instructions, locals_count, lit.parameters.items.len) catch return CompilerError.ObjectCreation;
-                        const constant_idx = try self.add_constant(func_obj);
-
-                        _ = try self.emit(Opcode.OpConstant, &[_]usize{constant_idx});
+                        try self.compile_function(lit);
                     },
-                    // TODO: Handle named function
-                    .named => {},
+                    .named => |named| {
+                        const lit = named.func_literal.*;
+
+                        try self.compile_function(lit);
+
+                        const symbol = self.symbol_table.define(named.name.value) catch return CompilerError.SetSymbol;
+
+                        if (symbol.scope == SymbolScope.GLOBAL) {
+                            _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
+                        } else {
+                            _ = try self.emit(Opcode.OpSetLocal, &[_]usize{symbol.index});
+                        }
+                    },
                 }
             },
             .call_expression => |call| {
@@ -382,6 +419,34 @@ pub const Compiler = struct {
                 _ = try self.emit(Opcode.OpCall, &[_]usize{args_len});
             },
         }
+    }
+
+    fn compile_function(self: *Compiler, lit: ast.FunctionLiteral) !void {
+        self.enter_scope() catch return CompilerError.EnterScope;
+
+        for (lit.parameters.items) |param| {
+            _ = self.symbol_table.define(param.value) catch return CompilerError.DefineParams;
+        }
+
+        try self.compile_block_statement(lit.body);
+
+        // Implicit return
+        if (self.last_instruction_is(Opcode.OpPop)) {
+            try self.replace_last_pop_with_return();
+        }
+        // function with empty body
+        if (!self.last_instruction_is(Opcode.OpReturnValue)) {
+            _ = try self.emit(Opcode.OpReturn, &[_]usize{});
+        }
+
+        const locals_count = self.symbol_table.definitions_count;
+
+        const instructions = try self.leave_scope();
+
+        const func_obj = eval_utils.new_compiled_func(self.alloc, instructions, locals_count, lit.parameters.items.len) catch return CompilerError.ObjectCreation;
+        const constant_idx = try self.add_constant(func_obj);
+
+        _ = try self.emit(Opcode.OpConstant, &[_]usize{constant_idx});
     }
 
     fn replace_last_pop_with_return(self: *Compiler) !void {

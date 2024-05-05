@@ -34,6 +34,7 @@ pub const VMError = error{
     StackOverflow,
     BadArgs,
     CreateBuiltin,
+    EmptyPop,
 };
 
 const true_object = eval_utils.new_boolean(true);
@@ -122,7 +123,8 @@ pub const VM = struct {
                     const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);
                     current_f.ip += 2;
 
-                    self.globals[global_index] = self.pop().?;
+                    const popped = self.pop() orelse return VMError.EmptyPop;
+                    self.globals[global_index] = popped;
                 },
                 .OpGetGlobal => {
                     const global_index = bytecode_.read_u16(instructions.items[(ip + 1)..]);

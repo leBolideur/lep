@@ -12,23 +12,7 @@ const TokenType = token.TokenType;
 const ast = @import("ast.zig");
 
 const ParseFnsError = error{ NoPrefixFn, NoInfixFn };
-const ParserError = ParseFnsError || error{
-    NotImpl,
-    MissingToken,
-    BadToken,
-    MissingSemiCol,
-    MissingColon,
-    MissingEnd,
-    MissingRightParen,
-    MissingRightBracket,
-    MemAlloc,
-    ParseExpr,
-    ParseInteger,
-    ParseIdentifier,
-    MissingLeftParen,
-    MissingFuncIdent,
-    HashPutError,
-};
+const ParserError = ParseFnsError || error{ NotImpl, MissingToken, BadToken, MissingSemiCol, MissingColon, MissingEnd, MissingRightParen, MissingRightBracket, MemAlloc, ParseExpr, ParseInteger, ParseIdentifier, MissingLeftParen, MissingFuncIdent, HashPutError, AddToErrorList };
 
 const Precedence = enum(u8) {
     LOWEST = 0,
@@ -45,6 +29,12 @@ const Precedence = enum(u8) {
     }
 };
 
+const SyntaxError = struct {
+    line: usize,
+    col: usize,
+    msg: []const u8,
+};
+
 const stderr = std.io.getStdErr().writer();
 
 pub const Parser = struct {
@@ -54,6 +44,8 @@ pub const Parser = struct {
     peek_token: Token,
 
     precedences_map: std.AutoHashMap(TokenType, Precedence),
+
+    errors_list: std.ArrayList(SyntaxError),
 
     allocator: *const std.mem.Allocator,
 
@@ -78,8 +70,36 @@ pub const Parser = struct {
 
             .precedences_map = precedences_map,
 
+            .errors_list = std.ArrayList(SyntaxError).init(allocator.*),
+
             .allocator = allocator,
         };
+    }
+
+    fn new_syntax_error(
+        self: *Parser,
+        token_: Token,
+        comptime fmt: []const u8,
+        args: anytype,
+    ) ParserError!void {
+        const fmt_msg = std.fmt.allocPrint(self.allocator.*, fmt, args) catch return ParserError.MemAlloc;
+        const msg = std.fmt.allocPrint(
+            self.allocator.*,
+            "line: {d} at col: {d}\t{s}",
+            .{ token_.line, token_.col, fmt_msg },
+        ) catch return ParserError.MemAlloc;
+
+        const err = SyntaxError{
+            .line = token_.line,
+            .col = token_.col,
+            .msg = msg,
+        };
+
+        self.errors_list.append(err) catch return ParserError.AddToErrorList;
+    }
+
+    pub fn has_errors(self: Parser) bool {
+        return self.errors_list.items.len > 0;
     }
 
     pub fn next(self: *Parser) void {
@@ -175,11 +195,11 @@ pub const Parser = struct {
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
             .FN => ast.Expression{ .func = try self.parse_function_literal() },
             else => {
-                stderr.print("No prefix parse function for token '{s}'. line: {d} @ {d}\n", .{
+                try self.new_syntax_error(self.current_token, "No prefix parse function for token '{s}'. line: {d} @ {d}", .{
                     self.current_token.literal,
                     self.current_token.line,
                     self.current_token.col,
-                }) catch {};
+                });
                 return ParseFnsError.NoPrefixFn;
             },
         };
@@ -504,13 +524,14 @@ pub const Parser = struct {
             self.next();
             return;
         }
-        stderr.print("Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
+
+        try self.new_syntax_error(self.current_token, "Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}", .{
             expected_type.get_token_string(),
             self.current_token.literal,
             self.current_token.line,
             self.current_token.col,
-        }) catch {};
-        return ParserError.BadToken;
+        });
+        return; // ParserError.BadToken;
     }
 
     fn current_is(self: *Parser, token_type: TokenType) bool {
@@ -519,13 +540,13 @@ pub const Parser = struct {
 
     fn unexpect_peek(self: *Parser, expected_type: TokenType) ParserError!void {
         if (self.peek_token.type == expected_type) {
-            stderr.print("Syntax error! Too much '{!s}' after '{!s}'. line: {d} @ {d}\n", .{
+            try self.new_syntax_error(self.current_token, "Syntax error! Too much '{!s}' after '{!s}'. line: {d} @ {d}", .{
                 self.peek_token.get_str(),
                 self.current_token.get_str(),
                 self.current_token.line,
                 self.current_token.col + self.current_token.literal.len,
-            }) catch {};
-            return ParserError.BadToken;
+            });
+            return; // ParserError.BadToken;
         }
     }
 
