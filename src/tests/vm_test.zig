@@ -39,19 +39,19 @@ test "Test the VM with Integers arithmetic" {
         .{ "1;", 1, 0 },
         .{ "2;", 2, 0 },
         .{ "-12;", -12, 0 },
-        .{ "-50 + 100 + -50", 0, 0 },
-        .{ "(5 + 10 * 2 + 15 / 3) * 2 + -10", 50, 0 },
+        .{ "-50 + 100 + -50;", 0, 0 },
+        .{ "(5 + 10 * 2 + 15 / 3) * 2 + -10;", 50, 0 },
         .{ "6 + 6;", 12, 0 },
         .{ "5 - 6;", -1, 0 },
         .{ "6 * 6;", 36, 0 },
         .{ "6 / 6;", 1, 0 },
-        .{ "50 / 2 * 2 + 10 - 5", 55, 0 },
-        .{ "5 * (2 + 10)", 60, 0 },
-        .{ "5 + 5 + 5 + 5 - 10", 10, 0 },
-        .{ "2 * 2 * 2 * 2 * 2", 32, 0 },
-        .{ "5 * 2 + 10", 20, 0 },
-        .{ "5 + 2 * 10", 25, 0 },
-        .{ "5 * (2 + 10)", 60, 0 },
+        .{ "50 / 2 * 2 + 10 - 5;", 55, 0 },
+        .{ "5 * (2 + 10);", 60, 0 },
+        .{ "5 + 5 + 5 + 5 - 10;", 10, 0 },
+        .{ "2 * 2 * 2 * 2 * 2;", 32, 0 },
+        .{ "5 * 2 + 10;", 20, 0 },
+        .{ "5 + 2 * 10;", 25, 0 },
+        .{ "5 * (2 + 10);", 60, 0 },
     };
 
     try run_test(&alloc, test_cases, isize);
@@ -67,26 +67,26 @@ test "Test the VM with Booleans expressions" {
         .{ "true;", true, 0 },
         .{ "false;", false, 0 },
         .{ "1 < 2;", true, 0 },
-        .{ "1 > 2", false, 0 },
-        .{ "1 < 1", false, 0 },
-        .{ "1 > 1", false, 0 },
-        .{ "1 == 1", true, 0 },
-        .{ "1 != 1", false, 0 },
-        .{ "1 == 2", false, 0 },
-        .{ "1 != 2", true, 0 },
-        .{ "true == true", true, 0 },
-        .{ "false == false", true, 0 },
-        .{ "true == false", false, 0 },
-        .{ "true != false", true, 0 },
-        .{ "false != true", true, 0 },
-        .{ "(1 < 2) == true", true, 0 },
-        .{ "(1 < 2) == false", false, 0 },
-        .{ "(1 > 2) == true", false, 0 },
-        .{ "(1 > 2) == false", true, 0 },
-        .{ "!true", false, 0 },
-        .{ "!false", true, 0 },
-        .{ "!!true", true, 0 },
-        .{ "!!false", false, 0 },
+        .{ "1 > 2;", false, 0 },
+        .{ "1 < 1;", false, 0 },
+        .{ "1 > 1;", false, 0 },
+        .{ "1 == 1;", true, 0 },
+        .{ "1 != 1;", false, 0 },
+        .{ "1 == 2;", false, 0 },
+        .{ "1 != 2;", true, 0 },
+        .{ "true == true;", true, 0 },
+        .{ "false == false;", true, 0 },
+        .{ "true == false;", false, 0 },
+        .{ "true != false;", true, 0 },
+        .{ "false != true;", true, 0 },
+        .{ "(1 < 2) == true;", true, 0 },
+        .{ "(1 < 2) == false;", false, 0 },
+        .{ "(1 > 2) == true;", false, 0 },
+        .{ "(1 > 2) == false;", true, 0 },
+        .{ "!true;", false, 0 },
+        .{ "!false;", true, 0 },
+        .{ "!!true;", true, 0 },
+        .{ "!!false;", false, 0 },
     };
 
     try run_test(&alloc, test_cases, bool);
@@ -131,9 +131,9 @@ test "Test the VM Bindings" {
 
     // expr, result, remaining element on stacks
     const test_cases = [_]struct { []const u8, isize, usize }{
-        .{ "var one = 1; one", 1, 0 },
-        .{ "var one = 2; var two = 2; one + two", 4, 0 },
-        .{ "var one = 1; var two = one + one; one + two", 3, 0 },
+        .{ "var one = 1; one;", 1, 0 },
+        .{ "var one = 2; var two = 2; one + two;", 4, 0 },
+        .{ "var one = 1; var two = one + one; one + two;", 3, 0 },
     };
 
     try run_test(&alloc, test_cases, isize);
@@ -171,7 +171,7 @@ test "Test VM Array with Integers" {
     // expr, result, remaining element on stacks
     const test_cases = [_]struct { []const u8, []const i8, usize }{
         .{
-            "[]",
+            "[];",
             &[_]i8{},
             0,
         },
@@ -271,11 +271,11 @@ test "Test VM Index expressions - null cases" {
 
     // expr, result, remaining element on stacks
     const test_cases = [_]struct { []const u8, *const Object, usize }{
-        .{ "[][0]", null_object, 0 },
-        .{ "[1, 2, 3][99]", null_object, 0 },
-        .{ "[1][-1]", null_object, 0 },
+        .{ "[][0];", null_object, 0 },
+        .{ "[1, 2, 3][99];", null_object, 0 },
+        .{ "[1][-1];", null_object, 0 },
         .{
-            \\{"one": 1}["two"]
+            \\{"one": 1}["two"];
             ,
             null_object,
             0,

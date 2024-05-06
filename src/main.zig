@@ -76,15 +76,6 @@ pub fn main() !void {
         }
         return;
     }
-    const unused = try compiler.symbol_table.unused(&alloc);
-    if (unused.items.len > 0) {
-        try stderr.print("{s}Compiler errors:\n{s}", .{ color_red, color_reset });
-        for (unused.items) |varname| {
-            try stderr.print("{s}->{s} Variable '{s}' is unused\n", .{ color_red, color_reset, varname });
-        }
-
-        return;
-    }
 
     var vm = try VM.new(&alloc, compiler.get_bytecode());
     _ = try vm.run();

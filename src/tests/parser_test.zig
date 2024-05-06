@@ -285,8 +285,8 @@ test "Test Hashes with String" {
 
 test "Test If expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8 }{
-        .{ "if x == y:  x; end;", "x", "==", "y", "x" },
-        .{ "if x != y:  y; end;", "x", "!=", "y", "y" },
+        .{ "if x == y:  x; end", "x", "==", "y", "x" },
+        .{ "if x != y:  y; end", "x", "!=", "y", "y" },
     };
 
     for (expected) |exp| {
@@ -315,8 +315,8 @@ test "Test If expression" {
 
 test "Test If-Else expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8, []const u8 }{
-        .{ "if x == y: x; else: y; end;", "x", "==", "y", "x", "y" },
-        .{ "if x != y: y; else: x; end;", "x", "!=", "y", "y", "x" },
+        .{ "if x == y: x; else: y; end", "x", "==", "y", "x", "y" },
+        .{ "if x != y: y; else: x; end", "x", "!=", "y", "y", "x" },
     };
 
     for (expected) |exp| {
@@ -348,11 +348,11 @@ test "Test If-Else expression" {
 
 test "Test function Literal parameters" {
     const expected = [_]struct { []const u8, i64 }{
-        .{ "fn(x, y): x + y; end;", 2 },
+        .{ "fn(x, y): x + y; end", 2 },
         .{ "fn(x, y): x - y; end", 2 },
-        .{ "fn(x, y, z): end;", 3 },
+        .{ "fn(x, y, z): end", 3 },
         .{ "fn(x): x; end", 1 },
-        .{ "fn(): end;", 0 },
+        .{ "fn(): end", 0 },
     };
 
     for (expected) |exp| {

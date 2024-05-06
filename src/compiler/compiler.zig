@@ -14,6 +14,8 @@ const Opcode = @import("opcode.zig").Opcode;
 const sym_import = @import("symbol_table.zig");
 const SymbolTable = sym_import.SymbolTable;
 const SymbolScope = sym_import.SymbolScope;
+const SymbolError = sym_import.SymbolTableError;
+const SymbolType = sym_import.SymbolType;
 
 const eval_utils = common.eval_utils;
 
@@ -146,12 +148,26 @@ pub const Compiler = struct {
         self.symbol_table = SymbolTable.new_enclosed(self.alloc, self.symbol_table) catch return CompilerError.MemAlloc;
     }
 
+    fn check_unused_identifier(self: *Compiler) CompilerError!void {
+        var iter = self.symbol_table.store.iterator();
+        while (iter.next()) |item| {
+            const value = item.value_ptr.*;
+
+            if (!value.used and value.scope != SymbolScope.BUILTIN and value.sym_type != SymbolType.FUNC) {
+                try self.new_comp_error(value.token, "Variable '{s}' is never used", .{value.name});
+            }
+        }
+    }
+
     pub fn leave_scope(self: *Compiler) CompilerError!std.ArrayList(u8) {
+        try self.check_unused_identifier();
+
         const instructions = self.current_scope().instructions;
         _ = self.scopes.pop();
         self.scope_index -= 1;
 
         self.symbol_table = self.symbol_table.outer orelse return CompilerError.SymbolTable;
+
         return instructions;
     }
 
@@ -162,7 +178,8 @@ pub const Compiler = struct {
         args: anytype,
     ) CompilerError!void {
         const fmt_msg = std.fmt.allocPrint(self.alloc.*, fmt, args) catch return CompilerError.MemAlloc;
-        const msg = std.fmt.allocPrint(
+        var msg = fmt_msg;
+        msg = std.fmt.allocPrint(
             self.alloc.*,
             "line: {d} at col: {d}\t{s}",
             .{ token.line, token.col, fmt_msg },
@@ -190,12 +207,20 @@ pub const Compiler = struct {
             },
             else => unreachable,
         }
+
+        // Check the global symtab
+        try self.check_unused_identifier();
     }
 
     fn compile_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .var_statement => |var_st| {
-                const symbol = self.symbol_table.define(var_st.name.value) catch return CompilerError.SetSymbol;
+                const symbol = self.symbol_table.define(var_st.name.value, var_st.token, SymbolType.VAR) catch |e| {
+                    if (e == SymbolError.AlreadyDeclared) {
+                        try self.new_comp_error(var_st.token, "Variable '{s}' is already declared.", .{var_st.name.value});
+                    }
+                    return;
+                };
                 try self.compile_expression(var_st.expression);
 
                 if (symbol.scope == SymbolScope.GLOBAL) {
@@ -381,7 +406,7 @@ pub const Compiler = struct {
                     .named => |named| {
                         const lit = named.func_literal.*;
 
-                        const symbol = self.symbol_table.define(named.name.value) catch return CompilerError.SetSymbol;
+                        const symbol = self.symbol_table.define(named.name.value, lit.token, SymbolType.FUNC) catch return CompilerError.SetSymbol;
                         try self.compile_function(lit);
 
                         if (symbol.scope == SymbolScope.GLOBAL) {
@@ -409,7 +434,7 @@ pub const Compiler = struct {
         self.enter_scope() catch return CompilerError.EnterScope;
 
         for (lit.parameters.items) |param| {
-            _ = self.symbol_table.define(param.value) catch return CompilerError.DefineParams;
+            _ = self.symbol_table.define(param.value, param.token, SymbolType.VAR) catch return CompilerError.DefineParams;
         }
 
         try self.compile_block_statement(lit.body);
