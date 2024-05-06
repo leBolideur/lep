@@ -1,10 +1,10 @@
 fn great(name): print("hello, " + name); end
 
-fn loop(times):
+fn loop(times, func, name):
     if (times > 0):
-        great("lep");
+        func(name);
         loop(times - 1);
     end
 end;
 
-loop(9);
+loop(great, "max");
