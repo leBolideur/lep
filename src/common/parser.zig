@@ -12,7 +12,24 @@ const TokenType = token.TokenType;
 const ast = @import("ast.zig");
 
 const ParseFnsError = error{ NoPrefixFn, NoInfixFn };
-const ParserError = ParseFnsError || error{ NotImpl, MissingToken, BadToken, MissingSemiCol, MissingColon, MissingEnd, MissingRightParen, MissingRightBracket, MemAlloc, ParseExpr, ParseInteger, ParseIdentifier, MissingLeftParen, MissingFuncIdent, HashPutError, AddToErrorList };
+const ParserError = ParseFnsError || error{
+    NotImpl,
+    MissingToken,
+    BadToken,
+    MissingSemiCol,
+    MissingColon,
+    MissingEnd,
+    MissingRightParen,
+    MissingRightBracket,
+    MemAlloc,
+    ParseExpr,
+    ParseInteger,
+    ParseIdentifier,
+    MissingLeftParen,
+    MissingFuncIdent,
+    HashPutError,
+    AddToErrorList,
+};
 
 const Precedence = enum(u8) {
     LOWEST = 0,
@@ -172,8 +189,10 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = expression;
 
-        if (self.peek_token.type == TokenType.SEMICOLON) {
+        if (!self.current_is(TokenType.END)) {
             self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
+        } else {
+            try self.unexpect_peek(TokenType.SEMICOLON);
         }
 
         return ast.ExprStatement{
@@ -195,10 +214,8 @@ pub const Parser = struct {
             .IF => ast.Expression{ .if_expression = try self.parse_if_expression() },
             .FN => ast.Expression{ .func = try self.parse_function_literal() },
             else => {
-                try self.new_syntax_error(self.current_token, "No prefix parse function for token '{s}'. line: {d} @ {d}", .{
+                try self.new_syntax_error(self.current_token, "Illegal character '{s}'.", .{
                     self.current_token.literal,
-                    self.current_token.line,
-                    self.current_token.col,
                 });
                 return ParseFnsError.NoPrefixFn;
             },
@@ -370,6 +387,12 @@ pub const Parser = struct {
 
         block.statements = statements_list;
 
+        if (!self.current_is(TokenType.END)) {
+            try self.new_syntax_error(self.current_token, "Expected 'end' after '{s}'.", .{
+                self.current_token.literal,
+            });
+        }
+
         return block;
     }
 
@@ -525,13 +548,11 @@ pub const Parser = struct {
             return;
         }
 
-        try self.new_syntax_error(self.current_token, "Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}", .{
+        try self.new_syntax_error(self.current_token, "Expected '{!s}' after '{s}'.", .{
             expected_type.get_token_string(),
             self.current_token.literal,
-            self.current_token.line,
-            self.current_token.col,
         });
-        return; // ParserError.BadToken;
+        return ParserError.BadToken;
     }
 
     fn current_is(self: *Parser, token_type: TokenType) bool {
@@ -540,13 +561,11 @@ pub const Parser = struct {
 
     fn unexpect_peek(self: *Parser, expected_type: TokenType) ParserError!void {
         if (self.peek_token.type == expected_type) {
-            try self.new_syntax_error(self.current_token, "Syntax error! Too much '{!s}' after '{!s}'. line: {d} @ {d}", .{
+            try self.new_syntax_error(self.current_token, "Too much '{!s}' after '{!s}'.", .{
                 self.peek_token.get_str(),
                 self.current_token.get_str(),
-                self.current_token.line,
-                self.current_token.col + self.current_token.literal.len,
             });
-            return; // ParserError.BadToken;
+            return ParserError.BadToken;
         }
     }
 

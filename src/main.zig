@@ -52,29 +52,21 @@ pub fn main() !void {
 
     var lexer = Lexer.init(buffer);
     var parser = try Parser.init(&lexer, &alloc);
-    const program = try parser.parse();
-    if (parser.has_errors()) {
-        try stderr.print("{s}Syntax errors:\n{s}", .{ color_yellow, color_reset });
-        for (parser.errors_list.items) |err| {
-            try stderr.print("{s}->{s} {s}\n", .{ color_yellow, color_reset, err.msg });
+    const program = parser.parse() catch {
+        if (parser.has_errors()) {
+            try stderr.print("{s}Syntax errors:\n{s}", .{ color_yellow, color_reset });
+            for (parser.errors_list.items) |err| {
+                try stderr.print("{s}->{s} {s}\n", .{ color_yellow, color_reset, err.msg });
+            }
         }
-        return;
-    }
+        return undefined;
+    };
 
     // const evaluator = try Evaluator.init(&alloc);
     // const object = try evaluator.eval(program, &env);
 
     var compiler = try Compiler.init(&alloc);
     try compiler.compile(program);
-
-    // std.debug.print("main - sym count: {d}\n", .{compiler.symbol_table.store.count()});
-    // var iter = compiler.symbol_table.store.iterator();
-    // while (iter.next()) |elem| {
-    //     const key = elem.key_ptr.*;
-    //     const value = elem.value_ptr.*;
-
-    //     std.debug.print("key: {s}\tvalue: {s}\tscope: {?}\n", .{ key, value.name, value.scope });
-    // }
 
     // Compile time errors
     if (compiler.has_errors()) {

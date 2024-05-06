@@ -120,7 +120,7 @@ pub const Lexer = struct {
                     token = self.new_token(TokenType.INT, digit);
                     return token;
                 } else {
-                    token = self.new_token(TokenType.ILLEGAL, "ILLEGAL");
+                    token = self.new_token(TokenType.ILLEGAL, &[_]u8{self.current_char});
                     return token;
                 }
             },

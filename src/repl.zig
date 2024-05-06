@@ -29,12 +29,6 @@ pub fn repl(alloc: *const std.mem.Allocator) !void {
     const symtab = try compiler_.symbol_table.SymbolTable.new(alloc);
 
     while (true) {
-        // std.debug.print("constants: {d}\tsymtab: {d}\n", .{ constants.items.len, symtab.store.count() });
-        // std.debug.print("symtab >>\n", .{});
-        // var iter = symtab.store.iterator();
-        // while (iter.next()) |i| {
-        //     std.debug.print("\tkey: {s}\tvalue: {any}\n", .{ i.key_ptr.*, i.value_ptr.* });
-        // }
         var input: [1000]u8 = undefined;
 
         try stdout.print("\n>> ", .{});

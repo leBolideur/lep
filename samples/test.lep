@@ -2,9 +2,11 @@ fn great(name): print("hello, " + name); end
 
 fn loop(times, func, name):
     if (times > 0):
-        func(name);
         loop(times - 1, func, name);
+    else:
+        func(name);
     end
-end;
+end
 
 loop(10, great, "max");
+var i = 4;
