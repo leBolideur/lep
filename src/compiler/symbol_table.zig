@@ -12,6 +12,7 @@ pub const Symbol = struct {
     name: []const u8,
     scope: SymbolScope,
     index: usize,
+    used: bool = false,
 };
 
 pub const SymbolTable = struct {
@@ -29,6 +30,20 @@ pub const SymbolTable = struct {
         };
 
         return ptr;
+    }
+
+    pub fn unused(self: *SymbolTable, alloc: *const std.mem.Allocator) !std.ArrayList([]const u8) {
+        var unused_list = std.ArrayList([]const u8).init(alloc.*);
+
+        var iter = self.store.iterator();
+        while (iter.next()) |item| {
+            const value = item.value_ptr.*;
+            if (!value.used and value.scope != SymbolScope.BUILTIN) {
+                try unused_list.append(value.name);
+            }
+        }
+
+        return unused_list;
     }
 
     pub fn new_enclosed(alloc: *const std.mem.Allocator, outer: *SymbolTable) !*SymbolTable {
@@ -66,6 +81,11 @@ pub const SymbolTable = struct {
         var obj = self.store.get(identifier);
         if (obj == null and self.outer != null) {
             obj = self.outer.?.resolve(identifier);
+        }
+
+        const objp = self.store.getPtr(identifier);
+        if (objp) |ptr| {
+            ptr.*.used = true;
         }
 
         return obj;

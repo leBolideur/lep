@@ -9,4 +9,7 @@ fn loop(times, func, name):
 end
 
 loop(10, great, "max");
-var i = 4;
+var a = 4;
+var b = a;
+var c = 4;
+b; c;
