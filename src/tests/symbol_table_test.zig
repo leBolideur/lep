@@ -36,27 +36,26 @@ test "Test SymbolTable Define Global" {
     var global = try SymbolTable.new(&alloc);
 
     const a = try global.define("a", test_token("a"), SymbolType.VAR);
-    std.debug.print("a >> {any}\n", .{a});
-    try std.testing.expectEqual(a, expected.get("a").?);
+    try test_symbol(a, expected.get("a").?);
 
     const b = try global.define("b", test_token("b"), SymbolType.VAR);
-    try std.testing.expectEqual(b, expected.get("b").?);
+    try test_symbol(b, expected.get("b").?);
 
     var local = try SymbolTable.new_enclosed(&alloc, global);
 
     const c = try local.define("c", test_token("c"), SymbolType.VAR);
-    try std.testing.expectEqual(c, expected.get("c").?);
+    try test_symbol(c, expected.get("c").?);
 
     const d = try local.define("d", test_token("d"), SymbolType.VAR);
-    try std.testing.expectEqual(d, expected.get("d").?);
+    try test_symbol(d, expected.get("d").?);
 
     var nested = try SymbolTable.new_enclosed(&alloc, local);
 
     const e = try nested.define("e", test_token("e"), SymbolType.VAR);
-    try std.testing.expectEqual(e, expected.get("e").?);
+    try test_symbol(e, expected.get("e").?);
 
     const f = try nested.define("f", test_token("f"), SymbolType.VAR);
-    try std.testing.expectEqual(f, expected.get("f").?);
+    try test_symbol(f, expected.get("f").?);
 }
 
 test "Test SymbolTable Resolve Global" {
@@ -76,7 +75,7 @@ test "Test SymbolTable Resolve Global" {
     for (expected) |exp| {
         const resolved = global.resolve(exp[0].name);
         try std.testing.expect(resolved != null);
-        try std.testing.expectEqual(exp[0], resolved.?.*);
+        try test_symbol(exp[0], resolved.?.*);
     }
 }
 
@@ -104,7 +103,7 @@ test "Test SymbolTable Resolve Local" {
         const resolved = local.resolve(exp[0].name);
 
         try std.testing.expect(resolved != null);
-        try std.testing.expectEqual(exp[0], resolved.?.*);
+        try test_symbol(exp[0], resolved.?.*);
     }
 }
 
@@ -151,7 +150,7 @@ test "Test Nested SymbolTable" {
             const resolved = tt[0].resolve(exp.name);
 
             try std.testing.expect(resolved != null);
-            try std.testing.expectEqual(exp, resolved.?.*);
+            try test_symbol(exp, resolved.?.*);
         }
     }
 }
@@ -182,7 +181,14 @@ test "Test Define/Resolve Builtins" {
             const resolved = table.*.resolve(symbol.name);
 
             try std.testing.expect(resolved != null);
-            try std.testing.expectEqual(symbol, resolved.?.*);
+            try test_symbol(symbol, resolved.?.*);
         }
     }
+}
+
+fn test_symbol(symbol: Symbol, exp: Symbol) !void {
+    try std.testing.expectEqualStrings(exp.name, symbol.name);
+    try std.testing.expectEqual(exp.index, symbol.index);
+    try std.testing.expectEqual(exp.used, symbol.used);
+    try std.testing.expectEqual(exp.sym_type, symbol.sym_type);
 }

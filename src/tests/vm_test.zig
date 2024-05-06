@@ -551,7 +551,7 @@ test "Test VM Builtins functions" {
         .{
             \\len("one", "two");
             ,
-            ExpectedValue{ .string = "wrong number of arguments. want=1, got=2" },
+            ExpectedValue{ .string = "wrong number of arguments. got=2, want=1" },
         },
         .{
             \\len([1, 2, 3]);
@@ -711,6 +711,9 @@ fn test_expected_object(expected: ExpectedValue, actual: ?*const Object) !void {
         },
         .string => |string| {
             try std.testing.expectEqualStrings(expected.string, string.value);
+        },
+        .err => |err| {
+            try std.testing.expectEqualStrings(expected.string, err.msg);
         },
         .array => |array| {
             try std.testing.expectEqual(expected.int_array.len, array.elements.items.len);
