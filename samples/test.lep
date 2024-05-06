@@ -1,6 +1,6 @@
 fn great(name): print("hello, " + name); end
 
-var loop = fn(times):
+fn loop(times):
     if (times > 0):
         great("lep");
         loop(times - 1);

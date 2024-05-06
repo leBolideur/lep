@@ -381,9 +381,8 @@ pub const Compiler = struct {
                     .named => |named| {
                         const lit = named.func_literal.*;
 
-                        try self.compile_function(lit);
-
                         const symbol = self.symbol_table.define(named.name.value) catch return CompilerError.SetSymbol;
+                        try self.compile_function(lit);
 
                         if (symbol.scope == SymbolScope.GLOBAL) {
                             _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
