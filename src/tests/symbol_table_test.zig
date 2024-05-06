@@ -109,7 +109,7 @@ test "Test Nested SymbolTable" {
     _ = try nested.define("e");
     _ = try nested.define("f");
 
-    const expected = [_]struct { *const SymbolTable, []const Symbol }{
+    const expected = [_]struct { *SymbolTable, []const Symbol }{
         .{
             local,
             &[_]Symbol{

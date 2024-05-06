@@ -7,4 +7,4 @@ var loop = fn(times):
     end
 end;
 
-loop(5);
+loop(9);

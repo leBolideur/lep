@@ -144,13 +144,6 @@ pub const Compiler = struct {
         self.scope_index += 1;
 
         self.symbol_table = SymbolTable.new_enclosed(self.alloc, self.symbol_table) catch return CompilerError.MemAlloc;
-        // var iter = self.symbol_table.store.iterator();
-        // while (iter.next()) |item| {
-        //     const key = item.key_ptr.*;
-        //     const value = item.value_ptr.*;
-
-        //     std.debug.print("enter_scope\tkey: {s}\tvalue: {?}\n", .{ key, value });
-        // }
     }
 
     pub fn leave_scope(self: *Compiler) CompilerError!std.ArrayList(u8) {
@@ -202,14 +195,8 @@ pub const Compiler = struct {
     fn compile_statement(self: *Compiler, st: ast.Statement) CompilerError!void {
         switch (st) {
             .var_statement => |var_st| {
-                // std.debug.print("comp expr for >> {s}\n", .{var_st.name.value});
-                // var buf = std.ArrayList(u8).init(self.alloc.*);
-                // var_st.expression.debug_string(&buf) catch {};
-                // const str = buf.toOwnedSlice() catch "err";
-                // std.debug.print("\texpr >> {s}\n", .{str});
-
-                try self.compile_expression(var_st.expression);
                 const symbol = self.symbol_table.define(var_st.name.value) catch return CompilerError.SetSymbol;
+                try self.compile_expression(var_st.expression);
 
                 if (symbol.scope == SymbolScope.GLOBAL) {
                     _ = try self.emit(Opcode.OpSetGlobal, &[_]usize{symbol.index});
@@ -253,7 +240,6 @@ pub const Compiler = struct {
                 }
             },
             .identifier => |ident| {
-                std.debug.print("identifier > {s}\n", .{ident.value});
                 const symbol = self.symbol_table.resolve(ident.value);
                 if (symbol == null) {
                     try self.new_comp_error(ident.token, "Undefined variable '{s}'", .{ident.value});
@@ -261,7 +247,6 @@ pub const Compiler = struct {
                 }
 
                 if (symbol.?.scope == SymbolScope.GLOBAL) {
-                    std.debug.print("identifier glob - symbol: {s}\t\n", .{symbol.?.name});
                     _ = try self.emit(Opcode.OpGetGlobal, &[_]usize{symbol.?.index});
                 } else if (symbol.?.scope == SymbolScope.LOCAL) {
                     _ = try self.emit(Opcode.OpGetLocal, &[_]usize{symbol.?.index});

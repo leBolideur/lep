@@ -10,4 +10,4 @@ var fibonacci = fn(y) :
     end
 end;
 
-fibonacci(10);
+fibonacci(35);
