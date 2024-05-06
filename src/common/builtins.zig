@@ -102,7 +102,7 @@ pub fn print(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)
     }
 
     stdout.print("\n", .{}) catch {};
-    return null;
+    return eval_utils.new_null();
 }
 
 pub fn head(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !?*const Object {

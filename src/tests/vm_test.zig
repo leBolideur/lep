@@ -558,8 +558,9 @@ test "Test VM Builtins functions" {
             ,
             ExpectedValue{ .integer = 3 },
         },
+        // TOFIX
         // .{
-        //     \\print("hello");
+        //     \\print("hello", ", world");
         //     ,
         //     ExpectedValue{ .null_ = null_object },
         // },
