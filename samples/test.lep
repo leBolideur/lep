@@ -3,8 +3,8 @@ fn great(name): print("hello, " + name); end
 fn loop(times, func, name):
     if (times > 0):
         func(name);
-        loop(times - 1);
+        loop(times - 1, func, name);
     end
 end;
 
-loop(great, "max");
+loop(10, great, "max");
