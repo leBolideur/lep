@@ -1,8 +1,13 @@
 const std = @import("std");
 
-const ast = @import("../ast/ast.zig");
-const Environment = @import("environment.zig").Environment;
+const interpreter = @import("interpreter");
+const compiler_ = @import("compiler");
 
+const ast = @import("ast.zig");
+const Environment = interpreter.environment.Environment;
+const Instructions = compiler_.bytecode.Instructions;
+
+// const builtins = interpreter.builtins;
 const builtins = @import("builtins.zig");
 
 pub const ObjectType = union(enum) {
@@ -16,6 +21,7 @@ pub const ObjectType = union(enum) {
     Error,
     NamedFunc,
     LiteralFunc,
+    CompiledFunc,
     Builtin,
 };
 
@@ -32,6 +38,7 @@ pub const Object = union(enum) {
     err: Error,
     literal_func: LiteralFunc,
     named_func: NamedFunc,
+    compiled_func: CompiledFunc,
     builtin: BuiltinObject,
 
     pub fn inspect(self: Object, buf: *std.ArrayList(u8)) ObjectError!void {
@@ -46,6 +53,7 @@ pub const Object = union(enum) {
             .err => |err| err.inspect(buf),
             .literal_func => |func| func.inspect(buf),
             .named_func => |func| func.inspect(buf),
+            .compiled_func => |func| func.inspect(buf),
             .builtin => |builtin| builtin.inspect(buf),
         };
     }
@@ -62,6 +70,7 @@ pub const Object = union(enum) {
             .err => "Error",
             .literal_func => "Literal Func",
             .named_func => "Named Func",
+            .compiled_func => "Compiled Func",
             .builtin => "Builtin function",
         };
     }
@@ -97,6 +106,18 @@ pub const LiteralFunc = struct {
         std.fmt.format(buf.*.writer(), "): ", .{}) catch return ObjectError.InspectFormatError;
         self.body.debug_string(buf) catch return ObjectError.InspectFormatError;
         std.fmt.format(buf.*.writer(), " end", .{}) catch return ObjectError.InspectFormatError;
+    }
+};
+
+pub const CompiledFunc = struct {
+    type: ObjectType,
+    // name: []const u8,
+    instructions: std.ArrayList(u8),
+    locals_count: usize,
+    params_count: usize,
+
+    pub fn inspect(_: CompiledFunc, buf: *std.ArrayList(u8)) ObjectError!void {
+        std.fmt.format(buf.*.writer(), "CompiledFunc", .{}) catch return ObjectError.InspectFormatError;
     }
 };
 

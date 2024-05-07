@@ -1,15 +1,21 @@
 const std = @import("std");
 
-const repl = @import("interpreter/repl.zig");
+const interpreter = @import("interpreter");
+const common = @import("common");
+const compiler_ = @import("compiler");
 
-const Lexer = @import("interpreter/lexer/lexer.zig").Lexer;
-const TokenType = @import("interpreter/lexer/token.zig").TokenType;
+const Compiler = compiler_.compiler.Compiler;
+const VM = compiler_.vm.VM;
 
-const Parser = @import("interpreter/parser/parser.zig").Parser;
+const repl = @import("repl.zig");
 
-const Evaluator = @import("interpreter/eval/evaluator.zig").Evaluator;
+const Lexer = common.lexer.Lexer;
 
-const Environment = @import("interpreter/intern/environment.zig").Environment;
+const Parser = common.parser.Parser;
+
+const Evaluator = interpreter.evaluator.Evaluator;
+
+const Environment = interpreter.environment.Environment;
 
 pub fn main() !void {
     const stderr = std.io.getStdErr().writer();
@@ -34,28 +40,53 @@ pub fn main() !void {
 
     const stat = try file.stat();
     var reader = file.reader();
-    var buffer = try alloc.alloc(u8, stat.size);
+    const buffer = try alloc.alloc(u8, stat.size);
     _ = try reader.readAll(buffer);
 
-    var env = try Environment.init(&alloc);
+    // var env = try Environment.init(&alloc);
+    //
+    const color_red = "\x1B[31m";
+    // const color_green = "\x1B[32m";
+    const color_yellow = "\x1B[33m";
+    const color_reset = "\x1B[0m";
 
     var lexer = Lexer.init(buffer);
     var parser = try Parser.init(&lexer, &alloc);
-    const program = try parser.parse();
-    switch (program) {
-        .err => |err| {
-            stderr.print("{s}\n", .{err}) catch {};
-            return;
-        },
-        else => {},
+
+    const program = parser.parse() catch {
+        if (parser.has_errors()) {
+            try stderr.print("{s}Syntax errors:\n{s}", .{ color_yellow, color_reset });
+            for (parser.errors_list.items) |err| {
+                try stderr.print("{s}->{s} {s}\n", .{ color_yellow, color_reset, err.msg });
+            }
+        }
+        return undefined;
+    };
+
+    // const evaluator = try Evaluator.init(&alloc);
+    // const object = try evaluator.eval(program, &env);
+
+    var compiler = try Compiler.init(&alloc);
+    try compiler.compile(program);
+
+    // Compile time errors
+    if (compiler.has_errors()) {
+        try stderr.print("{s}Compiler errors:\n{s}", .{ color_red, color_reset });
+        for (compiler.errors_list.items) |err| {
+            try stderr.print("{s}->{s} {s}\n", .{ color_red, color_reset, err.msg });
+        }
+        return;
     }
 
-    const evaluator = try Evaluator.init(&alloc);
-    const object = try evaluator.eval(program, &env);
+    var vm = try VM.new(&alloc, compiler.get_bytecode());
+    _ = try vm.run();
+    const object = vm.last_popped_element();
 
     var buf = std.ArrayList(u8).init(alloc);
-    try object.inspect(&buf);
-    switch (object.*) {
+    try object.?.inspect(&buf);
+
+    // Runtime errors
+    switch (object.?.*) {
         .err => try stderr.print("error > {s}\n", .{try buf.toOwnedSlice()}),
         .null => {},
         else => try stdout.print("{s}\n", .{try buf.toOwnedSlice()}),

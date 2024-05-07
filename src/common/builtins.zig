@@ -1,33 +1,73 @@
 const std = @import("std");
 
-const obj_import = @import("object.zig");
-const Object = obj_import.Object;
+const Object = @import("object.zig").Object;
+const eval_utils = @import("eval_utils.zig");
 
-const eval_utils = @import("../utils/eval_utils.zig");
-
-const BuiltinsError = error{ ArrayCreation, ArrayClone, ArrayAppend };
-
-pub const BuiltinFunction = enum {
-    len,
-    push,
-    head,
-    last,
-    tail,
-    print,
-
-    pub fn call(self: BuiltinFunction, alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
-        return switch (self) {
-            .len => try len(alloc, args),
-            .push => try push(alloc, args),
-            .head => try head(alloc, args),
-            .last => try last(alloc, args),
-            .tail => try tail(alloc, args),
-            .print => try print(alloc, args),
-        };
-    }
+pub const BuiltinFunction = struct {
+    func: *const fn (*const std.mem.Allocator, std.ArrayList(*const Object)) anyerror!?*const Object,
 };
 
-pub fn print(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
+pub const builtins = [_]struct { name: []const u8, func: BuiltinFunction }{
+    .{
+        .name = "len",
+        .func = BuiltinFunction{ .func = &len },
+    },
+    .{
+        .name = "print",
+        .func = BuiltinFunction{ .func = &print },
+    },
+    .{
+        .name = "head",
+        .func = BuiltinFunction{ .func = &head },
+    },
+    .{
+        .name = "last",
+        .func = BuiltinFunction{ .func = &last },
+    },
+    .{
+        .name = "tail",
+        .func = BuiltinFunction{ .func = &tail },
+    },
+    .{
+        .name = "push",
+        .func = BuiltinFunction{ .func = &push },
+    },
+};
+
+pub fn get_builtin_by_name(name: []const u8) ?BuiltinFunction {
+    for (builtins) |builtin| {
+        if (std.mem.eql(u8, name, builtin.name)) return builtin.func;
+    }
+
+    return null;
+}
+
+pub fn len(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !?*const Object {
+    if (args.items.len > 1) {
+        return try eval_utils.new_error(
+            alloc,
+            "wrong number of arguments. got={d}, want={d}",
+            .{ args.items.len, 1 },
+        );
+    }
+
+    const object = args.items[0];
+    const str_len = switch (object.*) {
+        .string => |string| string.value.len,
+        .array => |array| array.elements.items.len,
+        else => |other| {
+            return try eval_utils.new_error(
+                alloc,
+                "argument to `len` not supported, got {s}",
+                .{other.typename()},
+            );
+        },
+    };
+
+    return try eval_utils.new_integer(alloc, @as(i64, @intCast(str_len)));
+}
+
+pub fn print(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !?*const Object {
     if (args.items.len == 0) {
         return try eval_utils.new_error(
             alloc,
@@ -65,32 +105,7 @@ pub fn print(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)
     return eval_utils.new_null();
 }
 
-pub fn len(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
-    if (args.items.len > 1) {
-        return try eval_utils.new_error(
-            alloc,
-            "wrong number of arguments. got={d}, want={d}",
-            .{ args.items.len, 1 },
-        );
-    }
-
-    const object = args.items[0];
-    const str_len = switch (object.*) {
-        .string => |string| string.value.len,
-        .array => |array| array.elements.items.len,
-        else => |other| {
-            return try eval_utils.new_error(
-                alloc,
-                "argument to `len` not supported, got {s}",
-                .{other.typename()},
-            );
-        },
-    };
-
-    return try eval_utils.new_integer(alloc, @as(i64, @intCast(str_len)));
-}
-
-pub fn head(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
+pub fn head(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !?*const Object {
     if (args.items.len > 1) {
         return try eval_utils.new_error(
             alloc,
@@ -122,7 +137,7 @@ pub fn head(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object))
     }
 }
 
-pub fn last(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
+pub fn last(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !?*const Object {
     if (args.items.len > 1) {
         return try eval_utils.new_error(
             alloc,
@@ -155,7 +170,7 @@ pub fn last(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object))
     }
 }
 
-pub fn tail(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
+pub fn tail(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !?*const Object {
     if (args.items.len > 1) {
         return try eval_utils.new_error(
             alloc,
@@ -192,7 +207,7 @@ pub fn tail(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object))
     }
 }
 
-pub fn push(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !*const Object {
+pub fn push(alloc: *const std.mem.Allocator, args: std.ArrayList(*const Object)) !?*const Object {
     if (args.items.len != 2) {
         return try eval_utils.new_error(
             alloc,

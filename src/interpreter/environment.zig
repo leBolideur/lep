@@ -1,8 +1,10 @@
 const std = @import("std");
 
-const Object = @import("object.zig").Object;
+const common = @import("common");
 
-const ast = @import("../ast/ast.zig");
+const Object = common.object.Object;
+
+const ast = common.ast;
 
 const EnvError = error{ MemAlloc, Undeclared, SetError };
 
@@ -51,22 +53,13 @@ pub const Environment = struct {
     pub fn add_var(self: *Environment, name: []const u8, value: *const Object) EnvError!*const Object {
         self.var_table.put(name, value) catch return EnvError.SetError;
 
-        // std.debug.print("\nTable content :\n", .{});
-        // var iter = self.var_table.iterator();
-        // while (iter.next()) |item| {
-        //     var buf = std.ArrayList(u8).init(self.allocator.*);
-        //     item.value_ptr.*.inspect(&buf) catch {};
-        //     const str = buf.toOwnedSlice() catch "";
-        //     std.debug.print("\t>{s} = {s}\n", .{ item.key_ptr.*, str });
-        // }
-
         return value;
     }
 };
 
 test "test add and get" {
-    const Integer = @import("object.zig").Integer;
-    const ObjectType = @import("object.zig").ObjectType;
+    const Integer = @import("object").Integer;
+    const ObjectType = @import("object").ObjectType;
 
     const expected = [_]struct { []const u8, i64 }{
         .{ "a", 6 },
@@ -82,7 +75,7 @@ test "test add and get" {
     var expected_size: u32 = 0;
 
     for (expected) |exp| {
-        var ptr = try alloc.create(Object);
+        const ptr = try alloc.create(Object);
 
         const result = Integer{ .type = ObjectType.Integer, .value = exp[1] };
         ptr.* = Object{ .integer = result };
@@ -95,7 +88,5 @@ test "test add and get" {
 
         const get = try env.get_var(exp[0]);
         try std.testing.expectEqual(get, ptr);
-
-        // std.debug.print("{?} = {d}\n", .{ get, get.?.integer.value });
     }
 }

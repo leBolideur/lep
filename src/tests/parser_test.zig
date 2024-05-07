@@ -1,10 +1,15 @@
 const std = @import("std");
 
-const Parser = @import("parser/parser.zig").Parser;
-const ast = @import("ast/ast.zig");
+const common = @import("common");
+const interpreter = @import("interpreter");
+const compiler_ = @import("compiler");
 
-const Lexer = @import("lexer/lexer.zig").Lexer;
-const token = @import("lexer/token.zig");
+const Lexer = common.lexer.Lexer;
+const Parser = common.parser.Parser;
+const Object = common.object.Object;
+const ast = common.ast;
+
+const token = interpreter.token;
 const Token = token.Token;
 const TokenType = token.TokenType;
 
@@ -227,7 +232,7 @@ test "Test Hashes with Integers" {
         try std.testing.expect(@TypeOf(hash) == ast.HashLiteral);
 
         var iter = hash.pairs.iterator();
-        var count = hash.pairs.count();
+        const count = hash.pairs.count();
 
         try std.testing.expectEqual(count, exp[1]);
 
@@ -266,7 +271,7 @@ test "Test Hashes with String" {
         try std.testing.expect(@TypeOf(hash) == ast.HashLiteral);
 
         var iter = hash.pairs.iterator();
-        var count = hash.pairs.count();
+        const count = hash.pairs.count();
 
         try std.testing.expectEqual(count, exp[1]);
 
@@ -280,8 +285,8 @@ test "Test Hashes with String" {
 
 test "Test If expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8 }{
-        .{ "if x == y:  x; end;", "x", "==", "y", "x" },
-        .{ "if x != y:  y; end;", "x", "!=", "y", "y" },
+        .{ "if x == y:  x; end", "x", "==", "y", "x" },
+        .{ "if x != y:  y; end", "x", "!=", "y", "y" },
     };
 
     for (expected) |exp| {
@@ -310,8 +315,8 @@ test "Test If expression" {
 
 test "Test If-Else expression" {
     const expected = [_]struct { []const u8, []const u8, []const u8, []const u8, []const u8, []const u8 }{
-        .{ "if x == y: x; else: y; end;", "x", "==", "y", "x", "y" },
-        .{ "if x != y: y; else: x; end;", "x", "!=", "y", "y", "x" },
+        .{ "if x == y: x; else: y; end", "x", "==", "y", "x", "y" },
+        .{ "if x != y: y; else: x; end", "x", "!=", "y", "y", "x" },
     };
 
     for (expected) |exp| {
@@ -343,11 +348,11 @@ test "Test If-Else expression" {
 
 test "Test function Literal parameters" {
     const expected = [_]struct { []const u8, i64 }{
-        .{ "fn(x, y): x + y; end;", 2 },
+        .{ "fn(x, y): x + y; end", 2 },
         .{ "fn(x, y): x - y; end", 2 },
-        .{ "fn(x, y, z): end;", 3 },
+        .{ "fn(x, y, z): end", 3 },
         .{ "fn(x): x; end", 1 },
-        .{ "fn(): end;", 0 },
+        .{ "fn(): end", 0 },
     };
 
     for (expected) |exp| {

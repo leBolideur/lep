@@ -1,15 +1,17 @@
 const std = @import("std");
 
-const Parser = @import("parser/parser.zig").Parser;
-const ast = @import("ast/ast.zig");
+const common = @import("common");
+const interpreter = @import("interpreter");
 
-const token = @import("lexer/token.zig");
+const Parser = common.parser.Parser;
+const ast = common.ast;
+
+const token = interpreter.token;
 const Token = token.Token;
 const TokenType = token.TokenType;
 
 test "Test the AST string debug" {
     // test with the following Lep code: var myVar = anotherVar;
-
     const var_st = ast.Statement{
         .var_statement = ast.VarStatement{
             .token = Token{ .literal = "var", .type = TokenType.VAR },

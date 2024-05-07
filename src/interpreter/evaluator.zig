@@ -1,17 +1,19 @@
 const std = @import("std");
 
-const ast = @import("../ast/ast.zig");
-const obj_import = @import("../intern/object.zig");
+const common = @import("common");
+
+const ast = common.ast;
+const obj_import = common.object;
 const Object = obj_import.Object;
 const ObjectType = obj_import.ObjectType;
 const BuiltinObject = obj_import.BuiltinObject;
 
-const eval_utils = @import("../utils/eval_utils.zig");
+const eval_utils = common.eval_utils;
 const EvalError = eval_utils.EvalError;
 
-const Environment = @import("../intern/environment.zig").Environment;
+const Environment = @import("environment.zig").Environment;
 
-const builtins = @import("../intern/builtins.zig");
+const builtins = common.builtins;
 
 const stderr = std.io.getStdOut().writer();
 
@@ -37,12 +39,19 @@ pub const Evaluator = struct {
         try infix_op_map.put("!=", INFIX_OP.NOT_EQ);
 
         var builtins_map = std.StringHashMap(*const Object).init(allocator.*);
-        try builtins_map.put("len", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.len));
-        try builtins_map.put("push", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.push));
-        try builtins_map.put("head", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.head));
-        try builtins_map.put("tail", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.tail));
-        try builtins_map.put("last", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.last));
-        try builtins_map.put("print", try eval_utils.new_builtin(allocator, builtins.BuiltinFunction.print));
+
+        const len_builtin = try eval_utils.new_builtin(allocator, builtins.get_builtin_by_name("len").?);
+        try builtins_map.put("len", len_builtin);
+        const print_builtin = try eval_utils.new_builtin(allocator, builtins.get_builtin_by_name("print").?);
+        try builtins_map.put("print", print_builtin);
+        const head_builtin = try eval_utils.new_builtin(allocator, builtins.get_builtin_by_name("head").?);
+        try builtins_map.put("head", head_builtin);
+        const last_builtin = try eval_utils.new_builtin(allocator, builtins.get_builtin_by_name("last").?);
+        try builtins_map.put("last", last_builtin);
+        const tail_builtin = try eval_utils.new_builtin(allocator, builtins.get_builtin_by_name("tail").?);
+        try builtins_map.put("tail", tail_builtin);
+        const push_builtin = try eval_utils.new_builtin(allocator, builtins.get_builtin_by_name("push").?);
+        try builtins_map.put("push", push_builtin);
 
         return Evaluator{
             .infix_op_map = infix_op_map,
@@ -128,7 +137,6 @@ pub const Evaluator = struct {
             },
             .hash => |hash_| {
                 return try self.eval_hash(hash_, env);
-                // return try eval_utils.new_hash(self.allocator, hash);
             },
             .index_expr => |idx| {
                 const left = try self.eval_expression(idx.left, env);
@@ -174,7 +182,6 @@ pub const Evaluator = struct {
             },
             .func => |func| {
                 const fun = try eval_utils.new_func(self.allocator, env, func);
-                // try env.add_fn(fun);
                 switch (func) {
                     .named => |named| _ = env.add_var(named.name.value, fun) catch return EvalError.EnvAddError,
                     .literal => {},
@@ -213,7 +220,9 @@ pub const Evaluator = struct {
                 env = f.env;
             },
             .builtin => |b| {
-                return b.function.call(self.allocator, args) catch return EvalError.BuiltinCall;
+                const ret = b.function.func(self.allocator, args) catch return EvalError.BuiltinCall;
+                if (ret == null) return eval_utils.new_null();
+                return ret.?;
             },
             else => |other| {
                 return try eval_utils.new_error(
@@ -232,7 +241,7 @@ pub const Evaluator = struct {
             );
         }
 
-        var func_env = env.extend_env(args, parameters) catch return EvalError.EnvExtendError;
+        const func_env = env.extend_env(args, parameters) catch return EvalError.EnvExtendError;
         const eval_body = try self.eval_block(body, func_env);
 
         // unwrap to void return bubbleup
@@ -574,8 +583,8 @@ pub const Evaluator = struct {
                 const total = left_len + right_len;
 
                 var buf = self.allocator.alloc(u8, total) catch return EvalError.MemAlloc;
-                std.mem.copy(u8, buf[0..left_len], left);
-                std.mem.copy(u8, buf[left_len..total], right);
+                std.mem.copyForwards(u8, buf[0..left_len], left);
+                std.mem.copyForwards(u8, buf[left_len..total], right);
 
                 // Be careful with 'buf' in case of allocator type change
                 const object = try eval_utils.new_string(self.allocator, buf);
