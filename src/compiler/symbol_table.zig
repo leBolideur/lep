@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Token = @import("interpreter").token.Token;
+const Token = @import("common").token.Token;
 
 pub const SymbolTableError = error{ AddSymbol, AlreadyDeclared };
 

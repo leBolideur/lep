@@ -1,8 +1,7 @@
 const std = @import("std");
 
-const interpreter = @import("interpreter");
+const token_import = @import("token.zig");
 
-const token_import = interpreter.token;
 const Token = token_import.Token;
 const TokenType = token_import.TokenType;
 
@@ -62,6 +61,7 @@ pub const Lexer = struct {
         var token: Token = undefined;
 
         self.skip_whitespaces();
+        self.skip_comment();
 
         switch (self.current_char) {
             ';' => token = self.new_token(TokenType.SEMICOLON, ";"),
@@ -85,6 +85,8 @@ pub const Lexer = struct {
             '-' => token = self.new_token(TokenType.MINUS, "-"),
             '*' => token = self.new_token(TokenType.ASTERISK, "*"),
             '/' => token = self.new_token(TokenType.SLASH, "/"),
+
+            // '#' => self.skip_comment(),
 
             ':' => token = self.new_token(TokenType.COLON, ":"),
             '(' => token = self.new_token(TokenType.LPAREN, "("),
@@ -169,6 +171,16 @@ pub const Lexer = struct {
             self.read_char();
         }
     }
+
+    fn skip_comment(self: *Lexer) void {
+        if (self.current_char == '#') {
+            while (self.current_char != '\n' and self.current_char != '0') {
+                self.read_char();
+            }
+            self.line += 1;
+            self.col = 0;
+        }
+    }
 };
 
 test "test the lexer" {
@@ -197,12 +209,14 @@ test "test the lexer" {
         \\ret false;
         // 4
         \\end;
+
         // 17
         \\10 == 10; 10 != 9;
         // 13
         \\"foo-bar?!@";
         // 16
         \\"Hello, World!";
+        \\# One line comment here
         // 7
         \\[1, 2];
 
@@ -305,6 +319,7 @@ test "test the lexer" {
     var lexer = Lexer.init(input);
     for (expected) |expect| {
         const token = lexer.next();
+        std.debug.print("exp type: {?}\tactual: {?}\n", .{ expect.type, token });
         try std.testing.expect(expect.type == token.type);
 
         const literal_eq = std.mem.eql(u8, expect.literal, token.literal);

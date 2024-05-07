@@ -1,9 +1,6 @@
 const std = @import("std");
 
-const interpreter = @import("interpreter");
-const common = @import("common");
-
-const token = interpreter.token;
+const token = @import("token.zig");
 const Token = token.Token;
 const TokenType = token.TokenType;
 

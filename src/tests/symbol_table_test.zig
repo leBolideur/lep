@@ -6,9 +6,9 @@ const Symbol = compiler_.symbol_table.Symbol;
 const SymbolTable = compiler_.symbol_table.SymbolTable;
 const SymbolType = compiler_.symbol_table.SymbolType;
 
-const interpreter = @import("interpreter");
-const TokenType = interpreter.token.TokenType;
-const Token = interpreter.token.Token;
+const common = @import("common");
+const TokenType = common.token.TokenType;
+const Token = common.token.Token;
 
 // For testing purpose only
 fn test_token(name: []const u8) Token {

@@ -19,7 +19,7 @@ const SymbolType = sym_import.SymbolType;
 
 const eval_utils = common.eval_utils;
 
-const Token = @import("interpreter").token.Token;
+const Token = @import("common").token.Token;
 
 const INFIX_OP = enum { SUM, SUB, MUL, DIV, LT, GT, LTE, GTE, EQ, NOT_EQ };
 
