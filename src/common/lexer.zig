@@ -61,9 +61,10 @@ pub const Lexer = struct {
         var token: Token = undefined;
 
         self.skip_whitespaces();
-        self.skip_comment();
 
         switch (self.current_char) {
+            '#' => self.skip_comment(),
+
             ';' => token = self.new_token(TokenType.SEMICOLON, ";"),
             ',' => token = self.new_token(TokenType.COMMA, ","),
 
@@ -85,8 +86,6 @@ pub const Lexer = struct {
             '-' => token = self.new_token(TokenType.MINUS, "-"),
             '*' => token = self.new_token(TokenType.ASTERISK, "*"),
             '/' => token = self.new_token(TokenType.SLASH, "/"),
-
-            // '#' => self.skip_comment(),
 
             ':' => token = self.new_token(TokenType.COLON, ":"),
             '(' => token = self.new_token(TokenType.LPAREN, "("),
@@ -174,11 +173,14 @@ pub const Lexer = struct {
 
     fn skip_comment(self: *Lexer) void {
         if (self.current_char == '#') {
+            std.debug.print("comment found >> ", .{});
             while (self.current_char != '\n' and self.current_char != '0') {
                 self.read_char();
+                std.debug.print("{c}", .{self.current_char});
             }
             self.line += 1;
             self.col = 0;
+            std.debug.print("\n", .{});
         }
     }
 };
