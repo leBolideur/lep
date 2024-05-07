@@ -274,15 +274,7 @@ pub const Parser = struct {
         const expr_ptr = self.allocator.create(ast.Expression) catch return ParserError.MemAlloc;
         expr_ptr.* = try self.parse_expression(Precedence.LOWEST);
 
-        var ok = try self.expect_peek(TokenType.SEMICOLON);
-        if (!ok) {
-            return StatementOrError.new_error(self.allocator, "Syntax error! Expected '{!s}' after '{s}'. line: {d} @ {d}\n", .{
-                TokenType.SEMICOLON.get_token_string(),
-                self.current_token.literal,
-                self.current_token.line,
-                self.current_token.col,
-            }) catch return ParserError.MemAlloc;
-        }
+        _ = try self.expect_peek(TokenType.SEMICOLON);
 
         const ret_st = ast.RetStatement{
             .token = ret_st_token,
@@ -312,7 +304,7 @@ pub const Parser = struct {
         expr_ptr.* = expression;
 
         if (!self.current_is(TokenType.END)) {
-            self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
+            _ = self.expect_peek(TokenType.SEMICOLON) catch return ParserError.MissingSemiCol;
         } else {
             try self.unexpect_peek(TokenType.SEMICOLON);
         }
